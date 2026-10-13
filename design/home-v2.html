@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EasyConnect 主页 · 第二版（参考风格）</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#08070a;font-family:"PingFang SC","Helvetica Neue",system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:34px;padding:40px}
+  .caption{color:#6b6b75;font-size:14px;letter-spacing:.1em}
+
+  .frame{width:1280px;height:800px;position:relative;overflow:hidden;border-radius:14px;
+         box-shadow:0 30px 80px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.05)}
+
+  /* 参考图背景：顶部 #201F25 -> 底部 #141118 微冷紫灰渐变 */
+  .screen{position:absolute;inset:0;
+    background:linear-gradient(180deg,#212026 0%,#1F1E24 18%,#1C1B21 40%,
+               #19161D 62%,#17141B 80%,#141118 100%);
+    display:flex;flex-direction:column;color:#fff}
+
+  /* ===== 顶栏：左上双幽灵图标，右上幽灵文字 ===== */
+  header{display:flex;align-items:center;padding:30px 46px 0;gap:34px;z-index:5}
+  .ghosticon{width:34px;height:34px;display:grid;place-items:center;cursor:pointer;opacity:.92}
+  .ghosticon svg{width:29px;height:29px;fill:none;stroke:#fff;stroke-width:1.9;
+                 stroke-linecap:round;stroke-linejoin:round}
+  header .spacer{flex:1}
+  .ghosttext{font-size:21px;font-weight:500;color:#fff;letter-spacing:.06em;
+             cursor:pointer;opacity:.94;padding:6px 2px}
+
+  /* ===== 中央：hero 大图 + 状态 + 操作 ===== */
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       z-index:4;padding-bottom:38px}
+
+  /* hero 品牌图标（对应参考图中央车+手机） */
+  .hero{width:270px;height:270px;margin-top:-26px;margin-bottom:6px;
+        filter:drop-shadow(0 26px 60px rgba(120,170,255,.20))}
+  .hero svg{width:100%;height:100%}
+  .hero .ring{stroke:#E8EEF7;stroke-width:.9;fill:none;opacity:.9}
+  .hero .glyph{stroke:#E8EEF7;stroke-width:1.1;fill:none;opacity:.95}
+
+  /* 状态行（对应参考 "UDP广播监听中"） */
+  .statusline{display:flex;align-items:center;gap:13px;font-size:23px;font-weight:450;
+              color:#E9E9EE;letter-spacing:.03em;margin-top:26px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#7FD1A0;
+       box-shadow:0 0 10px rgba(127,209,160,.85)}
+  .dot.idle{background:#8C8C96;box-shadow:none}
+
+  /* 次提示（无线提示语，弱化） */
+  .subhint{font-size:14.5px;color:#8A8A95;text-align:center;line-height:1.7;
+           margin-top:20px;max-width:720px}
+
+  /* ===== 操作行：幽灵文字按钮（对应参考 "有线 热点 直连"） ===== */
+  .actions{display:flex;align-items:center;justify-content:center;gap:0;
+           margin-top:52px;flex-wrap:wrap;row-gap:16px}
+  .gaction{position:relative;font-size:21px;font-weight:500;color:#EFEFF3;
+           background:none;border:0;cursor:pointer;letter-spacing:.06em;
+           padding:14px 30px;transition:color .18s}
+  .gaction:hover{color:#fff}
+  .gaction.primary{color:#8FC6FF;text-shadow:0 0 22px rgba(120,180,255,.55)}
+  .gaction.primary::after{content:"";position:absolute;left:50%;bottom:4px;
+      transform:translateX(-50%);width:38px;height:2px;border-radius:2px;
+      background:linear-gradient(90deg,transparent,#8FC6FF,transparent);opacity:.9}
+  .gaction.danger{color:#FF9B9B}
+  .gaction .kbd{position:absolute;left:50%;bottom:-10px;transform:translateX(-50%);
+      font-size:10.5px;color:#6E6E78;letter-spacing:.08em;white-space:nowrap}
+  .sep{width:1px;height:20px;background:rgba(255,255,255,.13);margin:0 2px}
+
+  /* ===== 右下角 ===== */
+  .corner{position:absolute;right:46px;bottom:34px;text-align:right;z-index:5}
+  .update{display:flex;align-items:center;justify-content:flex-end;gap:8px;
+          font-size:15px;font-weight:500;color:#FFC480;margin-bottom:9px;cursor:pointer}
+  .update svg{width:15px;height:15px;stroke:#FFC480;fill:none;stroke-width:1.9}
+  .version{font-size:14px;color:#6E6E78;letter-spacing:.1em}
+</style>
+</head>
+<body>
+
+<div class="caption">第二版 · 参考风格（极简 · 居中 hero · 幽灵按钮）</div>
+<div class="frame"><div class="screen">
+
+  <header>
+    <div class="ghosticon" title="返回">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/><path d="M8 12h12" opacity=".55"/></svg>
+    </div>
+    <div class="ghosticon" title="Car home">
+      <svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg>
+    </div>
+    <div class="spacer"></div>
+    <div class="ghosttext">设置</div>
+  </header>
+
+  <main>
+    <!-- hero：品牌图标（保留 ic_carplay 语义） -->
+    <div class="hero">
+      <svg viewBox="0 0 200 200">
+        <circle class="ring" cx="100" cy="100" r="74" opacity=".22"/>
+        <circle class="ring" cx="100" cy="100" r="90" opacity=".10"/>
+        <rect class="glyph" x="52" y="62" width="96" height="66" rx="11"/>
+        <circle class="glyph" cx="100" cy="95" r="17"/>
+        <path class="glyph" d="M74 145h52" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <div class="statusline"><span class="dot"></span>Ready when you are</div>
+    <div class="subhint">Wi-Fi Direct · Keep the car’s Wi-Fi switch, Bluetooth and your iPhone’s Wi-Fi on.</div>
+
+    <div class="actions">
+      <button class="gaction primary">Connect phone</button>
+      <span class="sep"></span>
+      <button class="gaction">Connect with USB</button>
+      <span class="sep"></span>
+      <button class="gaction">Choose iPhone</button>
+      <span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+
+  <div class="corner">
+    <div class="update">
+      <svg viewBox="0 0 24 24"><path d="M12 20v-7"/><path d="M8.5 16.5 12 20l3.5-3.5"/><path d="M19.5 8A7.5 7.5 0 0 0 6 5"/><path d="M4.5 16A7.5 7.5 0 0 0 18 19"/></svg>
+      Update available
+    </div>
+    <div class="version">v0.2.17 · BUILD 2026.10</div>
+  </div>
+
+</div></div>
+
+<div class="caption">第二版 · 已连接状态（Disconnect 出现，主按钮变为 Open CarPlay）</div>
+<div class="frame"><div class="screen">
+
+  <header>
+    <div class="ghosticon">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/><path d="M8 12h12" opacity=".55"/></svg>
+    </div>
+    <div class="ghosticon">
+      <svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg>
+    </div>
+    <div class="spacer"></div>
+    <div class="ghosttext">设置</div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <svg viewBox="0 0 200 200">
+        <circle class="ring" cx="100" cy="100" r="74" opacity=".3"/>
+        <circle class="ring" cx="100" cy="100" r="90" opacity=".13"/>
+        <rect class="glyph" x="52" y="62" width="96" height="66" rx="11"/>
+        <circle class="glyph" cx="100" cy="95" r="17"/>
+        <path class="glyph" d="M74 145h52" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <div class="statusline"><span class="dot"></span>CarPlay connected</div>
+    <div class="subhint">Your iPhone is projecting to this display.</div>
+
+    <div class="actions">
+      <button class="gaction primary">Open CarPlay</button>
+      <span class="sep"></span>
+      <button class="gaction">Choose iPhone</button>
+      <span class="sep"></span>
+      <button class="gaction danger">Disconnect</button>
+      <span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+
+  <div class="corner">
+    <div class="version">v0.2.17 · BUILD 2026.10</div>
+  </div>
+
+</div></div>
+
+</body>
+</html>

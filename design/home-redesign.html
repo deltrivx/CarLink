@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EasyConnect 主页重设计 · 1920×1080</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#05070d;font-family:"PingFang SC","Helvetica Neue",system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:28px;padding:36px}
+  .frame{width:1280px;height:720px;border-radius:20px;overflow:hidden;position:relative;
+         box-shadow:0 40px 90px rgba(0,0,0,.7),0 0 0 1px rgba(120,160,220,.14)}
+  .screen{position:absolute;inset:0;
+    background:
+      radial-gradient(1200px 700px at 22% 12%, #1B2A47 0%, transparent 62%),
+      radial-gradient(900px 600px at 88% 88%, #16324A 0%, transparent 58%),
+      linear-gradient(160deg,#0A0E18 0%,#101827 55%,#0B1220 100%);
+    display:flex;flex-direction:column}
+  .screen::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(rgba(255,255,255,.035) 1px,transparent 1px);
+    background-size:3px 3px}
+  /* 顶栏 */
+  header{display:flex;align-items:center;padding:26px 40px;gap:20px;z-index:3}
+  .logo{width:40px;height:40px;filter:drop-shadow(0 0 12px rgba(79,209,255,.5))}
+  .brand{font-size:25px;font-weight:700;color:#F1F5FC;letter-spacing:.5px}
+  header .spacer{flex:1}
+  .iconbtn{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;
+    background:rgba(30,44,68,.72);border:1px solid rgba(120,160,220,.22);cursor:pointer}
+  .iconbtn svg{width:24px;height:24px;stroke:#4FD1FF;fill:none;stroke-width:2}
+  .chip{display:flex;align-items:center;gap:9px;height:52px;padding:0 22px;border-radius:16px;
+    background:rgba(30,44,68,.72);border:1px solid rgba(120,160,220,.22);color:#F1F5FC;
+    font-size:16px;font-weight:600;cursor:pointer}
+  .chip svg{width:20px;height:20px;stroke:#4FD1FF;fill:none;stroke-width:2}
+  /* 主体 */
+  main{flex:1;display:grid;grid-template-columns:1.15fr .85fr;gap:52px;
+       padding:14px 40px 40px;z-index:3;align-items:start}
+  /* 左：宣传 + 无线玻璃卡 */
+  .left{display:flex;flex-direction:column;height:100%}
+  .eyebrow{font-size:12px;font-weight:800;letter-spacing:.22em;color:#4FD1FF;margin-bottom:14px}
+  .hero{font-size:44px;font-weight:800;color:#F1F5FC;line-height:1.2;letter-spacing:-.5px;margin-bottom:14px}
+  .sub{font-size:17px;color:#A8BACB;line-height:1.65;white-space:pre-line;margin-bottom:30px}
+  .glass{border-radius:26px;padding:30px 32px;position:relative;overflow:hidden;
+    background:linear-gradient(150deg,rgba(32,46,72,.80),rgba(18,28,46,.62));
+    border:1px solid rgba(120,160,220,.20);
+    box-shadow:0 20px 50px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.07)}
+  .glass::before{content:"";position:absolute;top:0;left:14%;right:14%;height:1px;
+    background:linear-gradient(90deg,transparent,#4FD1FF,transparent);opacity:.55}
+  .cardeyebrow{font-size:11px;font-weight:800;letter-spacing:.2em;color:#4FD1FF;margin-bottom:12px}
+  .status{display:flex;align-items:center;gap:12px;font-size:23px;font-weight:700;color:#F1F5FC;margin-bottom:22px}
+  .dot{width:11px;height:11px;border-radius:50%;background:#7FCD9A;box-shadow:0 0 12px #7FCD9A}
+  .primary{width:100%;height:66px;border:0;border-radius:18px;cursor:pointer;
+    background:linear-gradient(135deg,#5CD8FF,#3BA9E8);color:#04121C;font-size:19px;font-weight:800;
+    box-shadow:0 10px 30px rgba(79,209,255,.42), 0 0 26px rgba(79,209,255,.30);
+    display:flex;align-items:center;justify-content:center;gap:10px}
+  .primary svg{width:21px;height:21px;stroke:#04121C;fill:none;stroke-width:2.4}
+  .hint{font-size:14px;color:#8FA3B8;line-height:1.6;margin-top:16px}
+  .secondary{width:100%;height:54px;margin-top:14px;border-radius:15px;cursor:pointer;
+    background:rgba(38,54,80,.62);border:1px solid rgba(120,160,220,.20);color:#E6EEF7;
+    font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:9px}
+  .secondary svg{width:18px;height:18px;stroke:#4FD1FF;fill:none;stroke-width:2}
+  .danger{color:#FF8E8E}
+  /* 右：图标 + 操作 */
+  .right{display:flex;flex-direction:column;align-items:center;height:100%}
+  .biglogo{width:150px;height:150px;filter:drop-shadow(0 0 34px rgba(79,209,255,.42));margin:8px 0 30px}
+  .action{width:100%;max-width:340px;height:62px;border-radius:17px;cursor:pointer;margin-bottom:12px;
+    background:rgba(34,48,72,.66);border:1px solid rgba(120,160,220,.20);color:#E9F1F9;
+    font-size:17px;font-weight:650;display:flex;align-items:center;justify-content:center;gap:10px}
+  .action svg{width:20px;height:20px;stroke:#4FD1FF;fill:none;stroke-width:2}
+  .actionnote{font-size:13.5px;color:#8FA3B8;text-align:center;line-height:1.6;margin-bottom:22px;max-width:340px}
+  .version{font-size:12px;color:#6E8199;letter-spacing:.1em;margin-top:auto;padding-top:16px}
+  .update{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:11px 20px;border-radius:14px;
+    background:rgba(255,196,128,.14);border:1px solid rgba(255,196,128,.45);color:#FFC480;
+    font-size:14px;font-weight:650;cursor:pointer}
+  .update svg{width:16px;height:16px;stroke:#FFC480;fill:none;stroke-width:2}
+  .label{font-size:15px;color:#8FA3B8;margin:36px 0 10px;font-weight:650;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="label">设计稿 1 · 深色（主方案）</div>
+<div class="frame"><div class="screen">
+
+  <header>
+    <svg class="logo" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="3" stroke="#4FD1FF" stroke-width="1.8" fill="none"/><circle cx="12" cy="11" r="3.2" stroke="#4FD1FF" stroke-width="1.8" fill="none"/><path d="M8 21h8" stroke="#4FD1FF" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+    <div class="brand">车机互联</div>
+    <div class="spacer"></div>
+    <div class="iconbtn" title="切换外观">
+      <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </div>
+    <div class="chip">
+      <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      Car home
+    </div>
+  </header>
+
+  <main>
+    <section class="left">
+      <div class="eyebrow">YOUR PHONE. YOUR DRIVE.</div>
+      <div class="hero">A familiar drive.</div>
+      <div class="sub">Your maps, music and conversations.
+CarPlay, right here on your car display.</div>
+
+      <div class="glass">
+        <div class="cardeyebrow">WIRELESS CARPLAY</div>
+        <div class="status"><span class="dot"></span>Ready when you are</div>
+        <button class="primary">
+          <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+          Connect phone
+        </button>
+        <div class="hint">Wi-Fi Direct · Keep the car’s Wi-Fi switch, Bluetooth and your iPhone’s Wi-Fi on.</div>
+        <button class="secondary">
+          <svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>
+          Choose iPhone
+        </button>
+      </div>
+    </section>
+
+    <section class="right">
+      <svg class="biglogo" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="15" rx="3.5" stroke="#4FD1FF" stroke-width="1.5" fill="none"/><circle cx="12" cy="11.5" r="3.6" stroke="#4FD1FF" stroke-width="1.5" fill="none"/><path d="M7.5 22h9" stroke="#4FD1FF" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+
+      <button class="action">
+        <svg viewBox="0 0 24 24"><path d="M12 2v8"/><path d="M8 6l4-4 4 4"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/><path d="M12 10v12"/></svg>
+        Connect with USB
+      </button>
+      <div class="actionnote">Plug your iPhone into a USB data port.
+Allow CarPlay when your iPhone asks.</div>
+
+      <button class="action">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.5 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 12H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 5.5l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 3V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z"/></svg>
+        Settings
+      </button>
+      <div class="actionnote">Make 车机互联 feel right for your car.</div>
+
+      <div class="update">
+        <svg viewBox="0 0 24 24"><path d="M12 21v-8"/><path d="M8 17l4 4 4-4"/><path d="M20 7a8 8 0 0 0-14-3"/><path d="M4 17a8 8 0 0 0 14 3"/></svg>
+        Update available
+      </div>
+      <div class="version">BUILD 2026.10 · v0.2.17</div>
+    </section>
+  </main>
+
+</div></div>
+
+<div class="label">设计稿 2 · 浅色（同一套控件，浅色外观）</div>
+<div class="frame"><div class="screen" style="
+    background:
+      radial-gradient(1200px 700px at 22% 12%, #DCE7F7 0%, transparent 62%),
+      radial-gradient(900px 600px at 88% 88%, #CFE0F2 0%, transparent 58%),
+      linear-gradient(160deg,#EDF2F9 0%,#E3EBF6 55%,#EEF3FA 100%);">
+  <header>
+    <svg class="logo" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="3" stroke="#245A9C" stroke-width="1.8" fill="none"/><circle cx="12" cy="11" r="3.2" stroke="#245A9C" stroke-width="1.8" fill="none"/><path d="M8 21h8" stroke="#245A9C" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+    <div class="brand" style="color:#1C1C1E">车机互联</div>
+    <div class="spacer"></div>
+    <div class="iconbtn" style="background:rgba(255,255,255,.85);border:1px solid rgba(140,165,195,.45)">
+      <svg viewBox="0 0 24 24" style="stroke:#245A9C"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+    </div>
+    <div class="chip" style="background:rgba(255,255,255,.85);border:1px solid rgba(140,165,195,.45);color:#1C1C1E">
+      <svg viewBox="0 0 24 24" style="stroke:#245A9C"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      Car home
+    </div>
+  </header>
+  <main>
+    <section class="left">
+      <div class="eyebrow" style="color:#245A9C">YOUR PHONE. YOUR DRIVE.</div>
+      <div class="hero" style="color:#1C1C1E">A familiar drive.</div>
+      <div class="sub" style="color:#5A6474">Your maps, music and conversations.
+CarPlay, right here on your car display.</div>
+      <div class="glass" style="background:linear-gradient(150deg,rgba(255,255,255,.92),rgba(240,246,253,.78));border:1px solid rgba(150,175,205,.45);box-shadow:0 18px 44px rgba(60,90,130,.16), inset 0 1px 0 rgba(255,255,255,.9)">
+        <div class="cardeyebrow" style="color:#245A9C">WIRELESS CARPLAY</div>
+        <div class="status" style="color:#1C1C1E"><span class="dot" style="background:#286B3F;box-shadow:0 0 12px #286B3F"></span>Ready when you are</div>
+        <button class="primary" style="background:linear-gradient(135deg,#3C8FD8,#245A9C);color:#fff;box-shadow:0 10px 28px rgba(36,90,156,.34),0 0 20px rgba(36,90,156,.22)">
+          <svg viewBox="0 0 24 24" style="stroke:#fff"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+          Connect phone
+        </button>
+        <div class="hint" style="color:#6B7787">Wi-Fi Direct · Keep the car’s Wi-Fi switch, Bluetooth and your iPhone’s Wi-Fi on.</div>
+        <button class="secondary" style="background:rgba(255,255,255,.8);border:1px solid rgba(150,175,205,.45);color:#1C1C1E">
+          <svg viewBox="0 0 24 24" style="stroke:#245A9C"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>
+          Choose iPhone
+        </button>
+      </div>
+    </section>
+    <section class="right">
+      <svg class="biglogo" viewBox="0 0 24 24" style="filter:drop-shadow(0 0 26px rgba(36,90,156,.28))"><rect x="2" y="4" width="20" height="15" rx="3.5" stroke="#245A9C" stroke-width="1.5" fill="none"/><circle cx="12" cy="11.5" r="3.6" stroke="#245A9C" stroke-width="1.5" fill="none"/><path d="M7.5 22h9" stroke="#245A9C" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      <button class="action" style="background:rgba(255,255,255,.82);border:1px solid rgba(150,175,205,.42);color:#1C1C1E">
+        <svg viewBox="0 0 24 24" style="stroke:#245A9C"><path d="M12 2v8"/><path d="M8 6l4-4 4 4"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/><path d="M12 10v12"/></svg>
+        Connect with USB
+      </button>
+      <div class="actionnote" style="color:#6B7787">Plug your iPhone into a USB data port.
+Allow CarPlay when your iPhone asks.</div>
+      <button class="action" style="background:rgba(255,255,255,.82);border:1px solid rgba(150,175,205,.42);color:#1C1C1E">
+        <svg viewBox="0 0 24 24" style="stroke:#245A9C"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.5 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 12H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 5.5l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 3V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z"/></svg>
+        Settings
+      </button>
+      <div class="actionnote" style="color:#6B7787">Make 车机互联 feel right for your car.</div>
+      <div class="update" style="background:rgba(122,69,0,.10);border:1px solid rgba(122,69,0,.42);color:#7A4500">
+        <svg viewBox="0 0 24 24" style="stroke:#7A4500"><path d="M12 21v-8"/><path d="M8 17l4 4 4-4"/><path d="M20 7a8 8 0 0 0-14-3"/><path d="M4 17a8 8 0 0 0 14 3"/></svg>
+        Update available
+      </div>
+      <div class="version" style="color:#7C8798">BUILD 2026.10 · v0.2.17</div>
+    </section>
+  </main>
+</div></div>
+
+</body>
+</html>

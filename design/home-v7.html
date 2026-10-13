@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EasyConnect 主页 · 第七版（真实截图元素 · 车左手机右）</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#08070a;font-family:"PingFang SC","Helvetica Neue",system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:28px;padding:36px}
+  .caption{color:#6b6b75;font-size:14px;letter-spacing:.1em}
+  .frame{width:1280px;height:760px;position:relative;overflow:hidden;border-radius:14px;
+         box-shadow:0 30px 80px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.05)}
+  .screen{position:absolute;inset:0;
+    background:linear-gradient(180deg,#212026 0%,#1F1E24 18%,#1C1B21 42%,#19161D 66%,#17141B 84%,#141118 100%);
+    display:flex;flex-direction:column;color:#fff}
+
+  header{display:flex;align-items:center;padding:24px 44px 0;z-index:5}
+  .nav{display:flex;align-items:center;gap:26px}
+  .gi{width:34px;height:34px;display:grid;place-items:center;cursor:pointer;opacity:.92;flex:none}
+  .gi svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2.1;
+          stroke-linecap:round;stroke-linejoin:round}
+  header .spacer{flex:1}
+
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:4;padding:0 44px}
+
+  /* 车(左) — 光束 — 手机(右) */
+  .duo{display:flex;align-items:center;justify-content:center;gap:0}
+  .car{height:250px;width:auto;flex:none;filter:drop-shadow(0 20px 42px rgba(0,0,0,.55))}
+  .link{width:150px;height:250px;flex:none}
+  .ph{height:250px;width:auto;flex:none;filter:drop-shadow(0 20px 42px rgba(0,0,0,.55))}
+
+  .statusline{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:450;
+              color:#E9E9EE;letter-spacing:.03em;margin-top:16px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#7FD1A0;box-shadow:0 0 10px rgba(127,209,160,.85)}
+  .warn{display:flex;align-items:center;gap:8px;font-size:14px;color:#FFC480;margin-top:13px}
+  .warn svg{width:15px;height:15px;stroke:#FFC480;fill:none;stroke-width:2}
+
+  .actions{display:flex;align-items:center;justify-content:center;margin-top:28px;flex-wrap:wrap;row-gap:10px}
+  .gaction{position:relative;font-size:19px;font-weight:500;color:#EFEFF3;background:none;border:0;
+           cursor:pointer;letter-spacing:.05em;padding:12px 22px}
+  .gaction.primary{color:#8FC6FF;text-shadow:0 0 20px rgba(120,180,255,.5)}
+  .gaction.primary::after{content:"";position:absolute;left:50%;bottom:2px;transform:translateX(-50%);
+      width:34px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,#8FC6FF,transparent)}
+  .gaction.danger{color:#FF9B9B}
+  .gaction.warnact{color:#FFC480}
+  .sep{width:1px;height:18px;background:rgba(255,255,255,.13);margin:0 2px}
+
+  .bl{position:absolute;left:44px;bottom:28px;font-size:14px;color:#6E6E78;letter-spacing:.1em;z-index:5}
+  .br{position:absolute;right:44px;bottom:28px;display:flex;align-items:center;gap:8px;
+      font-size:15px;font-weight:500;color:#FFC480;cursor:pointer;z-index:5}
+  .br svg{width:15px;height:15px;stroke:#FFC480;fill:none;stroke-width:1.9}
+  .flowline{stroke-dasharray:10 8;animation:flow 1.4s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-36}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="bm" x1="1" y1="0" x2="0" y2="0">
+    <stop offset="0%" stop-color="#CDE8FF" stop-opacity=".95"/>
+    <stop offset="100%" stop-color="#9AD4FF" stop-opacity=".25"/></linearGradient>
+  <filter id="g" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="4.2" result="b"/><feMerge><feMergeNode in="b"/>
+    <feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="gs" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/>
+    <feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs></svg>
+
+<!-- ============ 帧1：未连接 ============ -->
+<div class="caption">第七版 · 未连接（车左 ← 光束 → 手机右 · 两者均为截图真实元素）</div>
+<div class="frame"><div class="screen">
+  <header>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg></div>
+    </div>
+  </header>
+  <main>
+    <div class="duo">
+      <img class="car" src="car.png">
+      <svg class="link" viewBox="0 0 75 125">
+        <path d="M69 62 H8" stroke="url(#bm)" stroke-width="4.4" opacity=".9" filter="url(#g)"/>
+        <path class="flowline" d="M69 62 H8" stroke="#E6F4FF" stroke-width="1.8"/>
+        <!-- 箭头指向手机（右） -->
+        <path d="M14 56 L8 62 L14 68" fill="none" stroke="#CDE8FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="8" cy="62" r="4" fill="#BFE3FF" filter="url(#gs)"/>
+        <circle cx="69" cy="62" r="4" fill="#BFE3FF" filter="url(#gs)"/>
+      </svg>
+      <img class="ph" src="phone.png">
+    </div>
+    <div class="statusline"><span class="dot"></span>Ready when you are</div>
+    <div class="actions">
+      <button class="gaction primary">Connect phone</button><span class="sep"></span>
+      <button class="gaction">Connect with USB</button><span class="sep"></span>
+      <button class="gaction">Choose iPhone</button><span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+  <div class="br">
+    <svg viewBox="0 0 24 24"><path d="M12 20v-7"/><path d="M8.5 16.5 12 20l3.5-3.5"/>
+      <path d="M19.5 8A7.5 7.5 0 0 0 6 5"/><path d="M4.5 16A7.5 7.5 0 0 0 18 19"/></svg>
+    Update available
+  </div>
+</div></div>
+
+<!-- ============ 帧2：已连接 ============ -->
+<div class="caption">第七版 · 已连接（光束加粗发亮，Open CarPlay + Disconnect）</div>
+<div class="frame"><div class="screen">
+  <header>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg></div>
+    </div>
+  </header>
+  <main>
+    <div class="duo">
+      <img class="car" src="car.png">
+      <svg class="link" viewBox="0 0 75 125">
+        <path d="M69 62 H8" stroke="url(#bm)" stroke-width="6" opacity="1" filter="url(#g)"/>
+        <path class="flowline" d="M69 62 H8" stroke="#F2FAFF" stroke-width="2.2"/>
+        <path d="M14 56 L8 62 L14 68" fill="none" stroke="#E6F4FF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="8" cy="62" r="4.4" fill="#DFF1FF" filter="url(#gs)"/>
+        <circle cx="69" cy="62" r="4.4" fill="#DFF1FF" filter="url(#gs)"/>
+      </svg>
+      <img class="ph" src="phone.png">
+    </div>
+    <div class="statusline"><span class="dot"></span>CarPlay connected</div>
+    <div class="actions">
+      <button class="gaction primary">Open CarPlay</button><span class="sep"></span>
+      <button class="gaction">Choose iPhone</button><span class="sep"></span>
+      <button class="gaction danger">Disconnect</button><span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+</div></div>
+
+<!-- ============ 帧3：热点异常 ============ -->
+<div class="caption">第七版 · 热点异常（警告 + Open car hotspot settings，光束变暗）</div>
+<div class="frame"><div class="screen">
+  <header>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg></div>
+    </div>
+  </header>
+  <main>
+    <div class="duo">
+      <img class="car" src="car.png">
+      <svg class="link" viewBox="0 0 75 125">
+        <path d="M69 62 H8" stroke="url(#bm)" stroke-width="4.4" opacity=".45" filter="url(#g)"/>
+        <path class="flowline" d="M69 62 H8" stroke="#C9D6E4" stroke-width="1.8"/>
+        <path d="M14 56 L8 62 L14 68" fill="none" stroke="#B9C7D6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="8" cy="62" r="4" fill="#A9BACB" filter="url(#gs)"/>
+        <circle cx="69" cy="62" r="4" fill="#A9BACB" filter="url(#gs)"/>
+      </svg>
+      <img class="ph" src="phone.png">
+    </div>
+    <div class="statusline"><span class="dot"></span>Ready when you are</div>
+    <div class="warn"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/>
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      The car’s hotspot is off · Connect to “CarHotspot” to continue
+    </div>
+    <div class="actions">
+      <button class="gaction primary">Connect phone</button><span class="sep"></span>
+      <button class="gaction">Connect with USB</button><span class="sep"></span>
+      <button class="gaction warnact">Open car hotspot settings</button><span class="sep"></span>
+      <button class="gaction">Choose iPhone</button><span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+  <div class="br">
+    <svg viewBox="0 0 24 24"><path d="M12 20v-7"/><path d="M8.5 16.5 12 20l3.5-3.5"/>
+      <path d="M19.5 8A7.5 7.5 0 0 0 6 5"/><path d="M4.5 16A7.5 7.5 0 0 0 18 19"/></svg>
+    Update available
+  </div>
+</div></div>
+
+</body>
+</html>
