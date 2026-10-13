@@ -1,0 +1,181 @@
+name: Release build
+
+# Tags build two APKs. The OTA checker in the app reads this repository's
+# own releases, so every release must carry the custom APK plus a
+# checksums file naming it, or its update feed goes quiet. The generic
+# APK rides along for other devices.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag to build'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Resolve tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'main' }}
+
+      - name: Read the upstream version this tree reports
+        id: version
+        run: |
+          VER=$(grep -m1 'versionName' mobile/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          CODE=$(grep -m1 'versionCode' mobile/build.gradle.kts | sed -E 's/.*=\s*([0-9]+).*/\1/')
+          echo "name=$VER" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "building versionName=$VER versionCode=$CODE"
+
+      - name: Reject credential files in source
+        run: python3 scripts/check_public_tree.py
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools platforms;android-37.2 build-tools;36.1.0 ndk;28.2.13676358
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Provision authentication assets and update token
+        id: secrets
+        env:
+          AUTH_BASE64: ${{ secrets.DEPLAY_AUTH_ASSETS_BASE64 }}
+          UPSTREAM_AUTH_BASE64: ${{ secrets.UPSTREAM_AUTH_ASSETS_BASE64 }}
+          OTA_TOKEN: ${{ secrets.DEPLAY_OTA_TOKEN }}
+        run: |
+          set -e
+          # Custom build: the car's own accessory identity.
+          mkdir -p "$HOME/build-auth/offline-mfi" "$HOME/upstream-auth/offline-mfi"
+          if [ -n "$AUTH_BASE64" ]; then
+            echo "$AUTH_BASE64" | base64 -d | tar -xz -C "$HOME/build-auth/offline-mfi"
+          fi
+          # Generic build: upstream DiPlay's accessory identity, extracted from
+          # its published APK. Stored as a tar.gz the same way.
+          if [ -n "$UPSTREAM_AUTH_BASE64" ]; then
+            echo "$UPSTREAM_AUTH_BASE64" | base64 -d | tar -xz -C "$HOME/upstream-auth/offline-mfi"
+            ls -la "$HOME/upstream-auth/offline-mfi/"
+          fi
+          # The token is written over the empty placeholder at build time. It is
+          # never committed: a credential in the source tree fails the check above.
+          printf '%s' "$OTA_TOKEN" > "$HOME/build-auth/ota-token.txt"
+          ls -la "$HOME/build-auth/offline-mfi/"
+          echo "assets=$HOME/build-auth" >> "$GITHUB_OUTPUT"
+
+      - name: Build release APK (custom)
+        env:
+          DIPLAY_AUTH_ASSETS_DIR: ${{ steps.secrets.outputs.assets }}
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/platform.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DEPLAY_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.DEPLAY_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.DEPLAY_KEY_PASSWORD }}
+        run: |
+          set -e
+          if [ -n "${{ secrets.DEPLAY_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.DEPLAY_KEYSTORE_BASE64 }}" | base64 -d > platform.jks
+          fi
+          ./gradlew mobile:assembleRelease --stacktrace
+          ls -la mobile/build/outputs/apk/release/
+
+      - name: Verify APK contents (custom)
+        run: |
+          set -e
+          APK=$(ls mobile/build/outputs/apk/release/*.apk | head -1)
+          echo "checking: $APK"
+          $ANDROID_HOME/build-tools/36.1.0/apksigner verify --print-certs "$APK" | head -8
+          for f in assets/offline-mfi/identity.pk8 assets/offline-mfi/certificate.p7b; do
+            if unzip -l "$APK" | grep -q "$f"; then echo "OK  $f"; else echo "MISSING $f"; exit 1; fi
+          done
+          mkdir -p dist
+          cp "$APK" "dist/CarLink-${{ steps.version.outputs.name }}.apk"
+
+      - name: Build release APK (generic)
+        env:
+          DIPLAY_AUTH_ASSETS_DIR: /home/runner/upstream-auth
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/platform.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DEPLAY_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.DEPLAY_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.DEPLAY_KEY_PASSWORD }}
+        run: |
+          set -e
+          # The update token lives next to the custom assets; the generic
+          # build reads from upstream-auth, so it needs its own copy or its
+          # update checks hit the private repository anonymously and 404.
+          cp "$HOME/build-auth/ota-token.txt" "$HOME/upstream-auth/ota-token.txt"
+          # The generic variant differs in exactly two ways: the shared uid is
+          # gone and the accessory identity is upstream DiPlay's own. Strip the
+          # uid line from every module manifest, build, and let git restore.
+          for m in mobile shared common; do
+            sed -i 's/ android:sharedUserId="android.uid.system"//' "$m/src/main/AndroidManifest.xml"
+          done
+          grep -c sharedUserId mobile/src/main/AndroidManifest.xml || echo "uid stripped"
+          ./gradlew mobile:assembleRelease --stacktrace -PDIPLAY_AUTH_ASSETS_DIR="$HOME/upstream-auth"
+          APK=$(ls mobile/build/outputs/apk/release/*.apk | head -1)
+          $ANDROID_HOME/build-tools/36.1.0/apksigner verify --print-certs "$APK" | head -4
+          for f in assets/offline-mfi/identity.pk8 assets/offline-mfi/certificate.p7b; do
+            if unzip -l "$APK" | grep -q "$f"; then echo "OK  $f"; else echo "MISSING $f"; exit 1; fi
+          done
+          cp "$APK" "dist/CarLink-${{ steps.version.outputs.name }}-generic.apk"
+          # Restore the manifests the custom build expects.
+          git checkout -- mobile/src/main/AndroidManifest.xml shared/src/main/AndroidManifest.xml common/src/main/AndroidManifest.xml
+
+      - name: Stage APKs and checksums
+        run: |
+          set -e
+          VER="${{ steps.version.outputs.name }}"
+          cd dist
+          sha256sum "CarLink-${VER}.apk" > SHA256SUMS-custom.txt
+          sha256sum "CarLink-${VER}-generic.apk" > SHA256SUMS-generic.txt
+          # The in-app updater looks for exactly this name, so the custom APK
+          # keeps the catalogue's expected checksums file.
+          cp SHA256SUMS-custom.txt SHA256SUMS.txt
+          echo "--- checksums ---"
+          cat SHA256SUMS-custom.txt SHA256SUMS-generic.txt
+          ls -la
+
+      - name: Create GitHub Release
+        if: always() && success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Car Link ${{ steps.version.outputs.name }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/CarLink-${{ steps.version.outputs.name }}.apk
+            dist/CarLink-${{ steps.version.outputs.name }}-generic.apk
+            dist/SHA256SUMS.txt
+            dist/SHA256SUMS-custom.txt
+            dist/SHA256SUMS-generic.txt
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        if: always() && success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: CarLink-${{ steps.version.outputs.name }}
+          path: |
+            dist/*.apk
+            dist/SHA256SUMS*.txt

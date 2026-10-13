@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EasyConnect 主页 · 第八版（四帧合一 · 新光束）</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#08070a;font-family:"PingFang SC","Helvetica Neue",system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:26px;padding:34px}
+  .caption{color:#6b6b75;font-size:14px;letter-spacing:.1em}
+  .frame{width:1280px;height:740px;position:relative;overflow:hidden;border-radius:14px;
+         box-shadow:0 30px 80px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.05)}
+  .screen{position:absolute;inset:0;
+    background:linear-gradient(180deg,#212026 0%,#1F1E24 18%,#1C1B21 42%,#19161D 66%,#17141B 84%,#141118 100%);
+    display:flex;flex-direction:column;color:#fff}
+
+  header{display:flex;align-items:center;padding:24px 44px 0;z-index:5}
+  .nav{display:flex;align-items:center;gap:26px}
+  .gi{width:34px;height:34px;display:grid;place-items:center;cursor:pointer;opacity:.92;flex:none}
+  .gi svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2.1;
+          stroke-linecap:round;stroke-linejoin:round}
+  header .spacer{flex:1}
+
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       z-index:4;padding:0 44px}
+
+  .duo{display:flex;align-items:center;justify-content:center;gap:0}
+  .car{height:238px;width:auto;flex:none;filter:drop-shadow(0 18px 38px rgba(0,0,0,.55))}
+  .link{width:158px;height:238px;flex:none}
+  .ph{height:238px;width:auto;flex:none;filter:drop-shadow(0 18px 38px rgba(0,0,0,.55))}
+
+  .statusline{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:450;
+              color:#E9E9EE;letter-spacing:.03em;margin-top:14px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#7FD1A0;box-shadow:0 0 10px rgba(127,209,160,.85)}
+  .dot.spin{background:#8FC6FF;box-shadow:0 0 12px rgba(143,198,255,.9);animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.45;transform:scale(.86)}50%{opacity:1;transform:scale(1.1)}}
+  .subhint{font-size:13.5px;color:#8A8A95;text-align:center;line-height:1.65;margin-top:12px;max-width:660px}
+  .warn{display:flex;align-items:center;gap:8px;font-size:14px;color:#FFC480;margin-top:12px}
+  .warn svg{width:15px;height:15px;stroke:#FFC480;fill:none;stroke-width:2}
+
+  .actions{display:flex;align-items:center;justify-content:center;margin-top:26px;flex-wrap:wrap;row-gap:10px}
+  .gaction{position:relative;font-size:19px;font-weight:500;color:#EFEFF3;background:none;border:0;
+           cursor:pointer;letter-spacing:.05em;padding:12px 22px}
+  .gaction.primary{color:#8FC6FF;text-shadow:0 0 20px rgba(120,180,255,.5)}
+  .gaction.primary::after{content:"";position:absolute;left:50%;bottom:2px;transform:translateX(-50%);
+      width:34px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,#8FC6FF,transparent)}
+  .gaction.danger{color:#FF9B9B}
+  .gaction.warnact{color:#FFC480}
+  .sep{width:1px;height:18px;background:rgba(255,255,255,.13);margin:0 2px}
+
+  .bl{position:absolute;left:44px;bottom:28px;font-size:14px;color:#6E6E78;letter-spacing:.1em;z-index:5}
+  .br{position:absolute;right:44px;bottom:28px;display:flex;align-items:center;gap:8px;
+      font-size:15px;font-weight:500;color:#FFC480;cursor:pointer;z-index:5}
+  .br svg{width:15px;height:15px;stroke:#FFC480;fill:none;stroke-width:1.9}
+
+  /* 光束动效 */
+  .energy{stroke-dasharray:26 130;animation:marching 2.4s linear infinite}
+  @keyframes marching{to{stroke-dashoffset:-156}}
+  .halo{animation:breathe 2.2s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.30;r:9}50%{opacity:.75;r:13}}
+  .dim .energy{animation-duration:4s;opacity:.5}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <!-- 管道渐变：车(左) -> 手机(右) -->
+  <linearGradient id="tube" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%"   stop-color="#7FC4FF" stop-opacity=".10"/>
+    <stop offset="18%"  stop-color="#8FC6FF" stop-opacity=".55"/>
+    <stop offset="55%"  stop-color="#BEE0FF" stop-opacity=".95"/>
+    <stop offset="88%"  stop-color="#9AD4FF" stop-opacity=".70"/>
+    <stop offset="100%" stop-color="#CDE8FF" stop-opacity=".95"/>
+  </linearGradient>
+  <linearGradient id="tubeLive" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%"   stop-color="#9AD4FF" stop-opacity=".30"/>
+    <stop offset="30%"  stop-color="#A8DCFF" stop-opacity=".85"/>
+    <stop offset="65%"  stop-color="#E4F3FF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#BEE0FF" stop-opacity=".9"/>
+  </linearGradient>
+  <linearGradient id="tubeDim" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%"   stop-color="#5A6B7D" stop-opacity=".12"/>
+    <stop offset="50%"  stop-color="#8A97A8" stop-opacity=".35"/>
+    <stop offset="100%" stop-color="#A9BACB" stop-opacity=".45"/>
+  </linearGradient>
+  <filter id="soft"><feGaussianBlur stdDeviation="3.4"/></filter>
+  <filter id="glow" x="-90%" y="-90%" width="280%" height="280%">
+    <feGaussianBlur stdDeviation="4.6" result="b"/><feMerge><feMergeNode in="b"/>
+    <feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="glowS" x="-70%" y="-70%" width="240%" height="240%">
+    <feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/>
+    <feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs></svg>
+
+<!-- 光束片段生成宏（由后面 4 帧分别引用：模式 idle / live / dim / wait） -->
+<script>
+function beam(mode){
+  // 四态结构性差异：
+  //  idle = 柔和管道 + 细流动线
+  //  live = 粗亮管道 + 强流动 + 双端实心电脉冲 + 中央"已连接"微光点
+  //  wait = 管道 + 快速流动（表示正在握手）+ 中央脉冲圈
+  //  dim  = 细暗管道（灰蓝）+ 断开标记（两端节点变空心灰）
+  const g   = mode==='live' ? 'tubeLive' : mode==='dim' ? 'tubeDim' : 'tube';
+  const w   = mode==='live' ? 8.5 : mode==='dim' ? 4   : 6;
+  const op  = mode==='dim'  ? .7  : 1;
+  const core= mode==='dim'  ? '#8A97A8' : '#EAF6FF';
+  const node= mode==='dim'  ? '#7C8798' : mode==='live' ? '#DFF1FF' : '#BFE3FF';
+  const dur = mode==='wait' ? '1.1s' : mode==='live' ? '1.8s' : mode==='dim' ? '5s' : '2.4s';
+  const dash= mode==='live' ? '34 90' : mode==='wait' ? '20 60' : '26 130';
+  const halo= mode==='dim'  ? '' : `
+    <circle class="halo" cx="10" cy="59" r="12" fill="none" stroke="url(#${g})" stroke-width="1.8" opacity=".55"/>
+    <circle class="halo" cx="70" cy="59" r="12" fill="none" stroke="url(#${g})" stroke-width="1.8" opacity=".55"/>`;
+  const extra = mode==='live' ? `
+    <circle cx="40" cy="59" r="3" fill="#FFFFFF" filter="url(#glowS)"/>` : '';
+  const waitRing = mode==='wait' ? `
+    <circle cx="40" cy="59" r="14" fill="none" stroke="#A8DCFF" stroke-width="1.4" opacity=".5" class="halo"/>` : '';
+  return `
+  `;
+}
+</script>
+
+<!-- ============ 帧1：未连接 ============ -->
+<div class="caption">第八版 · ① 未连接（新光束：柔光管道 + 流动能量 + 端点呼吸环）</div>
+<div class="frame"><div class="screen">
+  <header>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg></div>
+    </div>
+  </header>
+  <main>
+    <div class="duo"><img class="car" src="car.png"><svg class="link" viewBox="0 0 79 119"><path d="M70 59 H10" stroke="url(#tube)" stroke-width="16.8" opacity="0.26" filter="url(#soft)"/><path d="M70 59 H10" stroke="url(#tube)" stroke-width="6" opacity="1" filter="url(#glow)" stroke-linecap="round"/><path class="energy" d="M70 59 H10" stroke="#EAF6FF" stroke-width="2.16" opacity="0.92" stroke-linecap="round" style="stroke-dasharray:26 130;animation-duration:2.4s"/><circle class="halo" cx="10" cy="59" r="12" fill="none" stroke="url(#tube)" stroke-width="1.8" opacity=".55"/><circle class="halo" cx="70" cy="59" r="12" fill="none" stroke="url(#tube)" stroke-width="1.8" opacity=".55"/><circle cx="10" cy="59" r="4.2" fill="#BFE3FF" filter="url(#glowS)"/><circle cx="70" cy="59" r="4.2" fill="#BFE3FF" filter="url(#glowS)"/><path d="M62 52 L74 59 L62 66" fill="none" stroke="#EAF6FF" stroke-width="2.2" opacity="0.88" stroke-linecap="round" stroke-linejoin="round"/></svg><img class="ph" src="phone.png"></div>
+    <div class="statusline"><span class="dot"></span>Ready when you are</div>
+    <div class="subhint">Wi-Fi Direct · Keep the car’s Wi-Fi switch, Bluetooth and your iPhone’s Wi-Fi on.</div>
+    <div class="actions">
+      <button class="gaction primary">Connect phone</button><span class="sep"></span>
+      <button class="gaction">Connect with USB</button><span class="sep"></span>
+      <button class="gaction">Choose iPhone</button><span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+  <div class="br"><svg viewBox="0 0 24 24"><path d="M12 20v-7"/><path d="M8.5 16.5 12 20l3.5-3.5"/>
+    <path d="M19.5 8A7.5 7.5 0 0 0 6 5"/><path d="M4.5 16A7.5 7.5 0 0 0 18 19"/></svg>Update available</div>
+</div></div>
+
+<!-- ============ 帧2：已连接 ============ -->
+<div class="caption">第八版 · ② 已连接（光束满亮，Open CarPlay + Disconnect）</div>
+<div class="frame"><div class="screen">
+  <header>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg></div>
+    </div>
+  </header>
+  <main>
+    <div class="duo"><img class="car" src="car.png"><svg class="link" viewBox="0 0 79 119"><path d="M70 59 H10" stroke="url(#tubeLive)" stroke-width="23.8" opacity="0.26" filter="url(#soft)"/><path d="M70 59 H10" stroke="url(#tubeLive)" stroke-width="8.5" opacity="1" filter="url(#glow)" stroke-linecap="round"/><path class="energy" d="M70 59 H10" stroke="#EAF6FF" stroke-width="3.06" opacity="0.92" stroke-linecap="round" style="stroke-dasharray:34 90;animation-duration:1.8s"/><circle class="halo" cx="10" cy="59" r="12" fill="none" stroke="url(#tubeLive)" stroke-width="1.8" opacity=".55"/><circle class="halo" cx="70" cy="59" r="12" fill="none" stroke="url(#tubeLive)" stroke-width="1.8" opacity=".55"/><circle cx="40" cy="59" r="3" fill="#FFFFFF" filter="url(#glowS)"/><circle cx="10" cy="59" r="5" fill="#DFF1FF" filter="url(#glowS)"/><circle cx="70" cy="59" r="5" fill="#DFF1FF" filter="url(#glowS)"/><path d="M62 52 L74 59 L62 66" fill="none" stroke="#EAF6FF" stroke-width="2.2" opacity="0.88" stroke-linecap="round" stroke-linejoin="round"/></svg><img class="ph" src="phone.png"></div>
+    <div class="statusline"><span class="dot"></span>CarPlay connected</div>
+    <div class="subhint">Your iPhone is projecting to this display.</div>
+    <div class="actions">
+      <button class="gaction primary">Open CarPlay</button><span class="sep"></span>
+      <button class="gaction">Choose iPhone</button><span class="sep"></span>
+      <button class="gaction danger">Disconnect</button><span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+</div></div>
+
+<!-- ============ 帧3：连接中（原第二屏合入） ============ -->
+<div class="caption">第八版 · ③ 连接中（原第二屏合入：Getting CarPlay ready + 三按钮）</div>
+<div class="frame"><div class="screen">
+  <header>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg></div>
+    </div>
+  </header>
+  <main>
+    <div class="duo"><img class="car" src="car.png"><svg class="link" viewBox="0 0 79 119"><path d="M70 59 H10" stroke="url(#tube)" stroke-width="16.8" opacity="0.26" filter="url(#soft)"/><path d="M70 59 H10" stroke="url(#tube)" stroke-width="6" opacity="1" filter="url(#glow)" stroke-linecap="round"/><path class="energy" d="M70 59 H10" stroke="#EAF6FF" stroke-width="2.16" opacity="0.92" stroke-linecap="round" style="stroke-dasharray:20 60;animation-duration:1.1s"/><circle class="halo" cx="10" cy="59" r="12" fill="none" stroke="url(#tube)" stroke-width="1.8" opacity=".55"/><circle class="halo" cx="70" cy="59" r="12" fill="none" stroke="url(#tube)" stroke-width="1.8" opacity=".55"/><circle cx="40" cy="59" r="14" fill="none" stroke="#A8DCFF" stroke-width="1.4" opacity=".5" class="halo"/><circle cx="10" cy="59" r="4.2" fill="#BFE3FF" filter="url(#glowS)"/><circle cx="70" cy="59" r="4.2" fill="#BFE3FF" filter="url(#glowS)"/><path d="M62 52 L74 59 L62 66" fill="none" stroke="#EAF6FF" stroke-width="2.2" opacity="0.88" stroke-linecap="round" stroke-linejoin="round"/></svg><img class="ph" src="phone.png"></div>
+    <div class="statusline"><span class="dot spin"></span>Connecting to your iPhone…</div>
+    <div class="subhint">Getting CarPlay ready…</div>
+    <div class="actions">
+      <button class="gaction">Retry connection</button><span class="sep"></span>
+      <button class="gaction warnact">Reset CarPlay Wi-Fi</button><span class="sep"></span>
+      <button class="gaction">Back to 车机互联</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+</div></div>
+
+<!-- ============ 帧4：热点异常 ============ -->
+<div class="caption">第八版 · ④ 热点异常（光束变暗，琥珀警告 + Open car hotspot settings）</div>
+<div class="frame"><div class="screen">
+  <header>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav">
+      <div class="gi"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></div>
+      <div class="gi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg></div>
+    </div>
+  </header>
+  <main>
+    <div class="duo"><img class="car" src="car.png"><svg class="link" viewBox="0 0 79 119"><path d="M70 59 H10" stroke="url(#tubeDim)" stroke-width="11.2" opacity="0.18" filter="url(#soft)"/><path d="M70 59 H10" stroke="url(#tubeDim)" stroke-width="4" opacity="0.7" filter="url(#glow)" stroke-linecap="round"/><path class="energy" d="M70 59 H10" stroke="#8A97A8" stroke-width="1.44" opacity="0.64" stroke-linecap="round" style="stroke-dasharray:26 130;animation-duration:5s"/><circle cx="10" cy="59" r="4.2" fill="#7C8798" filter="url(#glowS)"/><circle cx="70" cy="59" r="4.2" fill="#7C8798" filter="url(#glowS)"/><path d="M62 52 L74 59 L62 66" fill="none" stroke="#8A97A8" stroke-width="2.2" opacity="0.62" stroke-linecap="round" stroke-linejoin="round"/></svg><img class="ph" src="phone.png"></div>
+    <div class="statusline"><span class="dot"></span>Ready when you are</div>
+    <div class="warn"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/>
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      The car’s hotspot is off · Connect to “CarHotspot” to continue</div>
+    <div class="actions">
+      <button class="gaction primary">Connect phone</button><span class="sep"></span>
+      <button class="gaction">Connect with USB</button><span class="sep"></span>
+      <button class="gaction warnact">Open car hotspot settings</button><span class="sep"></span>
+      <button class="gaction">Choose iPhone</button><span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+  <div class="br"><svg viewBox="0 0 24 24"><path d="M12 20v-7"/><path d="M8.5 16.5 12 20l3.5-3.5"/>
+    <path d="M19.5 8A7.5 7.5 0 0 0 6 5"/><path d="M4.5 16A7.5 7.5 0 0 0 18 19"/></svg>Update available</div>
+</div></div>
+
+
+</body>
+</html>

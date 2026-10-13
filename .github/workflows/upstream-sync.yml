@@ -1,0 +1,116 @@
+name: Sync upstream
+
+# Keep this mirror even with shihabal3amri/DiPlay without adopting a fork
+# identity: GitHub refuses to make a public fork private, and it refuses
+# to let a private repo show up as a fork of anything. So this repository
+# is a plain mirror, and this job is what keeps it current.
+#
+# Runs every six hours, on demand, or the moment upstream pings this repo.
+#
+# Upstream main is merged into main, the version the tree declares is
+# tagged, and the release workflow builds and publishes it — so a new
+# upstream release reaches the car as an APK and as an entry the app's
+# own updater can see, with nobody watching the repository.
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [upstream-sync]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+      version: ${{ steps.version.outputs.name }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch upstream
+        run: |
+          set -e
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream https://github.com/shihabal3amri/DiPlay.git
+          git fetch upstream main --depth=1
+
+      - name: Compare with upstream
+        id: compare
+        run: |
+          set -e
+          LOCAL=$(git rev-parse HEAD)
+          REMOTE=$(git rev-parse FETCH_HEAD)
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Already even with upstream main."
+            exit 0
+          fi
+          BEHIND=$(git rev-list --count "$LOCAL..$REMOTE")
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          echo "$BEHIND commit(s) behind upstream."
+
+      - name: Merge upstream into main
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          set -e
+          git config user.name "upstream-sync"
+          git config user.email "upstream-sync@users.noreply.github.com"
+          # Take upstream wholesale: this tree carries no source changes of
+          # its own, so there is nothing to reconcile and nothing to lose.
+          git merge -X theirs FETCH_HEAD -m "Merge upstream main" \
+            || git checkout -f FETCH_HEAD
+          git push origin HEAD:refs/heads/main
+
+      - name: Read the version this tree declares
+        id: version
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          VER=$(grep -m1 'versionName' mobile/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "name=$VER" >> "$GITHUB_OUTPUT"
+          echo "version is $VER"
+
+      - name: Mirror upstream release tags
+        run: |
+          set -e
+          git for-each-ref --format='%(refname:short)' refs/tags > /tmp/local_tags.txt
+          git ls-remote --tags upstream \
+            | awk '{print $2}' | sed 's#refs/tags/##; s#\^{}$##' | sort -u > /tmp/up_tags.txt
+          while read -r t; do
+            [ -z "$t" ] && continue
+            grep -qx "$t" /tmp/local_tags.txt && continue
+            echo "mirroring tag: $t"
+            git push --force origin "refs/tags/$t:refs/tags/$t" || echo "tag $t skipped"
+          done < /tmp/up_tags.txt
+
+      - name: Tag this build
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          set -e
+          VER="${{ steps.version.outputs.name }}"
+          [ -z "$VER" ] && exit 0
+          # Move the tag rather than failing when it already exists; a
+          # rebuild of the same version replaces its APK instead of
+          # refusing to build.
+          git tag -f "v$VER"
+          git push origin "refs/tags/v$VER:refs/tags/v$VER" --force
+
+  release:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/release.yml
+    secrets: inherit
