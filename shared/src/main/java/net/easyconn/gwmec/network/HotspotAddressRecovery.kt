@@ -24,6 +24,24 @@ internal class HotspotAddressRecovery(
         if (preferredFamily == HotspotAddressPolicy.FAMILY_IPV6 && !candidates.any(::scopedLinkLocal)) {
             log("wireless address waiting preference=IPv6 timeoutMs=$timeoutMillis")
         }
+        // A freshly created group often has only its IPv6 link-local address for a moment;
+        // the IPv4 address the iPhone will actually connect to arrives just after. Waiting
+        // for it here costs a fraction of a second, while publishing the link-local address
+        // instead costs the whole first-TCP timeout — thirty seconds of a black screen,
+        // after which the family flips and the same group connects immediately. The
+        // preference is honoured first, as before, when one was recorded.
+        while (candidates.none(::usableForPublishing) && preferredFamily != HotspotAddressPolicy.FAMILY_IPV6) {
+            checkActive()
+            val remaining = deadline - nowMillis()
+            if (remaining <= 0) {
+                log("wireless address no routable family elapsedMs=${nowMillis() - started}; publishing what there is")
+                return candidates
+            }
+            pause(minOf(WirelessStartupPolicy.INTERFACE_POLL_MILLIS, remaining))
+            checkActive()
+            candidates = sample()
+            checkActive()
+        }
         while (true) {
             checkActive()
             if (preferredFamily != HotspotAddressPolicy.FAMILY_IPV6) return candidates
@@ -57,6 +75,10 @@ internal class HotspotAddressRecovery(
     private fun checkActive() {
         if (cancelled()) throw InterruptedIOException("Hotspot address recovery cancelled")
     }
+
+    /** Whether the iPhone could connect to this address: routable, and not link-local. */
+    private fun usableForPublishing(address: InetAddress): Boolean =
+        address is java.net.Inet4Address && HotspotAddressPolicy.isRoutable(address)
 
     private fun scopedLinkLocal(address: InetAddress): Boolean =
         address is Inet6Address && address.isLinkLocalAddress && address.scopeId != 0

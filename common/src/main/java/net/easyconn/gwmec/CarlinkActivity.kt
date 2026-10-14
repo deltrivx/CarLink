@@ -1827,7 +1827,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      */
     private fun remoteAssistantSettings(content: LinearLayout) {
         val assistant = net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant
-        section(content, getString(R.string.settings_remote_assistant), R.drawable.ic_dp_dashboard) { card ->
+        section(content, getString(R.string.settings_remote_assistant), R.drawable.ic_dp_remote) { card ->
             card.addView(label(getString(R.string.settings_remote_assistant_description), 14, MUTED))
             val log = label(assistant.lastMessage, 13, MUTED).apply {
                 setPadding(0, dp(10), 0, 0)

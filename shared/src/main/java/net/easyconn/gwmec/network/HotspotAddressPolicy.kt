@@ -58,4 +58,15 @@ internal object HotspotAddressPolicy {
     private fun usable(address: InetAddress): Boolean =
         !address.isLoopbackAddress && !address.isAnyLocalAddress && !address.isLinkLocalAddress &&
             !address.isMulticastAddress
+
+    /**
+     * Whether a peer on the same group could connect to this address.
+     *
+     * A link-local IPv6 address needs a scope identifier the iPhone is never told, so
+     * publishing one leaves it with nothing to dial: the group is up, the iPhone is in
+     * it, and nothing happens until the first-TCP timeout flips the family — thirty
+     * seconds of a black screen for a group that was working all along.
+     */
+    fun isRoutable(address: InetAddress): Boolean =
+        address is Inet4Address && usable(address)
 }
