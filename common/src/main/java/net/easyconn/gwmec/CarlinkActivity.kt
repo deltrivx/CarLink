@@ -211,7 +211,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
     fun markReturnedFromProjection() { setProjectionHandled(true) }
 
-    private fun clearReturnFromProjection() { setProjectionHandled(false) }
     private var pendingWireless = false
     private var initialLaunch = true
     private var notificationTransport = true
@@ -548,9 +547,16 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         // reading it, which the driver saw as a package that could not be parsed. The
         // cache is cleaned on a later start instead, when no install can be reading it.
         handler.removeCallbacks(tick); handler.post(tick)
-        // Back from the car settings: refresh the car hotspot reminder on the home page.
-        if (!initialLaunch && !adbSwitchChangePending && !pausedForAdbSwitchChange &&
-            (page == "home" || page == "settings" || page == "connection" || page == "setup")) render()
+        // Back from the car settings or the picture: refresh what was shown. The home
+        // refills only its status box, so coming back from a connection does not rebuild
+        // the page — rebuilding it there made the whole screen blink on every return,
+        // including the one from a CarPlay session the driver just left.
+        if (!initialLaunch && !adbSwitchChangePending && !pausedForAdbSwitchChange) {
+            when (page) {
+                "home" -> if (!refreshHomeStatus()) render()
+                "settings", "connection", "setup" -> render()
+            }
+        }
         startAppearanceUpdates()
         pausedForAdbSwitchChange = false
         if (initialLaunch) {
@@ -617,25 +623,36 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         if (hasFocus && enforceInterfaceSize()) render()
     }
 
+    /**
+     * Hides or shows the system bars to match the settings.
+     *
+     * Only the bars whose wanted state actually changed are touched. Asking for a bar
+     * that is already in that state still makes the system re-lay it out, and doing that
+     * on every render — which is every status update on the home — made the status bar
+     * flicker while CarPlay was connecting.
+     */
     private fun applyFullscreenMode() {
         val multiWindow = Build.VERSION.SDK_INT >= 24 && isInMultiWindowMode
+        val hideTop = AirPlayPersistence.loadHideTopBar(this) && !multiWindow
+        val hideBottom = AirPlayPersistence.loadHideBottomBar(this) && !multiWindow
+        if (hideTop == fullscreenTopHidden && hideBottom == fullscreenBottomHidden) return
+        fullscreenTopHidden = hideTop
+        fullscreenBottomHidden = hideBottom
         WindowInsetsControllerCompat(window, window.decorView).apply {
             isAppearanceLightStatusBars = palette.systemBarIconsAreDark
             isAppearanceLightNavigationBars = palette.systemBarIconsAreDark
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            if (AirPlayPersistence.loadHideTopBar(this@CarlinkActivity) && !multiWindow) {
-                hide(WindowInsetsCompat.Type.statusBars())
-            } else {
-                show(WindowInsetsCompat.Type.statusBars())
-            }
-            if (AirPlayPersistence.loadHideBottomBar(this@CarlinkActivity) && !multiWindow) {
-                hide(WindowInsetsCompat.Type.navigationBars())
-            } else {
-                show(WindowInsetsCompat.Type.navigationBars())
-            }
+            if (hideTop) hide(WindowInsetsCompat.Type.statusBars())
+            else show(WindowInsetsCompat.Type.statusBars())
+            if (hideBottom) hide(WindowInsetsCompat.Type.navigationBars())
+            else show(WindowInsetsCompat.Type.navigationBars())
         }
         ViewCompat.requestApplyInsets(window.decorView)
     }
+
+    /** The system bars' hidden state as this activity last asked for it. */
+    private var fullscreenTopHidden = false
+    private var fullscreenBottomHidden = false
 
     private val isNaturallyExpandedSettingsLayout: Boolean
         get() = resources.configuration.let {
@@ -1217,14 +1234,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private fun ghostDivider(): View =
         View(this).apply { layoutParams = LinearLayout.LayoutParams(dp(1), dp(18)).apply { gravity = Gravity.CENTER } }
 
-    /** A chip-sized button in the home row: wrap_content wide, one shared height. */
-    private fun actionChip(primary: Boolean = false) = LinearLayout.LayoutParams(-2, dp(if (isCompactLayout) 44 else 52)).apply {
-        marginStart = dp(6)
-        marginEnd = dp(6)
-        topMargin = dp(6)
-        bottomMargin = dp(6)
-        gravity = Gravity.CENTER
-    }
 
     // Only the category scrolls, so the rail keeps showing where the driver is.
     private fun expandedSettingsShell(header: View, categoryScroll: ScrollView): LinearLayout = column().apply {
@@ -1247,6 +1256,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         split.addView(categoryScroll, LinearLayout.LayoutParams(0, -1, 1f))
         addView(split, LinearLayout.LayoutParams(-1, 0, 1f))
     }
+
+    private fun matchButton(top: Int = 0, height: Int = 68) =
+        LinearLayout.LayoutParams(-1, dp(height)).apply { topMargin = dp(top) }
 
     /** The category rail, in the same plain hand as the settings themselves: no plate. */
     private fun settingsRail(): LinearLayout = column().apply {
@@ -2668,13 +2680,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private fun startupHotspotEligible(): Boolean =
         CarHotspotSetup.shouldStartOnLaunch(applicationContext, CarPlayBackgroundSession.hasSession())
 
-    private fun hotspotResultText(result: CarHotspotTethering.Result): String = getString(when (result) {
-        CarHotspotTethering.Result.READY -> R.string.hotspot_control_on
-        CarHotspotTethering.Result.PERMISSION_REQUIRED -> R.string.hotspot_control_missing
-        CarHotspotTethering.Result.UNSUPPORTED -> R.string.hotspot_control_unsupported
-        CarHotspotTethering.Result.TIMED_OUT -> R.string.hotspot_control_timeout
-        else -> R.string.hotspot_control_failed
-    })
 
     private fun carHotspotOffDialog() {
         appDialogBuilder().setTitle(getString(R.string.car_hotspot_is_off))
@@ -3257,104 +3262,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         dialog.show()
     }
 
-    // "Left 20 %", "Centre · default", "Down 10 %": a signed step reads as a direction and a distance.
-    private fun markerStepLabel(step: Int, negative: String, positive: String): String = when {
-        step == 0 -> getString(R.string.marker_centre_default)
-        step < 0 -> "$negative ${-step * CarPlayClusterDisplay.MARKER_STEP_PERCENT} %"
-        else -> "$positive ${step * CarPlayClusterDisplay.MARKER_STEP_PERCENT} %"
-    }
 
-    /** A 1%-step slider row for overlay placement; every step saves, so the card moves live. */
-    private fun overlaySliderRow(title: String, values: List<Int>, current: Int, describe: (Int) -> String): OverlaySliderRow =
-        OverlaySliderRow(this, title, values, current, describe)
 
-    private inner class OverlaySliderRow(
-        context: android.content.Context,
-        title: String,
-        private val steps: List<Int>,
-        current: Int,
-        private val describe: (Int) -> String,
-    ) : LinearLayout(context) {
-        var onSave: (Int) -> Unit = {}
-        /** Fired once when the finger leaves the slider, for saves that need a reconnect. */
-        var onCommit: () -> Unit = {}
-        val slider: SeekBar
 
-        init {
-            orientation = VERTICAL
-            val valueView = label(describe(current), 16, ACCENT, true)
-            val head = row().apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(12), 0, 0) }
-            head.addView(label(title, 16, TEXT, true), LinearLayout.LayoutParams(0, -2, 1f))
-            head.addView(valueView)
-            addView(head)
-            slider = SeekBar(context).apply {
-                max = steps.lastIndex
-                progress = steps.indexOf(current).coerceIn(steps.indices)
-                // ProgressBar.setMinHeight needs API 29; the view minimum keeps the touch target before that.
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) minHeight = dp(44) else minimumHeight = dp(44)
-                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                        val value = steps[progress.coerceIn(steps.indices)]
-                        valueView.text = describe(value)
-                        if (fromUser) onSave(value)
-                    }
-                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                    override fun onStopTrackingTouch(seekBar: SeekBar?) { onCommit() }
-                })
-            }
-            addView(slider, LinearLayout.LayoutParams(-1, dp(44)))
-        }
-    }
-
-    private fun overlayOffsetLabel(percent: Int, negative: String, positive: String, centre: Int): String {
-        val delta = percent - centre
-        return when {
-            delta == 0 -> getString(R.string.marker_centre_default)
-            delta < 0 -> "$negative ${-delta} %"
-            else -> "$positive $delta %"
-        }
-    }
-
-    private fun showClusterAccessSetup() {
-        val command = "adb shell appops set $packageName GET_USAGE_STATS allow"
-        val body = column().apply { setPadding(dp(24), dp(12), dp(24), dp(12)) }
-        body.addView(label(getString(R.string.one_time_setup_on_this_car), 20, TEXT, true))
-        body.addView(label(getString(R.string.usage_access_lets_diplay_follow_the_instrument_theme_and_m), 15, MUTED))
-        body.addView(label(getString(R.string.s_1_connect_a_computer_with_adb_installed_to_the_car_using), 16, TEXT))
-        body.addView(label(command, 16, TEXT).apply {
-            typeface = android.graphics.Typeface.MONOSPACE
-            setTextIsSelectable(true)
-            setPadding(0, dp(16), 0, dp(16))
-        })
-        body.addView(button(getString(R.string.copy_command), false) {
-            getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(
-                android.content.ClipData.newPlainText(getString(R.string.clipboard_usage_access), command))
-            toast(getString(R.string.copied_to_the_car_clipboard_run_the_command_on_your_comput))
-        }, matchButton(0, 56))
-        body.addView(label(getString(R.string.cluster_adb_multi_device, packageName), 14, MUTED))
-        body.addView(label(getString(R.string.s_3_tap_check_and_enable_below_this_enables_the_cluster_ma), 16, TEXT))
-        val status = label(if (DiLink51ClusterMonitor.hasAccess(this)) getString(R.string.permission_enabled_ready) else getString(R.string.permission_not_enabled), 16, TEXT)
-        body.addView(status)
-        val dialog = appDialogBuilder().setTitle(getString(R.string.automatic_cluster_map_setup))
-            .setView(ScrollView(appDialogContext()).apply { addView(body) })
-            .setNegativeButton(getString(R.string.close), null)
-            .setPositiveButton(getString(R.string.check_and_enable), null).create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (DiLink51ClusterMonitor.hasAccess(this)) {
-                    AirPlayPersistence.saveClusterMapEnabled(this, true)
-                    DiLink51ClusterLayout.saveAutomatic(this, true)
-                    dialog.dismiss()
-                    render()
-                    toast(getString(R.string.automatic_map_enabled_open_the_cluster_map_card_or_select))
-                    reconnectIfRunning()
-                } else {
-                    status.text = getString(R.string.still_waiting_for_usage_access_check_that_the_command_ran)
-                }
-            }
-        }
-        dialog.show()
-    }
 
     private fun promptEnableUsbAutoConfirm() {
         if (UsbPermissionSetup.Permission.ACCESSIBILITY.granted(this)) {
@@ -4419,51 +4329,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     // The cluster screen is described at connection time, so a running session reconnects over
     // its current link. The position choices need no call: getString(R.string.apply_and_reconnect) already does it.
 
-    private fun openClusterSafeAreaEditor() {
-        clusterSafeAreaDialog?.dismiss()
-        val previewOwner = Any()
-        val initial = AirPlayPersistence.loadClusterSafeAreaRect(this)
-            ?: DiLink4ClusterDisplay.defaultSafeAreaRect(
-                markerXPercent = AirPlayPersistence.loadClusterMarkerXPercent(this),
-                markerYPercent = AirPlayPersistence.loadClusterMarkerYPercent(this))
-        val editor = SafeAreaEditorView(this).apply {
-            setBackgroundColor(SURFACE)
-            setRect(initial, 1920, 720)
-        }
-        // A standalone dialog gives the weighted preview an exact available height.
-        // AlertDialog's wrap-content custom panel can collapse it to zero.
-        val dialog = appDialog().apply { requestWindowFeature(Window.FEATURE_NO_TITLE) }
-        val panel = column().apply {
-            setPadding(dp(16), dp(8), dp(16), dp(8))
-            setBackgroundColor(SURFACE)
-        }
-        panel.addView(label(getString(R.string.cluster_safe_area_edit), 18, TEXT, true))
-        panel.addView(label(getString(R.string.cluster_safe_area_live_hint), 14, MUTED))
-        panel.addView(ClusterSafeAreaPreviewFrame(this, editor), LinearLayout.LayoutParams(-1, 0, 1f))
-        val actions = row()
-        actions.addView(button(getString(R.string.cancel), false) { dialog.dismiss() },
-            LinearLayout.LayoutParams(0, dp(56), 1f))
-        actions.addView(button(getString(if (CarPlayBackgroundSession.hasSession())
-            R.string.apply_and_reconnect else R.string.save), true) {
-            editor.currentRectForSource()?.let { AirPlayPersistence.saveClusterSafeAreaRect(this, it) }
-            dialog.dismiss()
-            render()
-            reconnectIfRunning()
-        }, LinearLayout.LayoutParams(0, dp(56), 1f))
-        panel.addView(actions)
-        dialog.setContentView(panel, ViewGroup.LayoutParams(-1, -1))
-        editor.onRectChanged = { ClusterActivityOutput.updateSafeAreaPreview(previewOwner, it) }
-        clusterSafeAreaDialog = dialog
-        dialog.setOnDismissListener {
-            editor.onRectChanged = null
-            ClusterActivityOutput.endSafeAreaPreview(previewOwner)
-            if (clusterSafeAreaDialog === dialog) clusterSafeAreaDialog = null
-        }
-        dialog.show()
-        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.9f).toInt(),
-            (resources.displayMetrics.heightPixels * 0.85f).toInt())
-        ClusterActivityOutput.beginSafeAreaPreview(previewOwner, initial, this)
-    }
 
     private fun reconnectIfRunning() {
         if (CarPlayBackgroundSession.hasSession()) connect(AirPlayPersistence.loadWirelessEnabled(this))
@@ -4492,6 +4357,39 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         reconnectBar = this
         refreshReconnectBar()
     }
+
+    /** The permissions creating a Wi-Fi Direct group needs, for this Android release. */
+    private fun wirelessRadioPermissions(): Array<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+        } else {
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            )
+        }
+
+    private fun wirelessRadioPermissionGranted(): Boolean {
+        val required = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.NEARBY_WIFI_DEVICES
+        } else {
+            Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        return checkSelfPermission(required) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /** Asks for the radio permissions, then carries on with the connection that asked. */
+    private val wirelessRadioPermission =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()) {
+            if (wirelessRadioPermissionGranted()) {
+                val wanted = pendingWireless
+                pendingWireless = false
+                if (wanted) connect(true)
+            } else {
+                pendingWireless = false
+                toast(getString(R.string.wireless_needs_nearby_devices))
+            }
+        }
 
     private fun onLocationReportingChanged(enabled: Boolean) {
         if (enabled && !hasPreciseLocation()) {
@@ -4869,6 +4767,16 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             return
         }
         if (wireless && carHotspotOff()) { carHotspotOffDialog(); return }
+        // Creating a Wi-Fi Direct group needs the nearby-devices permission on Android 13+
+        // and precise location before it. Without asking here, a device that has never been
+        // asked fails inside the stack with a message about permissions the driver never saw
+        // a prompt for — which reads as "Wi-Fi Direct cannot be created" and, on a tablet,
+        // leaves only the same-LAN path working.
+        if (wireless && !wirelessRadioPermissionGranted()) {
+            pendingWireless = true
+            wirelessRadioPermission.launch(wirelessRadioPermissions())
+            return
+        }
         if (wireless && CarlinkPreferences.phoneAddress(this) == null) {
             pendingWireless = true; choosePhone(); return
         }
@@ -5054,23 +4962,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         connectButton?.isEnabled = setupError == null
         refreshReconnectBar()
         refreshReadiness()
-    }
-    private fun authorizeClusterRouting() {
-        val app = applicationContext
-        Thread({
-            val result = runCatching {
-                net.easyconn.gwmec.adb.LocalAdb(net.easyconn.gwmec.adb.AdbKeys.load(app)).use {
-                    it.connect(mayAsk = true)
-                }
-            }.getOrNull()
-            runOnUiThread {
-                if (!isFinishing && !isDestroyed) {
-                    toast(if (result == net.easyconn.gwmec.adb.LocalAdb.Access.READY)
-                        getString(R.string.adb_access_ready) else getString(R.string.adb_not_approved))
-                    if (result == net.easyconn.gwmec.adb.LocalAdb.Access.READY) ClusterActivityOutput.retry()
-                }
-            }
-        }, "adb-cluster-authorize").start()
     }
 
     private fun reportFileName() = "Carlink-${SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(Date())}.txt"
@@ -5280,42 +5171,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         )
     }
 
-    private fun channelSelector(): ViewGroup {
-        channelButtons.clear()
-        val grid = GridLayout(this).apply {
-            columnCount = 7
-            rowCount = 3
-            setPadding(0, dp(8), 0, dp(8))
-        }
-        for (i in 0..20) {
-            val btn = Button(this).apply {
-                text = i.toString()
-                isAllCaps = false
-                textSize = 16f
-                minHeight = dp(48)
-                stateListAnimator = null
-                setOnClickListener {
-                    val previous = navigationStreamType
-                    navigationStreamType = i
-                    if (previous != i) {
-                        paintChannel(previous, false)
-                        paintChannel(i, true)
-                    }
-                    playTestTone(i)
-                }
-            }
-            val params = GridLayout.LayoutParams().apply {
-                width = 0
-                height = dp(48)
-                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                setMargins(dp(4), dp(4), dp(4), dp(4))
-            }
-            grid.addView(btn, params)
-            channelButtons.add(btn)
-            paintChannel(i, i == navigationStreamType)
-        }
-        return grid
-    }
     private fun version() = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.1.0-beta.1"
     private fun languageSettings(content: LinearLayout) {
         filteredSection(content, SettingsSection.LANGUAGE,
@@ -5385,25 +5240,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     ) {
         if (settingsSectionFilter?.contains(key) == false) return
         section(parent, title, icon, build)
-    }
-    // Routing changes affect the live cluster surface as soon as the host resumes.
-    // Ask before saving them instead of promising to defer only part of the change.
-    private fun reconnectingToggle(parent: LinearLayout, title: String, description: String,
-        value: Boolean, save: (Boolean) -> Unit) {
-        toggle(parent, title, description, value) { selected ->
-            if (!CarPlayBackgroundSession.hasSession()) {
-                save(selected)
-            } else {
-                appDialogBuilder().setTitle(title).setMessage(description)
-                    .setPositiveButton(R.string.apply_and_reconnect) { _, _ ->
-                        save(selected)
-                        reconnectIfRunning()
-                    }
-                    .setNegativeButton(R.string.cancel) { _, _ -> render() }
-                    .setOnCancelListener { render() }
-                    .show()
-            }
-        }
     }
 
     private fun toggle(parent: LinearLayout, title: String, description: String, value: Boolean, enabled: Boolean = true, save: (Boolean) -> Unit): Switch {
@@ -5655,23 +5491,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         setOnClickListener { click() }
     }
 
-    private fun iconButton(icon: Int, description: String, click: () -> Unit) = ImageButton(this).apply {
-        setImageResource(icon)
-        imageTintList = ColorStateList.valueOf(ACCENT)
-        contentDescription = description
-        scaleType = ImageView.ScaleType.CENTER
-        setPadding(dp(12), dp(12), dp(12), dp(12))
-        minimumWidth = dp(48)
-        minimumHeight = dp(48)
-        stateListAnimator = null
-        background = android.graphics.drawable.RippleDrawable(
-            ColorStateList.valueOf(RIPPLE),
-            buttonShape(BUTTON, BORDER),
-            null,
-        )
-        foreground = buttonFocusRing()
-        setOnClickListener { click() }
-    }
 
     // For an action whose label happens to contain the separator, such as "Turn on … · ADB".
     private fun actionButton(title: String, primary: Boolean, click: () -> Unit) =
@@ -5755,25 +5574,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
     private fun rounded(color: Int, stroke: Int) = GradientDrawable().apply { setColor(color); cornerRadius = layoutCornerRadius() * 1.35f; setStroke(dp(1), stroke) }
 
-    /**
-     * A surface with a little depth: the fill lifts from the top edge and a hairline catches
-     * the light there, so a long settings page reads as layers instead of flat panels. Same
-     * geometry, colours and content as the plain surface it replaces.
-     */
-    /**
-     * The settings surface: a glass card whose fill lifts from the top edge, with a
-     * hairline of the accent colour catching the light there. The geometry and colours
-     * are unchanged; only the finish deepens.
-     */
-    /**
-     * A surface with the depth the first home design had, applied without touching the
-     * layout: the fill falls from a lighter top to a deeper foot, a hairline of light
-     * runs along the top edge, the outline is a breath of the accent, and the card sits
-     * on a soft shadow instead of flat on the background.
-     */
-    /** A vertical hairline that separates stacked settings blocks without a hard divider. */
-    private fun blockGap() = dp(SETTINGS_BLOCK_GAP_DP)
-    private fun matchButton(top: Int = 0, height: Int = 68) = LinearLayout.LayoutParams(-1, dp(height)).apply { topMargin = dp(top) }
     private fun space(height: Int) = View(this).apply { layoutParams = LinearLayout.LayoutParams(1, dp(height)); tag = SPACER }
 
     /**

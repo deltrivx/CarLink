@@ -836,6 +836,7 @@
     <string name="settings_remote_assistant_forget">Forget the configuration and disconnect</string>
     <string name="settings_remote_assistant_forgotten">Configuration forgotten</string>
     <string name="settings_remote_assistant_log">Connection log</string>
+    <string name="wireless_needs_nearby_devices">Wireless needs the nearby-devices permission to create Wi-Fi Direct. Allow it in the system settings.</string>
     <string name="settings_auto_download_update">Download new versions automatically</string>
     <string name="settings_auto_download_update_description">Fetches a new build as soon as one is seen. Only the newest download is kept: an older one is dropped, and the file goes once it is installed.</string>
     <string name="setup_guide">Setup guide</string>

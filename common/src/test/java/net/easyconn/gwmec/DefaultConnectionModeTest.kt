@@ -1,6 +1,7 @@
 package net.easyconn.gwmec
 
 import android.app.AlertDialog
+import android.Manifest
 import android.content.Intent
 import android.os.Looper
 import android.view.View
@@ -48,6 +49,13 @@ class DefaultConnectionModeTest {
             val expectedWireless = mode == DefaultConnectionMode.WIRELESS
             CarlinkPreferences.saveDefaultConnectionMode(app, mode)
             AirPlayPersistence.saveWirelessEnabled(app, !expectedWireless)
+            // The driver who has connected before has granted the radio permission;
+            // without it the wireless path stops to ask, which is the point of the ask.
+            org.robolectric.Shadows.shadowOf(app).grantPermissions(
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
+                    Manifest.permission.NEARBY_WIFI_DEVICES
+                else Manifest.permission.ACCESS_FINE_LOCATION,
+            )
             val controller = Robolectric.buildActivity(CarlinkActivity::class.java, Intent(Intent.ACTION_MAIN)).create()
             val activity = controller.get()
             // Source-only test builds have no authentication assets; exercise the startup decision.
