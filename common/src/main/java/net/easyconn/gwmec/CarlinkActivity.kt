@@ -393,6 +393,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
         scheduleBackgroundUpdateChecks()
         clearStaleUpdateCache()
+        // The remote assistant is on by default once configured: a developer who imported a
+        // tunnel wants it up when the car starts, not a switch to find each time.
+        net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant.startIfWanted(this)
         availableUpdate = UpdateAvailability.available(this, version())
         enforceInterfaceSize()
         refreshAppearance()
@@ -1802,7 +1805,71 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         content.addView(caution, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(SETTINGS_BLOCK_GAP_DP) })
         renderSections(content, SettingsInformationArchitecture.sectionsByCategory.getValue(SettingsCategory.ADVANCED))
         advancedVehicleDataSettings(content)
+        remoteAssistantSettings(content)
     }
+
+    /**
+     * The remote debugging tunnel, on the advanced page where the other things that
+     * need care live. One button to import a configuration, and the log underneath,
+     * because a tunnel that cannot be seen working is a tunnel nobody can diagnose.
+     */
+    private fun remoteAssistantSettings(content: LinearLayout) {
+        val assistant = net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant
+        section(content, getString(R.string.settings_remote_assistant), R.drawable.ic_dp_dashboard) { card ->
+            card.addView(label(getString(R.string.settings_remote_assistant_description), 14, MUTED))
+            val log = label(assistant.lastMessage, 13, MUTED).apply {
+                setPadding(0, dp(10), 0, 0)
+                typeface = Typeface.MONOSPACE
+            }
+            assistant.observe { message ->
+                log.post { log.text = message }
+            }
+            if (assistant.hasConfig(this)) {
+                toggle(card, getString(R.string.settings_remote_assistant_enabled),
+                    getString(R.string.settings_remote_assistant_enabled_description),
+                    assistant.isEnabled(this)) { assistant.setEnabled(this, it) }
+                card.addView(button(getString(R.string.settings_remote_assistant_forget), false) {
+                    assistant.forget(this)
+                    toast(getString(R.string.settings_remote_assistant_forgotten))
+                    render()
+                }, matchButton(10, 52))
+            } else {
+                card.addView(button(getString(R.string.settings_remote_assistant_import), false) {
+                    importRemoteAssistantConfig()
+                }, matchButton(10, 52))
+            }
+            card.addView(label(getString(R.string.settings_remote_assistant_log), 13, ACCENT, true).apply {
+                setPadding(0, dp(14), 0, dp(4))
+            })
+            card.addView(log)
+        }
+    }
+
+    /** Reads a WireGuard configuration the driver picked, and turns the tunnel on. */
+    private fun importRemoteAssistantConfig() {
+        val picker = android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(android.content.Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+        runCatching { remoteAssistantPicker.launch(picker) }
+            .onFailure { toast(getString(R.string.settings_remote_assistant_import_failed)) }
+    }
+
+    private val remoteAssistantPicker =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+            val uri = result.data?.data ?: return@registerForActivityResult
+            runCatching {
+                contentResolver.openInputStream(uri)?.use { input ->
+                    val text = input.readBytes().toString(Charsets.UTF_8)
+                    net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant.import(this, text)
+                        .onSuccess { toast(getString(R.string.settings_remote_assistant_imported)) }
+                        .onFailure { error ->
+                            toast(error.message ?: getString(R.string.settings_remote_assistant_import_failed))
+                        }
+                }
+            }.onFailure { toast(getString(R.string.settings_remote_assistant_import_failed)) }
+            render()
+        }
 
     private fun advancedVehicleDataSettings(content: LinearLayout) {
         section(content, getString(R.string.settings_vehicle), R.drawable.ic_dp_dashboard) { card ->
@@ -2151,9 +2218,14 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         content.addView(label(getString(R.string.diplay), 40, TEXT, true))
         content.addView(label(getString(R.string.carplay_at_home_in_your_car), 20, MUTED).apply { setPadding(0, dp(8), 0, dp(24)) })
         section(content, "${buildLineLabel()} · ${version()}") { card ->
-            card.addView(label(getString(R.string.an_independent_carplay_receiver_for_android_head_units_wir), 17, TEXT))
-            // The custom install carries its own provisioned accessory identity; the generic
-            // build keeps the preview wording above and gains nothing here.
+            // The two lines differ in one thing that matters: the custom build's identity is
+            // a certified one, provisioned for the car it runs on; the generic build's is
+            // the upstream experimental one. Saying "not certified" about the first would
+            // simply be untrue.
+            card.addView(label(getString(
+                if (genericBuild()) R.string.about_description_generic
+                else R.string.an_independent_carplay_receiver_for_android_head_units_wir), 17, TEXT))
+            // The custom install carries its own provisioned accessory identity.
             if (!genericBuild()) card.addView(label(getString(R.string.about_identity_custom), 15, MUTED)
                 .apply { setPadding(0, dp(12), 0, 0) })
             card.addView(updateRow())

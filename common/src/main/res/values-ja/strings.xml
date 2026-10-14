@@ -837,6 +837,16 @@
     <string name="backup_import_invalid">车机互联の設定バックアップファイルではありません。</string>
     <string name="settings_background_update_checks">バックグラウンドで更新を確認</string>
     <string name="settings_background_update_checks_description">1日1回GitHubで新しいバージョンを確認し、あればホーム画面に表示します。タップしない限りダウンロードしません。</string>
+    <string name="settings_remote_assistant">リモートアシスタント</string>
+    <string name="settings_remote_assistant_description">WireGuard 設定をインポートすると、他のネットワークから車機にアクセスしてリモートデバッグできます。設定は端末に保存され、外部へ送信されることはありません。</string>
+    <string name="settings_remote_assistant_enabled">リモートアシスタントを有効にする</string>
+    <string name="settings_remote_assistant_enabled_description">オンで設定されたトンネルに接続し、オフで切断します。</string>
+    <string name="settings_remote_assistant_import">WireGuard 設定をインポート</string>
+    <string name="settings_remote_assistant_imported">設定をインポートしました。接続中</string>
+    <string name="settings_remote_assistant_import_failed">その設定を読み取れませんでした</string>
+    <string name="settings_remote_assistant_forget">設定を削除して切断</string>
+    <string name="settings_remote_assistant_forgotten">設定を削除しました</string>
+    <string name="settings_remote_assistant_log">接続ログ</string>
     <string name="settings_auto_download_update">新しいバージョンを自動でダウンロードする</string>
     <string name="settings_auto_download_update_description">新しいビルドが見つかると自動で取得します。保持されるのは最新のものだけで、古いものは削除され、インストール後にファイルも消去されます。</string>
     <string name="setup_guide">初期設定ガイド</string>

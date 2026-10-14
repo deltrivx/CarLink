@@ -17,8 +17,8 @@ android {
         applicationId = "net.easyconn.gwmec"
         minSdk = 25
         targetSdk = 37
-        versionCode = 11554
-        versionName = "1.3.47"
+        versionCode = 11555
+        versionName = "1.3.48"
 
     }
 
@@ -59,6 +59,15 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    packaging {
+        resources {
+            // BouncyCastle's post-quantum lookup tables. They are only reachable from
+            // algorithm identifiers this app never asks for, and they cost over a
+            // megabyte of the download for nothing.
+            excludes += "/org/bouncycastle/pqc/crypto/picnic/*"
+            excludes += "/org/bouncycastle/pqc/crypto/**/*.properties"
+        }
     }
     // Where this build looks for its own updates. The custom build for the car
     // reads the private repository; the generic build reads the public one.

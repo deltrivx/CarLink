@@ -687,6 +687,16 @@
     <string name="update_saved_to">Guardado en %1$s</string>
     <string name="settings_background_update_checks">Buscar actualizaciones en segundo plano</string>
     <string name="settings_background_update_checks_description">Una vez al día, CarLink busca una versión nueva en GitHub y la muestra en la pantalla de inicio. Nunca descarga sin que lo toques.</string>
+    <string name="settings_remote_assistant">Asistente remoto</string>
+    <string name="settings_remote_assistant_description">Importa una configuración de WireGuard para alcanzar el coche desde otra red y depurarlo en remoto. La configuración se queda en el dispositivo y no se envía a ninguna parte.</string>
+    <string name="settings_remote_assistant_enabled">Activar el asistente remoto</string>
+    <string name="settings_remote_assistant_enabled_description">Conecta el túnel configurado al activarlo y lo desconecta al desactivarlo.</string>
+    <string name="settings_remote_assistant_import">Importar configuración de WireGuard</string>
+    <string name="settings_remote_assistant_imported">Configuración importada; conectando</string>
+    <string name="settings_remote_assistant_import_failed">No se pudo leer esa configuración</string>
+    <string name="settings_remote_assistant_forget">Olvidar la configuración y desconectar</string>
+    <string name="settings_remote_assistant_forgotten">Configuración olvidada</string>
+    <string name="settings_remote_assistant_log">Registro de conexión</string>
     <string name="settings_auto_download_update">Descargar versiones nuevas automáticamente</string>
     <string name="settings_auto_download_update_description">Descarga una nueva versión en cuanto aparece. Solo se guarda la más reciente: la anterior se descarta y el archivo se elimina tras instalarse.</string>
     <string name="setup_guide">Guía de configuración</string>

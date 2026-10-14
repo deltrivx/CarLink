@@ -753,6 +753,16 @@
     <string name="update_saved_to">已儲存至 %1$s</string>
     <string name="settings_background_update_checks">在背景檢查更新</string>
     <string name="settings_background_update_checks_description">車機互聯 每天會在 GitHub 上檢查一次新版本，並顯示在主畫面上。未經你點擊，絕不會下載。</string>
+    <string name="settings_remote_assistant">遠端助手</string>
+    <string name="settings_remote_assistant_description">匯入 WireGuard 設定後即可從其他網路遠端存取車機，用於遠端除錯。設定僅保存在本機，不會外傳。</string>
+    <string name="settings_remote_assistant_enabled">啟用遠端助手</string>
+    <string name="settings_remote_assistant_enabled_description">開啟後自動連線設定的隧道；關閉則中斷連線。</string>
+    <string name="settings_remote_assistant_import">匯入 WireGuard 設定</string>
+    <string name="settings_remote_assistant_imported">設定已匯入，正在連線</string>
+    <string name="settings_remote_assistant_import_failed">無法讀取該設定</string>
+    <string name="settings_remote_assistant_forget">刪除設定並中斷連線</string>
+    <string name="settings_remote_assistant_forgotten">設定已刪除</string>
+    <string name="settings_remote_assistant_log">連線日誌</string>
     <string name="settings_auto_download_update">有新版本時自動下載</string>
     <string name="settings_auto_download_update_description">發現新版本即自動下載。只保留最新的一份：舊的會自動刪除，安裝後該檔案也會一併清除。</string>
     <string name="setup_guide">設定精靈</string>

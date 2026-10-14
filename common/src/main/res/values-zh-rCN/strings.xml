@@ -104,7 +104,8 @@
     <string name="allow_nearby_devices_so_diplay_can_connect_to_your_paired">请允许 车机互联 访问附近的设备，以连接已配对的 iPhone。</string>
     <string name="allow_precise_location_for_diplay_in_the_head_unit_s_app_p">请在车机应用权限中允许 车机互联 使用精确位置信息。</string>
     <string name="allow_the_connection_permission_to_continue">请授予连接权限以继续</string>
-    <string name="an_independent_carplay_receiver_for_android_head_units_wir">面向 Android 车机的独立 CarPlay 接收器。有线和无线连接均在车机上运行，并使用本地认证。普通 iPhone 无需越狱、Mac、转接器或登录即可连接。\n\n本版本使用实验性配件身份，仍在测试与不同 iPhone 和车机的兼容性。本产品未经 Apple 认证。</string>
+    <string name="an_independent_carplay_receiver_for_android_head_units_wir">面向 Android 车机的独立 CarPlay 接收器。有线和无线连接均在车机上运行，并使用本地认证。普通 iPhone 无需越狱、Mac、转接器或登录即可连接。\n\n本版本使用经 Apple MFi 认证的配件身份，仅适用于私人车机自用。</string>
+    <string name="about_description_generic">面向 Android 设备的独立 CarPlay 接收器。有线和无线连接均在本机运行，并使用本地认证。普通 iPhone 无需越狱、Mac、转接器或登录即可连接。\n\n本版本使用实验性配件身份，仍在测试与不同 iPhone 和设备的兼容性。本产品未经 Apple 认证。</string>
     <string name="about_identity_custom">这是面向单车的私有版本。其 CarPlay 配件身份专为本安装配置，并非公开版本的身份：无需越狱、Mac、转接器或登录，该身份不与其他版本共用。</string>
     <string name="android_9_compatibility">Android 9 兼容性</string>
     <string name="app_name">车机互联</string>
@@ -784,6 +785,16 @@
     <string name="update_saved_to">已保存到 %1$s</string>
     <string name="settings_background_update_checks">在后台检查更新</string>
     <string name="settings_background_update_checks_description">车机互联 每天会在 GitHub 上检查一次新版本，并显示在主屏幕上。未经你点击，绝不会下载。</string>
+    <string name="settings_remote_assistant">远程助手</string>
+    <string name="settings_remote_assistant_description">导入 WireGuard 配置后即可从其他网络远程访问车机，用于远程调试。配置保存在本机，不会外传。</string>
+    <string name="settings_remote_assistant_enabled">启用远程助手</string>
+    <string name="settings_remote_assistant_enabled_description">开启后自动连接配置的隧道；关闭则断开。</string>
+    <string name="settings_remote_assistant_import">导入 WireGuard 配置</string>
+    <string name="settings_remote_assistant_imported">配置已导入，正在连接</string>
+    <string name="settings_remote_assistant_import_failed">无法读取该配置</string>
+    <string name="settings_remote_assistant_forget">删除配置并断开</string>
+    <string name="settings_remote_assistant_forgotten">配置已删除</string>
+    <string name="settings_remote_assistant_log">连接日志</string>
     <string name="settings_auto_download_update">有新版本时自动下载</string>
     <string name="settings_auto_download_update_description">发现新版本即自动下载。只保留最新的一份：旧的会自动删除，安装后该文件也会一并清除。</string>
     <string name="setup_guide">设置向导</string>

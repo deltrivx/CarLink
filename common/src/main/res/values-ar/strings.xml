@@ -687,6 +687,16 @@
     <string name="update_saved_to">تم الحفظ في %1$s</string>
     <string name="settings_background_update_checks">التحقق من التحديثات في الخلفية</string>
     <string name="settings_background_update_checks_description">مرة كل يوم، يتحقق CarLink من GitHub عن إصدار جديد ويعرضه في الشاشة الرئيسية. لا يتم التنزيل أبدًا دون نقرتك.</string>
+    <string name="settings_remote_assistant">المساعد عن بُعد</string>
+    <string name="settings_remote_assistant_description">استورد إعداد WireGuard للوصول إلى السيارة من شبكة أخرى لأجل التصحيح عن بُعد. يبقى الإعداد على الجهاز ولا يُرسل إلى أي مكان.</string>
+    <string name="settings_remote_assistant_enabled">تمكين المساعد عن بُعد</string>
+    <string name="settings_remote_assistant_enabled_description">يتصل بالنفق المُعد عند التشغيل، ويقطع الاتصال عند الإيقاف.</string>
+    <string name="settings_remote_assistant_import">استيراد إعداد WireGuard</string>
+    <string name="settings_remote_assistant_imported">تم استيراد الإعداد؛ جارٍ الاتصال</string>
+    <string name="settings_remote_assistant_import_failed">تعذّر قراءة هذا الإعداد</string>
+    <string name="settings_remote_assistant_forget">احذف الإعداد واقطع الاتصال</string>
+    <string name="settings_remote_assistant_forgotten">تم حذف الإعداد</string>
+    <string name="settings_remote_assistant_log">سجل الاتصال</string>
     <string name="settings_auto_download_update">تنزيل الإصدارات الجديدة تلقائيًا</string>
     <string name="settings_auto_download_update_description">يجلب الإصدار الجديد بمجرد ظهوره. يُحتفظ بالأحدث فقط: يُحذف الأقدم، ويُزال الملف بعد التثبيت.</string>
     <string name="setup_guide">دليل الإعداد</string>

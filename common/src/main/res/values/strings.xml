@@ -112,7 +112,8 @@
     <string name="allow_nearby_devices_so_diplay_can_connect_to_your_paired">Allow Nearby devices so 车机互联 can connect to your paired iPhone.</string>
     <string name="allow_precise_location_for_diplay_in_the_head_unit_s_app_p">Allow precise Location for 车机互联 in the head unit’s app permissions.</string>
     <string name="allow_the_connection_permission_to_continue">Allow the connection permission to continue</string>
-    <string name="an_independent_carplay_receiver_for_android_head_units_wir">An independent CarPlay receiver for Android head units. Wired and wireless connections run on the head unit, with local authentication. A standard iPhone can connect without a jailbreak, Mac, dongle or sign-in.\n\nThis build uses an experimental accessory identity. Compatibility with every iPhone and head unit is still being tested. It is not an Apple-certified product.</string>
+    <string name="an_independent_carplay_receiver_for_android_head_units_wir">An independent CarPlay receiver for Android head units. Wired and wireless connections run on the head unit, with local authentication. A standard iPhone can connect without a jailbreak, Mac, dongle or sign-in.\n\nThis build uses an accessory identity certified under Apple\'s MFi programme, for a private car only.</string>
+    <string name="about_description_generic">An independent CarPlay receiver for Android devices. Wired and wireless connections run on the device, with local authentication. A standard iPhone can connect without a jailbreak, Mac, dongle or sign-in.\n\nThis build uses an experimental accessory identity. Compatibility with every iPhone and device is still being tested. It is not an Apple-certified product.</string>
     <string name="about_identity_custom">This is a private build for one car. Its CarPlay accessory identity is provisioned for this install, not the public preview identity: no jailbreak, Mac, dongle or sign-in is needed, and the identity is not shared with other builds.</string>
     <string name="android_9_compatibility">Android 9 compatibility</string>
     <string name="app_permissions">App permissions</string>
@@ -825,6 +826,16 @@
     <string name="update_saved_to">Saved to %1$s</string>
     <string name="settings_background_update_checks">Check for updates in the background</string>
     <string name="settings_background_update_checks_description">Once a day, CarLink checks GitHub for a new version and shows it on the home screen. It never downloads without your tap.</string>
+    <string name="settings_remote_assistant">Remote assistant</string>
+    <string name="settings_remote_assistant_description">Import a WireGuard configuration to reach the car from another network for remote debugging. The configuration stays on the device and is never sent anywhere.</string>
+    <string name="settings_remote_assistant_enabled">Enable remote assistant</string>
+    <string name="settings_remote_assistant_enabled_description">Connects the configured tunnel when on, disconnects when off.</string>
+    <string name="settings_remote_assistant_import">Import WireGuard configuration</string>
+    <string name="settings_remote_assistant_imported">Configuration imported; connecting</string>
+    <string name="settings_remote_assistant_import_failed">Could not read that configuration</string>
+    <string name="settings_remote_assistant_forget">Forget the configuration and disconnect</string>
+    <string name="settings_remote_assistant_forgotten">Configuration forgotten</string>
+    <string name="settings_remote_assistant_log">Connection log</string>
     <string name="settings_auto_download_update">Download new versions automatically</string>
     <string name="settings_auto_download_update_description">Fetches a new build as soon as one is seen. Only the newest download is kept: an older one is dropped, and the file goes once it is installed.</string>
     <string name="setup_guide">Setup guide</string>
