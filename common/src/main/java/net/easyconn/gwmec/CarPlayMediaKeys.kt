@@ -39,6 +39,8 @@ import kotlin.math.roundToInt
  */
 internal object CarPlayMediaKeys {
     private const val TAG = "CarLink-MediaKeys"
+    /** Waits for the iPhone to finish reporting the track before the play is sent. */
+    private const val RESUME_DELAY_MILLIS = 1_200L
     private const val ACTIONS = PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
         PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS
 
@@ -64,6 +66,8 @@ internal object CarPlayMediaKeys {
     private var focusHeld = false
     private var appContext: Context? = null
     private var mediaAudioActive = false
+    /** Set while a "please play" is in flight, so it is asked once per pause. */
+    private var resumeRequested = false
     private var nowPlaying = CarPlayNowPlaying()
     private var elapsedUpdatedAt = 0L
     private var artwork: Bitmap? = null
@@ -104,7 +108,35 @@ internal object CarPlayMediaKeys {
 
     /** Called when CarPlay music starts or stops; may run on any thread. */
     fun onMediaAudioChanged(active: Boolean) {
-        mainHandler.post { synchronized(this) { updateLocked(active) } }
+        mainHandler.post {
+            synchronized(this) {
+                updateLocked(active)
+                // The head unit often keeps its Bluetooth link up when CarPlay connects, so
+                // the iPhone believes it is still streaming there and reports paused. Its
+                // music then sat silent until the driver pressed play, which is not a thing
+                // anyone should have to do to hear the song that is already selected. When
+                // the CarPlay audio path is up and the iPhone says it is not playing, ask it
+                // to play — once per connection, and never over a pause the driver made.
+                if (active && !resumeRequested) resumePausedIphoneLocked()
+            }
+        }
+    }
+
+    /** Asks the iPhone to play if it arrived paused; only until it reports playing. */
+    private fun resumePausedIphoneLocked() {
+        if (resumeRequested) return
+        val expected = controller ?: return
+        if (nowPlaying.playing) return
+        resumeRequested = true
+        Log.i(TAG, "CarPlay audio up while the iPhone reports paused; asking it to play")
+        mainHandler.postDelayed({
+            synchronized(this) {
+                if (controller === expected && !nowPlaying.playing) {
+                    runCatching { expected.sendMediaButton(net.easyconn.gwmec.airplay.CarPlayMediaButton.PLAY) }
+                }
+                resumeRequested = false
+            }
+        }, RESUME_DELAY_MILLIS)
     }
 
     /** The iPhone started or stopped playing; may run on any thread. */
@@ -136,7 +168,13 @@ internal object CarPlayMediaKeys {
                     }
                     net.easyconn.gwmec.media.AmbientMusicController.albumColorChanged(expected,
                         update.artworkTransferId?.let { ambientColorCache[it] })
-                    artwork = nextArtwork(update.artworkTransferId, artworkCache, artwork)
+                    // A new reference with nothing decoded for it yet: show nothing rather
+                    // than the previous track's cover. The iPhone sends the artwork bytes
+                    // after naming the reference, and until they arrive the honest screen
+                    // is the placeholder — not a cover that belongs to the song before.
+                    artwork = if (update.artworkTransferId != null &&
+                        !artworkCache.containsKey(update.artworkTransferId)) null
+                    else nextArtwork(update.artworkTransferId, artworkCache, artwork)
                 }
                 if (nowPlaying.elapsedMillis != update.elapsedMillis) elapsedUpdatedAt = SystemClock.elapsedRealtime()
                 val metadataChanged = metadataChanged(nowPlaying, update) || artwork !== previousArtwork
