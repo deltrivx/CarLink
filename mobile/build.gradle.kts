@@ -26,14 +26,19 @@ android {
     localAuthenticationAssets?.let { sourceSets.getByName("main").assets.srcDir(it) }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(
-                providers.environmentVariable("ANDROID_KEYSTORE_PATH")
-                    .getOrElse("missing-release-keystore.jks"),
-            )
-            storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").getOrElse("")
-            keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").getOrElse("")
-            keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").getOrElse("")
+        // The release key is a credential, passed in through the environment and never
+        // stored here. When it is absent — a public build, or a first checkout — the
+        // release build falls back to the debug key rather than refusing to build: a
+        // build nobody can produce is worse than one signed with a key that is already
+        // public. A build meant for a car always passes the real key in.
+        val keystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+        if (keystorePath != null && file(keystorePath).exists()) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").getOrElse("")
+                keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").getOrElse("")
+                keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").getOrElse("")
+            }
         }
     }
 
@@ -43,13 +48,16 @@ android {
             versionNameSuffix = ""
         }
         release {
+            // Use the release key when one was passed in; otherwise the debug key, which
+            // is already public. See the signing config above.
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

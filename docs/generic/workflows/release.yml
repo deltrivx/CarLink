@@ -1,9 +1,14 @@
 name: Release build (generic)
 
-# This repository is the generic build's home: no system uid, upstream
-# accessory identity, for any Android device. Its releases feed the generic
-# install's update check. The custom build for the car is published from the
-# private repository, and the custom install looks there instead.
+# This repository is the generic build's home: no system uid, upstream accessory
+# identity, for any Android device. Its releases feed the generic install's update
+# check. The custom build for the car is published from the private repository,
+# and the custom install looks there instead.
+#
+# The generic build is signed with the debug key: this repository holds no private
+# key, and must not. A public build signed with a key nobody here controls would
+# be a build nobody can verify, and a key kept in a public repository's secrets
+# would not stay private.
 
 on:
   push:
