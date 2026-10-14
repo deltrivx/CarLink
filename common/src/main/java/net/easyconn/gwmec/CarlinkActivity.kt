@@ -199,8 +199,15 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         setProjectionHandled(autoEnterUsedThisRun)
     }
 
+    /**
+     * Whether the picture should be brought forward. It waits for a session, not for the
+     * iPhone's RECORD: the session exists as soon as the controller is stored, and by then
+     * the video surface is the only place anything can appear. Waiting for RECORD kept the
+     * home in front for the whole handshake, and the driver watched a black screen while a
+     * connection that was already working finished talking.
+     */
     private fun shouldHandToProjection(): Boolean =
-        CarPlayBackgroundSession.active && page == "home" && !projectionHandled() && !disconnecting
+        CarPlayBackgroundSession.hasSession() && page == "home" && !projectionHandled() && !disconnecting
 
     fun markReturnedFromProjection() { setProjectionHandled(true) }
 
@@ -4831,7 +4838,26 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      * no animation, no preview and nothing of its own on screen: the home stays the view
      * while the link comes up, and the host leaves as soon as the link exists.
      */
+    /**
+     * Brings the picture forward the moment a session exists, rather than on the next
+     * once-a-second poll. The home is what the driver is looking at while the link comes
+     * up, and a second of black screen between "connected" and "picture" is a second of
+     * looking like it failed.
+     */
+    private fun watchForSessionStored() {
+        CarPlayBackgroundSession.onSessionStored = {
+            handler.post {
+                if (shouldHandToProjection()) {
+                    autoEnterUsedThisRun = true
+                    setProjectionHandled(true)
+                    openProjection()
+                }
+            }
+        }
+    }
+
     private fun startBackgroundConnect() {
+        watchForSessionStored()
         startActivity(Intent(this, CarPlayHostActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
                 Intent.FLAG_ACTIVITY_NO_ANIMATION or

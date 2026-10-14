@@ -4773,6 +4773,18 @@ class CarPlayHostActivity : ComponentActivity() {
                     if (startupFailureGeneration == controllerGeneration) return@report
                     startupFailureGeneration = controllerGeneration
                 }
+                // A background host is machinery, not a screen: it opens with nothing of
+                // its own while the home holds the wait. Only a failure that will not be
+                // retried may close it — a startup timeout is retried by the controller,
+                // and closing here would take the picture down in the middle of a
+                // connection that was about to succeed.
+                if (connectingInBackground && !CarPlayBackgroundSession.hasSession() &&
+                    !startupRetryPending(status.startupFailure)
+                ) {
+                    Log.i(TAG, "background link failed for good ($description); returning the wait to the home")
+                    finish()
+                    return@report
+                }
                 reconnectAfterLoss(description, status.startupFailure)
             }
             else -> Unit
@@ -5265,6 +5277,16 @@ class CarPlayHostActivity : ComponentActivity() {
         if (connectingInBackground) finish()
     }
 
+    /**
+     * Whether a startup failure will still be retried. A first-TCP timeout is retried by the
+     * controller after flipping the address family, and a hotspot that is still coming up is
+     * retried on the startup budget; only a configuration failure — a hotspot that is off, or
+     * one this Android cannot make — is final until the driver changes something.
+     */
+    private fun startupRetryPending(failure: WirelessStartupFailure?): Boolean =
+        failure == null || failure == WirelessStartupFailure.HOTSPOT_NOT_READY ||
+            failure == WirelessStartupFailure.FIRST_TCP_TIMEOUT
+
     private fun reconnectAfterLoss(reason: String, startupFailure: WirelessStartupFailure? = null) {
         if (!CarPlayBackgroundSession.isOwner(this)) return
         if (menuOpen) recoveryPendingAfterMenu = true
@@ -5278,6 +5300,10 @@ class CarPlayHostActivity : ComponentActivity() {
             setConnectionStage(if (startupFailure == WirelessStartupFailure.HOTSPOT_CONFIGURATION) reason
                 else "$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             appendLog("wireless startup recovery stopped generation=$restartGeneration reason=$startupFailure retries=${startupRetryBudget.retries}")
+            // Same reason as the failure itself: a background host with no link is a black
+            // screen, not a place to leave the driver. The home states the failure and
+            // offers the connection again.
+            if (connectingInBackground && !CarPlayBackgroundSession.hasSession()) finish()
             return
         }
         reconnectScheduled = true
@@ -5973,7 +5999,14 @@ internal object CarPlayBackgroundSession {
         this.width = width
         this.height = height
         this.display = display
+        // The home is holding the wait and its only way to notice is a once-a-second poll,
+        // so a connection that was already working sat behind a black screen for up to a
+        // second. Tell it now.
+        onSessionStored?.invoke()
     }
+
+    /** Called the moment a session is stored, so the home can bring the picture forward. */
+    @Volatile var onSessionStored: (() -> Unit)? = null
 
     /**
      * Ends the link itself, whatever became of the screen that started it.

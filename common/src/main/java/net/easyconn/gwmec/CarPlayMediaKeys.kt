@@ -92,6 +92,10 @@ internal object CarPlayMediaKeys {
         val retained = next.nowPlayingSnapshot()
         onNowPlayingChanged(next)
         next.matchingArtworkSnapshot(retained.artworkTransferId)?.let { onArtworkChanged(next, it.id, it.bytes) }
+        // The link is up. If the iPhone thinks it is still streaming to Bluetooth, it will
+        // never start on its own — ask it, once the first NowPlaying report has landed.
+        resumeRequested = false
+        mainHandler.postDelayed({ synchronized(this) { resumeIfArrivedPaused(next) } }, RESUME_DELAY_MILLIS)
     }
 
     /** Ends key handling for [expected]; a newer controller's state is left alone. */
@@ -108,33 +112,38 @@ internal object CarPlayMediaKeys {
 
     /** Called when CarPlay music starts or stops; may run on any thread. */
     fun onMediaAudioChanged(active: Boolean) {
-        mainHandler.post {
-            synchronized(this) {
-                updateLocked(active)
-                // The head unit often keeps its Bluetooth link up when CarPlay connects, so
-                // the iPhone believes it is still streaming there and reports paused. Its
-                // music then sat silent until the driver pressed play, which is not a thing
-                // anyone should have to do to hear the song that is already selected. When
-                // the CarPlay audio path is up and the iPhone says it is not playing, ask it
-                // to play — once per connection, and never over a pause the driver made.
-                if (active && !resumeRequested) resumePausedIphoneLocked()
-            }
-        }
+        mainHandler.post { synchronized(this) { updateLocked(active) } }
     }
 
-    /** Asks the iPhone to play if it arrived paused; only until it reports playing. */
-    private fun resumePausedIphoneLocked() {
+    /**
+     * A head unit that keeps its Bluetooth link up when CarPlay connects leaves the iPhone
+     * believing it is still streaming there, so it reports paused and its music sat silent
+     * until the driver pressed play. Nothing an app does makes that reasonable: the song is
+     * already chosen and the CarPlay path is the one being listened to.
+     *
+     * This runs when the link's own playback state arrives — not when audio starts, because a
+     * paused iPhone sends no audio at all, and that was the first attempt's mistake. It asks
+     * the iPhone to play, once, and only while it still says it is not playing.
+     */
+    private fun resumeIfArrivedPaused(expected: CarPlayController) {
         if (resumeRequested) return
-        val expected = controller ?: return
-        if (nowPlaying.playing) return
+        val snapshot = runCatching(expected::nowPlayingSnapshot).getOrNull() ?: return
+        // Nothing chosen yet: the iPhone has not told us what is playing, and asking it to
+        // play would start whatever it feels like rather than the song on screen.
+        if (snapshot.title == null && snapshot.artworkTransferId == null) return
+        if (snapshot.playing) return
         resumeRequested = true
-        Log.i(TAG, "CarPlay audio up while the iPhone reports paused; asking it to play")
+        Log.i(TAG, "CarPlay link up while the iPhone reports paused; asking it to play")
         mainHandler.postDelayed({
             synchronized(this) {
-                if (controller === expected && !nowPlaying.playing) {
-                    runCatching { expected.sendMediaButton(net.easyconn.gwmec.airplay.CarPlayMediaButton.PLAY) }
-                }
                 resumeRequested = false
+                if (controller !== expected) return@synchronized
+                val current = runCatching(expected::nowPlayingSnapshot).getOrNull() ?: return@synchronized
+                // A pause the driver made in the meantime is theirs, not ours to override.
+                if (current.playing || current.title == null) return@synchronized
+                val sent = runCatching { expected.sendMediaButton(net.easyconn.gwmec.airplay.CarPlayMediaButton.PLAY) }
+                    .getOrDefault(false)
+                Log.i(TAG, "asked the iPhone to play; sent=$sent")
             }
         }, RESUME_DELAY_MILLIS)
     }
@@ -145,6 +154,9 @@ internal object CarPlayMediaKeys {
             synchronized(this) {
                 if (controller === expected) regainFocusLocked()
             }
+        } else if (resumeRequested) {
+            // It paused while our ask was in flight: that was the driver, so stand down.
+            mainHandler.post { synchronized(this) { resumeRequested = false } }
         }
     }
 
