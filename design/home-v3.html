@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EasyConnect 主页 · 第三版（车机插画 + 参考风格）</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#08070a;font-family:"PingFang SC","Helvetica Neue",system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:34px;padding:40px}
+  .caption{color:#6b6b75;font-size:14px;letter-spacing:.1em}
+  .frame{width:1280px;height:800px;position:relative;overflow:hidden;border-radius:14px;
+         box-shadow:0 30px 80px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.05)}
+  .screen{position:absolute;inset:0;
+    background:linear-gradient(180deg,#212026 0%,#1F1E24 18%,#1C1B21 40%,
+               #19161D 62%,#17141B 80%,#141118 100%);
+    display:flex;flex-direction:column;color:#fff}
+
+  header{display:flex;align-items:center;padding:30px 46px 0;gap:34px;z-index:5}
+  .ghosticon{width:34px;height:34px;display:grid;place-items:center;cursor:pointer;opacity:.92}
+  .ghosticon svg{width:29px;height:29px;fill:none;stroke:#fff;stroke-width:2.1;
+                 stroke-linecap:round;stroke-linejoin:round}
+  header .spacer{flex:1}
+  .ghosttext{font-size:21px;font-weight:500;color:#fff;letter-spacing:.06em;
+             cursor:pointer;opacity:.94;padding:6px 2px}
+
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       z-index:4;padding-bottom:30px}
+  .heroart{width:580px;height:400px;margin-top:-26px;margin-bottom:0}
+  .beam{stroke-dasharray:9 7;animation:flow 1.5s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-26}}
+
+  .statusline{display:flex;align-items:center;gap:13px;font-size:23px;font-weight:450;
+              color:#E9E9EE;letter-spacing:.03em;margin-top:16px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#7FD1A0;
+       box-shadow:0 0 10px rgba(127,209,160,.85)}
+  .subhint{font-size:14.5px;color:#8A8A95;text-align:center;line-height:1.7;
+           margin-top:18px;max-width:720px}
+
+  .actions{display:flex;align-items:center;justify-content:center;margin-top:44px;
+           flex-wrap:wrap;row-gap:14px}
+  .gaction{position:relative;font-size:21px;font-weight:500;color:#EFEFF3;background:none;
+           border:0;cursor:pointer;letter-spacing:.06em;padding:14px 30px}
+  .gaction.primary{color:#8FC6FF;text-shadow:0 0 22px rgba(120,180,255,.55)}
+  .gaction.primary::after{content:"";position:absolute;left:50%;bottom:4px;
+      transform:translateX(-50%);width:38px;height:2px;border-radius:2px;
+      background:linear-gradient(90deg,transparent,#8FC6FF,transparent);opacity:.9}
+  .gaction.danger{color:#FF9B9B}
+  .sep{width:1px;height:20px;background:rgba(255,255,255,.13);margin:0 2px}
+
+  .corner{position:absolute;right:46px;bottom:34px;text-align:right;z-index:5}
+  .update{display:flex;align-items:center;justify-content:flex-end;gap:8px;
+          font-size:15px;font-weight:500;color:#FFC480;margin-bottom:9px;cursor:pointer}
+  .update svg{width:15px;height:15px;stroke:#FFC480;fill:none;stroke-width:1.9}
+  .version{font-size:14px;color:#6E6E78;letter-spacing:.1em}
+</style>
+</head>
+<body>
+
+<div class="caption">第三版 · 车机场景插画（车 + 中控屏 + 手机投射）· 极简暗色底</div>
+<div class="frame"><div class="screen">
+
+  <header>
+    <div class="ghosticon">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/><path d="M8 12h12" opacity=".5"/></svg>
+    </div>
+    <div class="ghosticon">
+      <svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg>
+    </div>
+    <div class="spacer"></div>
+    <div class="ghosttext">设置</div>
+  </header>
+
+  <main>
+    <svg class="heroart" viewBox="28 82 392 288">
+      <defs>
+        <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#C2CEDF"/>
+          <stop offset="30%" stop-color="#8A97AB"/>
+          <stop offset="62%" stop-color="#525C6C"/>
+          <stop offset="100%" stop-color="#2B313B"/>
+        </linearGradient>
+        <linearGradient id="glass" x1="0" y1="0" x2=".35" y2="1">
+          <stop offset="0%" stop-color="#31405280"/>
+          <stop offset="100%" stop-color="#0F1520"/>
+        </linearGradient>
+        <radialGradient id="gshadow">
+          <stop offset="0%" stop-color="#000" stop-opacity=".66"/>
+          <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="pbody" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#525D6E"/>
+          <stop offset="100%" stop-color="#232933"/>
+        </linearGradient>
+        <linearGradient id="pscreen" x1="0" y1="0" x2=".3" y2="1">
+          <stop offset="0%" stop-color="#18293D"/>
+          <stop offset="100%" stop-color="#0A1018"/>
+        </linearGradient>
+        <linearGradient id="beamg" x1="0" y1="1" x2=".25" y2="0">
+          <stop offset="0%" stop-color="#7FC4FF" stop-opacity="0"/>
+          <stop offset="40%" stop-color="#7FC4FF" stop-opacity=".9"/>
+          <stop offset="100%" stop-color="#CDE8FF" stop-opacity="1"/>
+        </linearGradient>
+        <filter id="glow" x="-70%" y="-70%" width="240%" height="240%">
+          <feGaussianBlur stdDeviation="4.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glows" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="2.4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- 地面阴影 -->
+      <ellipse cx="212" cy="224" rx="178" ry="15" fill="url(#gshadow)"/>
+
+      <!-- ===== 车（侧视，车头朝左） ===== -->
+      <!-- 车身 -->
+      <path d="M44,182 C46,171 54,164 70,159 L140,143 L164,103 L272,101 L330,141
+               L364,147 C378,152 382,169 378,183 L374,204 L44,204 Z" fill="url(#body)"/>
+      <!-- 引擎盖/车顶 漆面高光 -->
+      <path d="M70,159 L140,143 L152,150 L78,166 Z" fill="#E2EDF9" opacity=".13"/>
+      <path d="M164,103 L272,101 L274,108 L166,111 Z" fill="#EAF3FF" opacity=".20"/>
+      <!-- 轮廓光 -->
+      <path d="M70,159 L140,143 L164,103 L272,101 L330,141 L364,147"
+            fill="none" stroke="#D6E4F2" stroke-width="1.3" opacity=".42"/>
+      <!-- 车底环境反射 -->
+      <path d="M50,204 L370,204" stroke="#5A6E88" stroke-width="2" opacity=".45"/>
+
+      <!-- 侧窗 -->
+      <path d="M174,109 L266,107 L322,137 L174,139 Z" fill="url(#glass)"/>
+      <path d="M174,109 L266,107 L322,137 L174,139 Z" fill="none" stroke="#202A38" stroke-width="1.1"/>
+      <!-- B柱 -->
+      <path d="M226,108 L228,138" stroke="#454F60" stroke-width="6"/>
+      <!-- 门缝与把手 -->
+      <path d="M226,140 L226,200" stroke="#3B4450" stroke-width="1.5" opacity=".65"/>
+      <rect x="252" y="150" width="15" height="3.4" rx="1.7" fill="#77859A" opacity=".85"/>
+      <rect x="296" y="150" width="15" height="3.4" rx="1.7" fill="#77859A" opacity=".85"/>
+
+      <!-- 中控屏（车内，发光显示 CarPlay） -->
+      <rect x="184" y="117" width="46" height="21" rx="2.5" fill="#0B1622"
+            stroke="#7FC4FF" stroke-width="1.2" filter="url(#glows)"/>
+      <!-- 屏内：地图路网 + 蓝色路线 + 转向箭头 -->
+      <path d="M188,127 H226" stroke="#2E4A66" stroke-width="1.1" opacity=".8"/>
+      <path d="M204,119 V136" stroke="#2E4A66" stroke-width="1.1" opacity=".8"/>
+      <path d="M192,133 L204,126 L214,122" stroke="#6FB8FF" stroke-width="1.9" fill="none"/>
+      <path d="M212,120 L216,124 L210,126 Z" fill="#9AD4FF"/>
+
+      <!-- 前大灯 / 尾灯 -->
+      <ellipse cx="60" cy="170" rx="9" ry="5.5" fill="#E9F3FD" filter="url(#glows)"/>
+      <ellipse cx="374" cy="166" rx="8" ry="5" fill="#FF7B7B" filter="url(#glows)"/>
+
+      <!-- 轮拱 -->
+      <path d="M84,204 A22,22 0 0 1 128,204 Z" fill="#222832"/>
+      <path d="M304,204 A22,22 0 0 1 348,204 Z" fill="#222832"/>
+      <!-- 车轮 -->
+      <circle cx="106" cy="194" r="20" fill="#14181F"/>
+      <circle cx="106" cy="194" r="10" fill="#3C4553"/>
+      <circle cx="106" cy="194" r="3.6" fill="#7A8698"/>
+      <circle cx="326" cy="194" r="20" fill="#14181F"/>
+      <circle cx="326" cy="194" r="10" fill="#3C4553"/>
+      <circle cx="326" cy="194" r="3.6" fill="#7A8698"/>
+
+      <!-- ===== 投射光流：手机 -> 车中控屏 ===== -->
+      <path d="M182,262 C166,224 178,168 204,132" fill="none"
+            stroke="url(#beamg)" stroke-width="5" opacity=".85" filter="url(#glow)"/>
+      <path class="beam" d="M182,262 C166,224 178,168 204,132" fill="none"
+            stroke="#D8EEFF" stroke-width="1.8" opacity=".95"/>
+      <circle cx="204" cy="130" r="3.2" fill="#CDE8FF" filter="url(#glows)"/>
+
+      <!-- ===== 手机 ===== -->
+      <rect x="150" y="264" width="64" height="90" rx="12" fill="url(#pbody)"
+            stroke="#4E5A6A" stroke-width="1.1"/>
+      <rect x="155" y="269" width="54" height="78" rx="7" fill="url(#pscreen)"/>
+      <rect x="155" y="269" width="54" height="78" rx="7" fill="none"
+            stroke="#7FC4FF" stroke-width="1.3" filter="url(#glows)"/>
+      <!-- 屏幕内容 -->
+      <path d="M160,276 H204" stroke="#5C6E86" stroke-width="1.6" opacity=".9"/>
+      <path d="M162,290 H202" stroke="#2F4460" stroke-width="1.5" opacity=".85"/>
+      <path d="M182,283 V342" stroke="#2F4460" stroke-width="1.5" opacity=".85"/>
+      <path d="M164,300 L180,306 L192,314 L200,326" stroke="#6FB8FF" stroke-width="2.3" fill="none"/>
+      <path d="M198,322 L204,331 L194,331 Z" fill="#9AD4FF"/>
+      <!-- dock -->
+      <rect x="161" y="332" width="13" height="9" rx="2.2" fill="#4E7FA8"/>
+      <rect x="177" y="332" width="13" height="9" rx="2.2" fill="#4E9E78"/>
+      <rect x="193" y="332" width="13" height="9" rx="2.2" fill="#A88A4E"/>
+    </svg>
+
+    <div class="statusline"><span class="dot"></span>Ready when you are</div>
+    <div class="subhint">Wi-Fi Direct · Keep the car’s Wi-Fi switch, Bluetooth and your iPhone’s Wi-Fi on.</div>
+
+    <div class="actions">
+      <button class="gaction primary">Connect phone</button>
+      <span class="sep"></span>
+      <button class="gaction">Connect with USB</button>
+      <span class="sep"></span>
+      <button class="gaction">Choose iPhone</button>
+      <span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+
+  <div class="corner">
+    <div class="update">
+      <svg viewBox="0 0 24 24"><path d="M12 20v-7"/><path d="M8.5 16.5 12 20l3.5-3.5"/><path d="M19.5 8A7.5 7.5 0 0 0 6 5"/><path d="M4.5 16A7.5 7.5 0 0 0 18 19"/></svg>
+      Update available
+    </div>
+    <div class="version">v0.2.17 · BUILD 2026.10</div>
+  </div>
+
+</div></div>
+
+<div class="caption">第三版 · 已连接状态（投射光流更亮，主按钮变 Open CarPlay，出现 Disconnect）</div>
+<div class="frame"><div class="screen">
+  <header>
+    <div class="ghosticon">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/><path d="M8 12h12" opacity=".5"/></svg>
+    </div>
+    <div class="ghosticon">
+      <svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.6l8.5 6.9"/><path d="M5.8 9.6V20h12.4V9.6"/></svg>
+    </div>
+    <div class="spacer"></div>
+    <div class="ghosttext">设置</div>
+  </header>
+
+  <main>
+    <svg class="heroart" viewBox="28 82 392 288">
+      <!-- 复用同 defs（内联重复定义以确保独立渲染） -->
+      <defs>
+        <linearGradient id="body2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#C6D2E3"/><stop offset="30%" stop-color="#8E9BB0"/>
+          <stop offset="62%" stop-color="#566070"/><stop offset="100%" stop-color="#2D333D"/>
+        </linearGradient>
+        <linearGradient id="glass2" x1="0" y1="0" x2=".35" y2="1">
+          <stop offset="0%" stop-color="#35455C"/><stop offset="100%" stop-color="#111925"/>
+        </linearGradient>
+        <radialGradient id="gshadow2">
+          <stop offset="0%" stop-color="#000" stop-opacity=".7"/><stop offset="100%" stop-color="#000" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="pbody2" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#566170"/><stop offset="100%" stop-color="#252B35"/>
+        </linearGradient>
+        <linearGradient id="pscreen2" x1="0" y1="0" x2=".3" y2="1">
+          <stop offset="0%" stop-color="#1B2E44"/><stop offset="100%" stop-color="#0B111A"/>
+        </linearGradient>
+        <linearGradient id="beamg2" x1="0" y1="1" x2=".25" y2="0">
+          <stop offset="0%" stop-color="#9AD4FF" stop-opacity=".25"/>
+          <stop offset="45%" stop-color="#9AD4FF" stop-opacity="1"/>
+          <stop offset="100%" stop-color="#E4F3FF" stop-opacity="1"/>
+        </linearGradient>
+        <filter id="glow2" x="-70%" y="-70%" width="240%" height="240%">
+          <feGaussianBlur stdDeviation="5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glows2" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="2.6" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <ellipse cx="212" cy="224" rx="178" ry="15" fill="url(#gshadow2)"/>
+      <path d="M44,182 C46,171 54,164 70,159 L140,143 L164,103 L272,101 L330,141
+               L364,147 C378,152 382,169 378,183 L374,204 L44,204 Z" fill="url(#body2)"/>
+      <path d="M70,159 L140,143 L152,150 L78,166 Z" fill="#E6F1FC" opacity=".15"/>
+      <path d="M164,103 L272,101 L274,108 L166,111 Z" fill="#EEF6FF" opacity=".24"/>
+      <path d="M70,159 L140,143 L164,103 L272,101 L330,141 L364,147"
+            fill="none" stroke="#DCE9F6" stroke-width="1.4" opacity=".5"/>
+      <path d="M50,204 L370,204" stroke="#5E7290" stroke-width="2" opacity=".5"/>
+      <path d="M174,109 L266,107 L322,137 L174,139 Z" fill="url(#glass2)"/>
+      <path d="M226,108 L228,138" stroke="#48525F" stroke-width="6"/>
+      <path d="M226,140 L226,200" stroke="#3E4854" stroke-width="1.5" opacity=".65"/>
+      <rect x="252" y="150" width="15" height="3.4" rx="1.7" fill="#7C8AA0"/>
+      <rect x="296" y="150" width="15" height="3.4" rx="1.7" fill="#7C8AA0"/>
+      <!-- 已连接：中控屏更亮 -->
+      <rect x="184" y="117" width="46" height="21" rx="2.5" fill="#132A3E"
+            stroke="#A8DCFF" stroke-width="1.4" filter="url(#glows2)"/>
+      <path d="M188,127 H226" stroke="#3F6488" stroke-width="1.2"/>
+      <path d="M204,119 V136" stroke="#3F6488" stroke-width="1.2"/>
+      <path d="M192,133 L204,126 L214,122" stroke="#8FDAFF" stroke-width="2.1" fill="none"/>
+      <path d="M212,120 L216,124 L210,126 Z" fill="#C4E9FF"/>
+      <ellipse cx="60" cy="170" rx="9" ry="5.5" fill="#F1F8FF" filter="url(#glows2)"/>
+      <ellipse cx="374" cy="166" rx="8" ry="5" fill="#FF8484" filter="url(#glows2)"/>
+      <path d="M84,204 A22,22 0 0 1 128,204 Z" fill="#242A34"/>
+      <path d="M304,204 A22,22 0 0 1 348,204 Z" fill="#242A34"/>
+      <circle cx="106" cy="194" r="20" fill="#151A21"/><circle cx="106" cy="194" r="10" fill="#3F4856"/><circle cx="106" cy="194" r="3.6" fill="#7F8B9D"/>
+      <circle cx="326" cy="194" r="20" fill="#151A21"/><circle cx="326" cy="194" r="10" fill="#3F4856"/><circle cx="326" cy="194" r="3.6" fill="#7F8B9D"/>
+      <path d="M182,262 C166,224 178,168 204,132" fill="none"
+            stroke="url(#beamg2)" stroke-width="5.4" opacity=".92" filter="url(#glow2)"/>
+      <path class="beam" d="M182,262 C166,224 178,168 204,132" fill="none"
+            stroke="#EAF6FF" stroke-width="2" opacity="1"/>
+      <circle cx="204" cy="130" r="3.6" fill="#E4F3FF" filter="url(#glows2)"/>
+      <rect x="150" y="264" width="64" height="90" rx="12" fill="url(#pbody2)" stroke="#525E6E" stroke-width="1.1"/>
+      <rect x="155" y="269" width="54" height="78" rx="7" fill="url(#pscreen2)"/>
+      <rect x="155" y="269" width="54" height="78" rx="7" fill="none" stroke="#A8DCFF" stroke-width="1.4" filter="url(#glows2)"/>
+      <path d="M160,276 H204" stroke="#61748C" stroke-width="1.6"/>
+      <path d="M162,290 H202" stroke="#35506F" stroke-width="1.5"/>
+      <path d="M182,283 V342" stroke="#35506F" stroke-width="1.5"/>
+      <path d="M164,300 L180,306 L192,314 L200,326" stroke="#8FDAFF" stroke-width="2.4" fill="none"/>
+      <path d="M198,322 L204,331 L194,331 Z" fill="#C4E9FF"/>
+      <rect x="161" y="332" width="13" height="9" rx="2.2" fill="#5A8FBB"/>
+      <rect x="177" y="332" width="13" height="9" rx="2.2" fill="#58B088"/>
+      <rect x="193" y="332" width="13" height="9" rx="2.2" fill="#BC9A58"/>
+    </svg>
+
+    <div class="statusline"><span class="dot"></span>CarPlay connected</div>
+    <div class="subhint">Your iPhone is projecting to this display.</div>
+
+    <div class="actions">
+      <button class="gaction primary">Open CarPlay</button>
+      <span class="sep"></span>
+      <button class="gaction">Choose iPhone</button>
+      <span class="sep"></span>
+      <button class="gaction danger">Disconnect</button>
+      <span class="sep"></span>
+      <button class="gaction">Settings</button>
+    </div>
+  </main>
+
+  <div class="corner"><div class="version">v0.2.17 · BUILD 2026.10</div></div>
+</div></div>
+
+</body>
+</html>

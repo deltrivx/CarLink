@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>EasyConnect（车机互联）主页 · 第九版 · 中文 · 四帧</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#08070a;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:26px;padding:34px}
+  .caption{color:#6b6b75;font-size:14px;letter-spacing:.1em}
+  .frame{width:1280px;height:700px;position:relative;overflow:hidden;border-radius:14px;
+         box-shadow:0 30px 80px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.05)}
+  .screen{position:absolute;inset:0;
+    background:linear-gradient(180deg,#212026 0%,#1F1E24 18%,#1C1B21 42%,#19161D 66%,#17141B 84%,#141118 100%);
+    display:flex;flex-direction:column;color:#fff}
+
+  header{display:flex;align-items:center;padding:22px 44px 0;z-index:5}
+  .nav{display:flex;align-items:center;gap:24px}
+  .gi{width:34px;height:34px;display:grid;place-items:center;cursor:pointer;opacity:.92;flex:none}
+  .gi svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2.1;
+          stroke-linecap:round;stroke-linejoin:round}
+  header .spacer{flex:1}
+
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       z-index:4;padding:0 44px}
+  .hero{height:270px;width:auto;flex:none;filter:drop-shadow(0 18px 40px rgba(0,0,0,.5))}
+
+  .statusline{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:450;
+              color:#E9E9EE;letter-spacing:.03em;margin-top:10px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#7FD1A0;box-shadow:0 0 10px rgba(127,209,160,.85)}
+  .dot.spin{background:#8FC6FF;box-shadow:0 0 12px rgba(143,198,255,.9);animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.45;transform:scale(.86)}50%{opacity:1;transform:scale(1.1)}}
+  .subhint{font-size:13.5px;color:#8A8A95;text-align:center;line-height:1.65;margin-top:11px;max-width:660px}
+  .warn{display:flex;align-items:center;gap:8px;font-size:14px;color:#FFC480;margin-top:11px}
+  .warn svg{width:15px;height:15px;stroke:#FFC480;fill:none;stroke-width:2}
+
+  .actions{display:flex;align-items:center;justify-content:center;margin-top:22px;flex-wrap:wrap;row-gap:9px}
+  .gaction{position:relative;font-size:19px;font-weight:500;color:#EFEFF3;background:none;border:0;
+           cursor:pointer;letter-spacing:.04em;padding:11px 20px}
+  .gaction.primary{color:#8FC6FF;text-shadow:0 0 20px rgba(120,180,255,.5)}
+  .gaction.primary::after{content:"";position:absolute;left:50%;bottom:2px;transform:translateX(-50%);
+      width:32px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,#8FC6FF,transparent)}
+  .gaction.danger{color:#FF9B9B}
+  .gaction.warnact{color:#FFC480}
+  .sep{width:1px;height:18px;background:rgba(255,255,255,.13);margin:0 2px}
+
+  .bl{position:absolute;left:44px;bottom:26px;font-size:14px;color:#6E6E78;letter-spacing:.1em;z-index:5}
+  .br{position:absolute;right:44px;bottom:26px;display:flex;align-items:center;gap:8px;
+      font-size:15px;font-weight:500;color:#FFC480;cursor:pointer;z-index:5}
+  .br svg{width:15px;height:15px;stroke:#FFC480;fill:none;stroke-width:1.9}
+</style>
+</head>
+<body>
+
+<!-- 顶栏图标复用 -->
+<svg width="0" height="0" style="position:absolute"><defs>
+ <g id="ic-back"><path d="M15 5l-7 7 7 7" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></g>
+ <g id="ic-car"><path d="M3.5 10.5 12 3.6l8.5 6.9M5.8 9.6V20h12.4V9.6" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></g>
+ <g id="ic-night"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></g>
+ <g id="ic-gear"><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="2.1"/>
+   <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" fill="none" stroke="#fff" stroke-width="2.1" stroke-linejoin="round"/></g>
+</defs></svg>
+
+<script>
+function headerBar(){
+  return `<header>
+    <div class="nav">
+      <div class="gi" title="返回"><svg viewBox="0 0 24 24"><use href="#ic-back"/></svg></div>
+      <div class="gi" title="车机主页"><svg viewBox="0 0 24 24"><use href="#ic-car"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav">
+      <div class="gi" title="切换外观"><svg viewBox="0 0 24 24"><use href="#ic-night"/></svg></div>
+      <div class="gi" title="设置"><svg viewBox="0 0 24 24"><use href="#ic-gear"/></svg></div>
+    </div>
+  </header>`;
+}
+</script>
+
+<!-- ============ 帧1：未连接 ============ -->
+<div class="caption">第九版 · ① 未连接（中文 · 新图原样 · 无连接线）</div>
+<div class="frame"><div class="screen">
+  <script>document.write(headerBar())</script>
+  <main>
+    <img class="hero" src="hero_carlife.png">
+    <div class="statusline"><span class="dot"></span>一切就绪</div>
+    <div class="subhint">Wi-Fi Direct · 保持车机 Wi-Fi 开关、蓝牙和 iPhone 的 Wi-Fi 开启。</div>
+    <div class="actions">
+      <button class="gaction primary">连接手机</button><span class="sep"></span>
+      <button class="gaction">通过 USB 连接</button><span class="sep"></span>
+      <button class="gaction">选择 iPhone</button><span class="sep"></span>
+      <button class="gaction">设置</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+  <div class="br"><svg viewBox="0 0 24 24"><path d="M12 20v-7M8.5 16.5 12 20l3.5-3.5M19.5 8A7.5 7.5 0 0 0 6 5M4.5 16A7.5 7.5 0 0 0 18 19" fill="none" stroke="#FFC480" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>有可用更新</div>
+</div></div>
+
+<!-- ============ 帧2：已连接 ============ -->
+<div class="caption">第九版 · ② 已连接（打开 CarPlay · 断开连接）</div>
+<div class="frame"><div class="screen">
+  <script>document.write(headerBar())</script>
+  <main>
+    <img class="hero" src="hero_carlife.png">
+    <div class="statusline"><span class="dot"></span>CarPlay 已连接</div>
+    <div class="subhint">iPhone 正在将画面投射到车机屏幕。</div>
+    <div class="actions">
+      <button class="gaction primary">打开 CarPlay</button><span class="sep"></span>
+      <button class="gaction">选择 iPhone</button><span class="sep"></span>
+      <button class="gaction danger">断开连接</button><span class="sep"></span>
+      <button class="gaction">设置</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+</div></div>
+
+<!-- ============ 帧3：连接中（修正逻辑：末位=停止连接→回到①） ============ -->
+<div class="caption">第九版 · ③ 连接中（修正：重新连接 / 重置 CarPlay Wi-Fi / 停止连接 → 点击回到 ①）</div>
+<div class="frame"><div class="screen">
+  <script>document.write(headerBar())</script>
+  <main>
+    <img class="hero" src="hero_carlife.png">
+    <div class="statusline"><span class="dot spin"></span>正在连接 iPhone…</div>
+    <div class="subhint">正在准备 CarPlay…</div>
+    <div class="actions">
+      <button class="gaction">重新连接</button><span class="sep"></span>
+      <button class="gaction warnact">重置 CarPlay Wi-Fi</button><span class="sep"></span>
+      <button class="gaction danger">停止连接</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+</div></div>
+
+<!-- ============ 帧4：热点异常 ============ -->
+<div class="caption">第九版 · ④ 热点异常（警告 + 打开车机热点设置）</div>
+<div class="frame"><div class="screen">
+  <script>document.write(headerBar())</script>
+  <main>
+    <img class="hero" src="hero_carlife.png">
+    <div class="statusline"><span class="dot"></span>一切就绪</div>
+    <div class="warn"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" fill="none" stroke="#FFC480" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      车机热点“CarHotspot”未开启。请在车机设置中开启后再连接。</div>
+    <div class="actions">
+      <button class="gaction primary">连接手机</button><span class="sep"></span>
+      <button class="gaction">通过 USB 连接</button><span class="sep"></span>
+      <button class="gaction warnact">打开车机热点设置</button><span class="sep"></span>
+      <button class="gaction">选择 iPhone</button><span class="sep"></span>
+      <button class="gaction">设置</button>
+    </div>
+  </main>
+  <div class="bl">v0.2.17 · BUILD 2026.10</div>
+  <div class="br"><svg viewBox="0 0 24 24"><path d="M12 20v-7M8.5 16.5 12 20l3.5-3.5M19.5 8A7.5 7.5 0 0 0 6 5M4.5 16A7.5 7.5 0 0 0 18 19" fill="none" stroke="#FFC480" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>有可用更新</div>
+</div></div>
+
+</body>
+</html>
