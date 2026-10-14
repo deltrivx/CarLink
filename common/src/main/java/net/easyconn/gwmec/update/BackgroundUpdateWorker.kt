@@ -51,7 +51,11 @@ internal class BackgroundUpdateWorker(context: Context, parameters: WorkerParame
         return try {
             val release = UpdateReleaseLookup.latest(
                 installedVersion = installedVersion,
-                userAgent = "DiPlay/$installedVersion",
+                userAgent = "CarLink/$installedVersion",
+                // The custom build's releases are private, and answer only to a
+                // caller carrying the token packaged with the build. Without it
+                // the request is refused exactly as if there were no releases.
+                token = updateToken(),
                 openConnection = network::openConnection,
             )
             if (release == null) UpdateAvailability.clear(applicationContext)
@@ -64,6 +68,12 @@ internal class BackgroundUpdateWorker(context: Context, parameters: WorkerParame
             retryOrGiveUp("fetch failed: ${failure.javaClass.simpleName}")
         }
     }
+
+    /** The token packaged in assets, if this build carries one. */
+    private fun updateToken(): String? = runCatching {
+        applicationContext.assets.open("ota-token.txt").use { it.readBytes() }
+            .toString(Charsets.UTF_8).trim().takeIf { it.isNotEmpty() }
+    }.getOrNull()
 
     private fun retryOrGiveUp(reason: String): Result {
         UpdateAvailability.recordResult(applicationContext, System.currentTimeMillis(), "$reason (attempt ${runAttemptCount + 1})")
