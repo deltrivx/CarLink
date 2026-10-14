@@ -69,6 +69,15 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_apk_paths" />
         </provider>
+        <!-- A launcher or cluster can ask what CarPlay is playing; the media session
+             already publishes it, this is how a browser reaches it. -->
+        <service android:name="net.easyconn.gwmec.CarPlayBrowserService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
         <activity android:name="net.easyconn.gwmec.CarlinkActivity"
             android:exported="true" android:launchMode="singleTask"
             android:resizeableActivity="true"

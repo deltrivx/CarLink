@@ -386,6 +386,18 @@ internal object CarPlayMediaKeys {
         send = ::send,
     )
 
+    /**
+     * The metadata and playback state the session is publishing, for a browser that asks
+     * rather than listens. Returns null while no CarPlay session has ever played: a browser
+     * shown nothing is honest, where an empty queue looks like a broken source.
+     */
+    fun published(): MediaMetadata? = synchronized(this) { session }?.let { session ->
+        androidMetadata(nowPlaying, shownArtworkLocked()).takeIf { it.containsKey(MediaMetadata.METADATA_KEY_TITLE) }
+    }
+
+    /** The session token a browser needs to read [published], or null when there is none. */
+    fun sessionToken(): MediaSession.Token? = synchronized(this) { session }?.sessionToken
+
     /** Whether [next] changes what the media session's metadata shows; position and play state do not. */
     internal fun metadataChanged(previous: CarPlayNowPlaying, next: CarPlayNowPlaying): Boolean =
         previous.copy(elapsedMillis = null, playing = false) != next.copy(elapsedMillis = null, playing = false)
