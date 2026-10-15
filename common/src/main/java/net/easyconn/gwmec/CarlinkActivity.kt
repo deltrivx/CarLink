@@ -720,26 +720,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             "settings" -> !SettingsLayoutPreferences.isActive(this)
             else -> true
         }
-        val scroll = ScrollView(this).apply {
-            // The settings page wears a wash rather than a flat fill, so its cards read as
-            // frosted panels; the home keeps its plain colour.
-            background = if (page == "settings") {
-                // The narrow layout keeps the same idea as the wide one: a dimmed scrim
-                // behind one frosted panel, drawn as the scroll's backdrop so the panel
-                // scrolls under it rather than being clipped by it.
-                GradientDrawable(
-                    GradientDrawable.Orientation.TOP_BOTTOM,
-                    intArrayOf(
-                        (Color.BLACK and 0x00FFFFFF) or (0x55 shl 24),
-                        (Color.BLACK and 0x00FFFFFF) or (0x66 shl 24),
-                    ),
-                )
-            } else {
-                GradientDrawable().apply { setColor(BG) }
-            }
-            isFillViewport = true
-            clipToPadding = false
-        }
+        val scroll = ScrollView(this).apply { setBackgroundColor(BG); isFillViewport = true; clipToPadding = false }
         rootScroll = scroll
         val content = column()
         scroll.addView(content)
@@ -751,18 +732,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         } else {
             if (compact) content.setPadding(dp(12), dp(10), dp(12), dp(12))
             else content.setPadding(dp(32), dp(24), dp(32), dp(32))
-            // The narrow settings page is one frosted panel on the scrim behind it,
-            // rounded at the top where the panel begins.
-            if (page == "settings") {
-                val panelRadius = layoutCornerRadius() * 1.1f
-                content.background = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadii = floatArrayOf(panelRadius, panelRadius, panelRadius, panelRadius, 0f, 0f, 0f, 0f)
-                    setColor((surfaceTint and 0x00FFFFFF) or (0xF2 shl 24))
-                    setStroke(dp(1), (outline and 0x00FFFFFF) or (0x30 shl 24))
-                }
-                content.clipToOutline = true
-            }
             content.addView(header)
             content.addView(space(when {
                 compact && (page == "settings" || page == "home") -> SETTINGS_BLOCK_GAP_DP
@@ -882,6 +851,13 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         } else {
             addView(headerIcon(R.drawable.ic_carplay, getString(R.string.carplay), compact) { },
                 LinearLayout.LayoutParams(glyph, glyph))
+            // The app's name beside its glyph, so the corner says whose screen this is.
+            // The size follows the corner glyph: small enough to sit beside it without
+            // competing with the page's own title below.
+            addView(label(getString(R.string.app_name), if (compact) 30 else 38, TEXT, true).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(if (compact) 10 else 14), 0, 0, 0)
+            }, LinearLayout.LayoutParams(-2, glyph).apply { gravity = Gravity.CENTER_VERTICAL })
         }
         addView(View(this@CarlinkActivity), LinearLayout.LayoutParams(0, 0, 1f))
         // Right edge: one icon, the head unit's home as a house, matching the left glyph.
@@ -981,6 +957,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      */
     private var homeStatusBox: LinearLayout? = null
     private var homeStatusBoxState: HomeState? = null
+    /** The action row's own box, filled by [buildHomeActions]; it does not move with the status. */
+    private var homeActionBox: LinearLayout? = null
     private var homeProgressBar: android.widget.ProgressBar? = null
     private var homeProgressDetail: TextView? = null
     private var homeProgressTicker: Runnable? = null
@@ -1080,10 +1058,14 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         lastRunning = null
         box.removeAllViews()
         val compact = isCompactLayout
-        status = label(getString(R.string.ready_when_you_are), 24, TEXT, true).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(4), 0, 0)
+        fun addToStatusBox(view: View, params: LinearLayout.LayoutParams? = null) {
+            box.addView(view, params ?: LinearLayout.LayoutParams(-1, -2))
         }
+        status = label(getString(R.string.ready_when_you_are), 15, TEXT, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(3), 0, 0)
+        }
+        addToStatusBox(status!!)
         // The link's progress and its numbers: a bar that says how far along the connection
         // is, and the line under it that says what it is doing and on what. Both are filled
         // by refreshHomeStatus(), so a transition moves the bar and rewrites the line while
@@ -1096,13 +1078,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             isIndeterminate = false
             visibility = View.GONE
         }
-        homeProgressDetail = label("", 13, MUTED).apply {
+        homeProgressDetail = label("", 12, MUTED).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(6), 0, 0)
+            setPadding(0, dp(5), 0, 0)
             visibility = View.GONE
-        }
-        fun addToStatusBox(view: View, params: LinearLayout.LayoutParams? = null) {
-            box.addView(view, params ?: LinearLayout.LayoutParams(-1, -2))
         }
         fun homeButton(title: String, primary: Boolean, click: () -> Unit) = ghostAction(title, primary) { click() }
         fun homeGhost(title: String, danger: Boolean = false, warn: Boolean = false, click: () -> Unit) =
@@ -1111,7 +1090,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             android.content.res.Configuration.ORIENTATION_PORTRAIT
         val actions = (if (stackActions) column() else row()).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(if (compact) 14 else 22), 0, 0)
         }
         fun addAction(view: View, first: Boolean = false) {
             if (!first) actions.addView(ghostDivider(), LinearLayout.LayoutParams(dp(1), dp(18)).apply { gravity = Gravity.CENTER })
@@ -1120,9 +1098,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         when (state) {
             HomeState.CONNECTING -> {
                 status?.text = getString(R.string.connecting_to_your_iphone)
-                addToStatusBox(label(getString(R.string.getting_carplay_ready), 14, MUTED).apply {
+                addToStatusBox(label(getString(R.string.getting_carplay_ready), 11, MUTED).apply {
                     gravity = Gravity.CENTER
-                    setPadding(0, dp(4), 0, 0)
+                    setPadding(0, dp(3), 0, 0)
                 })
                 showHomeProgress(
                     phase = getString(R.string.home_progress_connecting),
@@ -1147,9 +1125,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     detail = homeConnectionDetail(),
                     indeterminate = true,
                 )
-                addToStatusBox(label(getString(R.string.disconnecting_hint), 14, MUTED).apply {
+                addToStatusBox(label(getString(R.string.disconnecting_hint), 11, MUTED).apply {
                     gravity = Gravity.CENTER
-                    setPadding(0, dp(4), 0, 0)
+                    setPadding(0, dp(3), 0, 0)
                 })
             }
             HomeState.CONNECTED -> {
@@ -1185,7 +1163,13 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 addAction(homeGhost(getString(R.string.settings)) { page = "settings"; render() })
             }
         }
-        addToStatusBox(actions, LinearLayout.LayoutParams(-1, -2))
+        // The row the state just built goes into the page's own box for it, whose place
+        // was decided when the page was built and does not move with the words above.
+        val host = homeActionBox
+        if (host != null) {
+            host.removeAllViews()
+            host.addView(actions, LinearLayout.LayoutParams(-1, -2))
+        }
         return true
     }
 
@@ -1208,9 +1192,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             // Placed after the status line, before the actions: the reading order is what
             // is happening, how far along it is, then what to do about it.
             val box = homeStatusBox ?: return
-            box.addView(bar, LinearLayout.LayoutParams(dp(220), dp(4)).apply {
+            box.addView(bar, LinearLayout.LayoutParams(dp(200), dp(3)).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
-                topMargin = dp(14)
+                topMargin = dp(11)
             })
             box.addView(detailView, LinearLayout.LayoutParams(-1, -2).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -1285,19 +1269,25 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             scaleType = ImageView.ScaleType.FIT_CENTER
             adjustViewBounds = true
         }
-        val heroHeight = if (compact) dp(150) else dp(250)
+        val heroHeight = if (compact) dp(120) else dp(200)
         body.addView(hero, LinearLayout.LayoutParams(dp(460), heroHeight).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            bottomMargin = dp(if (compact) 8 else 14)
+            bottomMargin = dp(if (compact) 6 else 10)
         })
 
         // The link's own box: refilled on a transition, the rest of the page untouched.
-        val statusBox = column().apply { gravity = Gravity.CENTER_HORIZONTAL }
+        //
+        // Its height is fixed at what the busiest state needs and its contents are centred
+        // inside it, so the words stay in one place: a state that says less leaves the gap
+        // above and below rather than pulling the action row up with it.
+        val statusBox = column().apply {
+            gravity = Gravity.CENTER_VERTICAL
+        }
         homeStatusBox = statusBox
-        body.addView(statusBox, LinearLayout.LayoutParams(-1, -2))
-        status = label(getString(R.string.ready_when_you_are), 24, TEXT, true).apply {
+        body.addView(statusBox, LinearLayout.LayoutParams(-1, dp(if (compact) 84 else 96)))
+        status = label(getString(R.string.ready_when_you_are), 19, TEXT, true).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(4), 0, 0)
+            setPadding(0, dp(3), 0, 0)
         }
         fun addToStatusBox(view: View, params: LinearLayout.LayoutParams? = null) {
             statusBox.addView(view, params ?: LinearLayout.LayoutParams(-1, -2))
@@ -1305,6 +1295,14 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         fun addToBody(view: View, params: LinearLayout.LayoutParams? = null) {
             body.addView(view, params ?: LinearLayout.LayoutParams(-1, -2))
         }
+        // The action row's distance from the words above it is fixed, and the words' box
+        // is a fixed height, so the row sits at the same height in every state.
+        val actionRow = column().apply { gravity = Gravity.CENTER_HORIZONTAL }
+        homeActionBox = actionRow
+        body.addView(actionRow, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(if (compact) 16 else 24)
+        })
+
         // The status box is filled by refreshHomeStatus(): one description of what the
         // home shows, used when the page is built and on every transition alike.
         refreshHomeStatus()
@@ -1366,32 +1364,12 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
 
     // Only the category scrolls, so the rail keeps showing where the driver is.
-    /**
-     * The settings page: a dark scrim with one large frosted panel floating on it.
-     *
-     * The scrim is the window colour dimmed, so the page behind the panel is still there
-     * but pushed away; the panel is the surface colour at most of its strength, rounded
-     * well past the cards inside it, and outlined. The rail and the category scroll sit
-     * inside it as two panels of their own, which is what gives the page its depth.
-     */
-    private fun expandedSettingsShell(header: View, categoryScroll: ScrollView): View {
-        val scrim = FrameLayout(this).apply {
-            setBackgroundColor((Color.BLACK and 0x00FFFFFF) or (0x66 shl 24))
-        }
-        val panel = column().apply {
-            val radius = layoutCornerRadius() * 1.1f
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f)
-                setColor((surfaceTint and 0x00FFFFFF) or (0xF2 shl 24))
-                setStroke(dp(1), (outline and 0x00FFFFFF) or (0x30 shl 24))
-            }
-            clipToOutline = true
-            setPadding(dp(28), dp(22), dp(28), dp(0))
-        }
-        panel.addView(header)
-        panel.addView(space(20))
-        panel.addView(reconnectBar(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(SETTINGS_BLOCK_GAP_DP) })
+    private fun expandedSettingsShell(header: View, categoryScroll: ScrollView): LinearLayout = column().apply {
+        setBackgroundColor(BG)
+        setPadding(dp(32), dp(24), dp(32), 0)
+        addView(header)
+        addView(space(24))
+        addView(reconnectBar(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(SETTINGS_BLOCK_GAP_DP) })
         val split = row().apply { gravity = Gravity.TOP }
         // The rail scrolls on its own only when the window is too short for every destination.
         split.addView(ScrollView(this@CarlinkActivity).apply {
@@ -1404,12 +1382,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             LinearLayout.LayoutParams(dp(SettingsLayoutPolicy.railWidthDp(resources.configuration.fontScale)), -2))
         split.addView(space(24), LinearLayout.LayoutParams(dp(24), 1))
         split.addView(categoryScroll, LinearLayout.LayoutParams(0, -1, 1f))
-        panel.addView(split, LinearLayout.LayoutParams(-1, 0, 1f))
-        scrim.addView(panel, FrameLayout.LayoutParams(-1, -1).apply {
-            gravity = Gravity.TOP
-            marginStart = dp(16); marginEnd = dp(16); topMargin = dp(12)
-        })
-        return scrim
+        addView(split, LinearLayout.LayoutParams(-1, 0, 1f))
     }
 
     private fun matchButton(top: Int = 0, height: Int = 68) =
@@ -1417,15 +1390,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
     /** The category rail, in the same plain hand as the settings themselves: no plate. */
     private fun settingsRail(): LinearLayout = column().apply {
-        // The rail is a frosted panel of its own, floating on the page's wash: the same
-        // treatment the cards get, so the two read as one surface language.
-        background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = layoutCornerRadius() * 0.6f
-            setColor((surfaceTint and 0x00FFFFFF) or (0x22 shl 24))
-            setStroke(dp(1), (outline and 0x00FFFFFF) or (0x22 shl 24))
-        }
-        clipToOutline = true
         setPadding(dp(12), dp(12), dp(12), dp(12))
         SettingsCategory.entries.forEach { category ->
             addView(settingsRailDestination(category), matchButton(0, 52).apply {
@@ -2413,8 +2377,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         content.addView(label(getString(R.string.diplay), 40, TEXT, true))
         content.addView(label(getString(R.string.carplay_at_home_in_your_car), 20, MUTED).apply { setPadding(0, dp(8), 0, dp(24)) })
         section(content, "${buildLineLabel()} · ${version()}") { card ->
-            // What this build changed, not what it claims to be: the accessory identity
-            // says nothing about the drive, and the list of what moved does.
+            // What the receiver is, in one line - and then what this build changed, which
+            // is what a driver opening the page actually came to see.
+            card.addView(label(getString(R.string.about_description_short), 17, TEXT))
             changelogView()?.let { card.addView(it) }
             card.addView(updateRow())
             toggle(card, getString(R.string.settings_background_update_checks),
@@ -5429,16 +5394,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
         val card = card()
         val heading = row().apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, dp(16)) }
-        // A short bar in the accent colour beside the group's name: it marks where a new
-        // group starts without another divider, and keeps the title aligned with what
-        // follows it.
-        heading.addView(View(this).apply {
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(1).toFloat()
-                setColor(ACCENT)
-            }
-        }, LinearLayout.LayoutParams(dp(3), dp(18)).apply { marginEnd = dp(10) })
         if (icon != null) heading.addView(ImageView(this).apply {
             setImageResource(icon); imageTintList = ColorStateList.valueOf(ACCENT)
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -5617,27 +5572,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      * just the words and the controls on the page's own background. The grouping is kept
      * by its padding and its place, not by a panel behind it.
      */
-    /**
-     * A settings card: rounded, filled with the surface colour at a fraction of its
-     * strength, and outlined. The partial fill is what reads as frosted glass — the
-     * page's own colour shows through it — without a blur pass, which would cost a
-     * render on every scroll of a page that is otherwise cheap.
-     */
-    private fun card() = column().apply {
-        val radius = layoutCornerRadius() * 0.72f
-        background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = radius
-            setColor((surfaceTint and 0x00FFFFFF) or (0x2C shl 24))
-            setStroke(dp(1), (outline and 0x00FFFFFF) or (0x28 shl 24))
-        }
-        clipToOutline = true
-        setPadding(dp(22), dp(20), dp(22), dp(20))
-    }
-
-    /** The surface colour at card strength; the page's background shows through it. */
-    private val surfaceTint get() = palette.surface
-    private val outline get() = palette.outline
+    private fun card() = column().apply { setPadding(dp(24), dp(24), dp(24), dp(24)) }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(-1, -2) }
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(-1, -2) }
     private class HeaderTitleView(context: android.content.Context) : TextView(context) {

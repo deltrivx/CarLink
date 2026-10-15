@@ -852,4 +852,5 @@
     <string name="home_progress_ready">已就绪</string>
     <string name="home_progress_disconnecting">断开中</string>
     <string name="settings_media">媒体</string>
+    <string name="about_description_short">面向 Android 设备的独立 CarPlay 接收器。有线和无线连接均在本机运行，并使用本地认证。普通 iPhone 无需越狱、Mac、转接器或登录即可连接。</string>
 </resources>
