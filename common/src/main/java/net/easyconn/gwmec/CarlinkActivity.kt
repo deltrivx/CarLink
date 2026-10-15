@@ -108,6 +108,7 @@ internal enum class SettingsSection {
     AMBIENT_LIGHTING,
     CAR_BUTTON,
     AUDIO_ROUTING,
+    CARPLAY_VIDEO,
     NAVIGATION_WHEEL,
     LOCATION,
     PERMISSIONS_AND_HELP,
@@ -127,7 +128,7 @@ internal object SettingsInformationArchitecture {
             SettingsSection.PERMISSIONS_AND_HELP,
         ),
         SettingsCategory.DISPLAY to setOf(SettingsSection.DISPLAY_AND_PERFORMANCE),
-        SettingsCategory.AUDIO to setOf(SettingsSection.AUDIO_ROUTING),
+        SettingsCategory.AUDIO to setOf(SettingsSection.AUDIO_ROUTING, SettingsSection.CARPLAY_VIDEO),
         SettingsCategory.NAVIGATION to setOf(SettingsSection.LOCATION),
         SettingsCategory.VEHICLE to setOf(
             SettingsSection.CARPLAY_CONTROLS,
@@ -2202,6 +2203,24 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         filteredSection(content, SettingsSection.NAVIGATION_WHEEL,
             getString(R.string.settings_navigation_wheel_volume), R.drawable.ic_dp_audio) { card ->
             navigationWheelControls(card)
+        }
+        // Video belongs with the sound: both answer "what comes out of the speakers and
+        // the screen", and a driver looking for why a video app is silent looks here.
+        filteredSection(content, SettingsSection.CARPLAY_VIDEO,
+            getString(R.string.carplay_video_capable), R.drawable.ic_dp_video) { card ->
+            card.addView(label(getString(R.string.carplay_video_capable_description), 15, MUTED))
+            toggle(card, getString(R.string.carplay_video_capable),
+                getString(R.string.carplay_video_capable_description),
+                BydOutputSettings.carPlayVideoCapable(this)) {
+                BydOutputSettings.setCarPlayVideoCapable(this, it)
+                reconnectForVehicleSetting()
+            }
+            toggle(card, getString(R.string.video_while_parked),
+                getString(R.string.video_while_parked_description),
+                BydOutputSettings.videoWhileParked(this)) {
+                BydOutputSettings.setVideoWhileParked(this, it)
+                reconnectForVehicleSetting()
+            }
         }
         filteredSection(content, SettingsSection.AMBIENT_LIGHTING, getString(R.string.settings_ambient_title)) { card ->
             card.addView(button(ambientConfigurationLabel(AmbientMusicSettings.load(this)), false) {
