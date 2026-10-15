@@ -76,9 +76,18 @@ internal class HotspotAddressRecovery(
         if (cancelled()) throw InterruptedIOException("Hotspot address recovery cancelled")
     }
 
-    /** Whether the iPhone could connect to this address: routable, and not link-local. */
+    /**
+     * Whether the iPhone could connect to this address.
+     *
+     * Routable, and not link-local: a link-local address needs an interface identifier
+     * the iPhone is never told, so publishing one leaves it with nothing to dial while
+     * the group is in fact working. Only used when no family was recorded; a recorded
+     * preference is honoured as the policy defines it.
+     */
     private fun usableForPublishing(address: InetAddress): Boolean =
-        address is java.net.Inet4Address && HotspotAddressPolicy.isRoutable(address)
+        address is java.net.Inet4Address &&
+            !address.isLoopbackAddress && !address.isAnyLocalAddress &&
+            !address.isLinkLocalAddress && !address.isMulticastAddress
 
     private fun scopedLinkLocal(address: InetAddress): Boolean =
         address is Inet6Address && address.isLinkLocalAddress && address.scopeId != 0

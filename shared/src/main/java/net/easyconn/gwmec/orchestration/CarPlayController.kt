@@ -1237,10 +1237,25 @@ class CarPlayController(
             wirelessConnectionProof.begin(generation) {
                 if (!isStaleWirelessRun(generation)) startedHotspot?.onCarPlayConfirmed()
             }
-            val preferredFamily = HotspotAddressPolicy.parseFamily(
+            // A recorded preference is only honoured when that family can actually be
+            // dialled. Earlier builds wrote "IPv6" for groups whose only IPv6 address was
+            // link-local, which the iPhone cannot reach, and then waited out the whole
+            // first-TCP timeout before flipping. An IPv6 preference survives only when a
+            // routable IPv6 address exists.
+            val recorded = HotspotAddressPolicy.parseFamily(
                 appContext.getSharedPreferences(WIRELESS_PREFS, Context.MODE_PRIVATE)
                     .getString(HOTSPOT_FAMILY_PREFERENCE_KEY, null),
             )
+            val candidatesNow = hotspotCandidates(hotspotInfo)
+            val preferredFamily = when (recorded) {
+                HotspotAddressPolicy.FAMILY_IPV6 ->
+                    recorded.takeIf { family ->
+                        candidatesNow.any {
+                            it is java.net.Inet6Address && !it.isLinkLocalAddress
+                        }
+                    }
+                else -> recorded
+            }
             val addressRecovery = HotspotAddressRecovery(
                 sample = { hotspotCandidates(hotspotInfo, fallbackToSnapshot = false) },
                 cancelled = { isStaleWirelessRun(generation) },

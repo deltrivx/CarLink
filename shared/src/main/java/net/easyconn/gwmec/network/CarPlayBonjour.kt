@@ -325,10 +325,12 @@ class CarPlayBonjour(
                         // is the bring-up's failure.
                         if (publishedFamilies == "platform") throw failure
                     }
-                    if (publishedFamilies != "platform") {
-                        registerAirPlay()
-                        registrationRequested = true
-                    }
+                    // The AirPlay service must be registered on both paths. JmDNS
+                    // advertises it itself when it owns the port; the platform responder
+                    // owns it here, so it has to be asked — skipping it left the service
+                    // unpublished, and the iPhone never knew there was a CarPlay to join.
+                    registerAirPlay()
+                    registrationRequested = true
                 } else {
                     registerAirPlay()
                     registrationRequested = true
