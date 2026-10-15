@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What this build changed, one <string-array> per version, newest first. The about page
+  shows the array for the version that is installed, so a driver can see what the build
+  they are running did without waiting for a network round trip.
+
+  Keep each entry to one line: the list is read, not skimmed, and a paragraph hides
+  what changed among the words.
+-->
+<resources>
+    <string-array name="changelog_1_3_63">
+        <item>设置页改为磨砂玻璃：页面渐变背景、左侧导航与内容卡片统一为半透明圆角面板</item>
+        <item>侧边栏「音频」更名为「媒体」，页面标题同步</item>
+        <item>CarPlay 视频设置移至媒体分类，位于音频路由下方</item>
+        <item>修复视频设置描述重复显示</item>
+    </string-array>
+    <string-array name="changelog_1_3_62">
+        <item>主页新增连接进度条与连接数据（模式、分辨率）</item>
+        <item>设置页分组标题增加强调色竖条</item>
+    </string-array>
+    <string-array name="changelog_1_3_61">
+        <item>视频设置从车辆数据分组移至音频分类</item>
+    </string-array>
+</resources>

@@ -724,11 +724,14 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             // The settings page wears a wash rather than a flat fill, so its cards read as
             // frosted panels; the home keeps its plain colour.
             background = if (page == "settings") {
+                // The narrow layout keeps the same idea as the wide one: a dimmed scrim
+                // behind one frosted panel, drawn as the scroll's backdrop so the panel
+                // scrolls under it rather than being clipped by it.
                 GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
                     intArrayOf(
-                        (surfaceTint and 0x00FFFFFF) or (0x1A shl 24),
-                        (BG and 0x00FFFFFF) or (0x00 shl 24),
+                        (Color.BLACK and 0x00FFFFFF) or (0x55 shl 24),
+                        (Color.BLACK and 0x00FFFFFF) or (0x66 shl 24),
                     ),
                 )
             } else {
@@ -748,6 +751,18 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         } else {
             if (compact) content.setPadding(dp(12), dp(10), dp(12), dp(12))
             else content.setPadding(dp(32), dp(24), dp(32), dp(32))
+            // The narrow settings page is one frosted panel on the scrim behind it,
+            // rounded at the top where the panel begins.
+            if (page == "settings") {
+                val panelRadius = layoutCornerRadius() * 1.1f
+                content.background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadii = floatArrayOf(panelRadius, panelRadius, panelRadius, panelRadius, 0f, 0f, 0f, 0f)
+                    setColor((surfaceTint and 0x00FFFFFF) or (0xF2 shl 24))
+                    setStroke(dp(1), (outline and 0x00FFFFFF) or (0x30 shl 24))
+                }
+                content.clipToOutline = true
+            }
             content.addView(header)
             content.addView(space(when {
                 compact && (page == "settings" || page == "home") -> SETTINGS_BLOCK_GAP_DP
@@ -1351,20 +1366,32 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
 
     // Only the category scrolls, so the rail keeps showing where the driver is.
-    private fun expandedSettingsShell(header: View, categoryScroll: ScrollView): LinearLayout = column().apply {
-        // The page's own backdrop: a wash over the window colour rather than a flat fill,
-        // so the cards on top of it read as frosted panels instead of boxes on a wall.
-        background = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(
-                (surfaceTint and 0x00FFFFFF) or (0x1A shl 24),
-                (BG and 0x00FFFFFF) or (0x00 shl 24),
-            ),
-        )
-        setPadding(dp(32), dp(24), dp(32), 0)
-        addView(header)
-        addView(space(24))
-        addView(reconnectBar(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(SETTINGS_BLOCK_GAP_DP) })
+    /**
+     * The settings page: a dark scrim with one large frosted panel floating on it.
+     *
+     * The scrim is the window colour dimmed, so the page behind the panel is still there
+     * but pushed away; the panel is the surface colour at most of its strength, rounded
+     * well past the cards inside it, and outlined. The rail and the category scroll sit
+     * inside it as two panels of their own, which is what gives the page its depth.
+     */
+    private fun expandedSettingsShell(header: View, categoryScroll: ScrollView): View {
+        val scrim = FrameLayout(this).apply {
+            setBackgroundColor((Color.BLACK and 0x00FFFFFF) or (0x66 shl 24))
+        }
+        val panel = column().apply {
+            val radius = layoutCornerRadius() * 1.1f
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f)
+                setColor((surfaceTint and 0x00FFFFFF) or (0xF2 shl 24))
+                setStroke(dp(1), (outline and 0x00FFFFFF) or (0x30 shl 24))
+            }
+            clipToOutline = true
+            setPadding(dp(28), dp(22), dp(28), dp(0))
+        }
+        panel.addView(header)
+        panel.addView(space(20))
+        panel.addView(reconnectBar(), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(SETTINGS_BLOCK_GAP_DP) })
         val split = row().apply { gravity = Gravity.TOP }
         // The rail scrolls on its own only when the window is too short for every destination.
         split.addView(ScrollView(this@CarlinkActivity).apply {
@@ -1377,7 +1404,12 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             LinearLayout.LayoutParams(dp(SettingsLayoutPolicy.railWidthDp(resources.configuration.fontScale)), -2))
         split.addView(space(24), LinearLayout.LayoutParams(dp(24), 1))
         split.addView(categoryScroll, LinearLayout.LayoutParams(0, -1, 1f))
-        addView(split, LinearLayout.LayoutParams(-1, 0, 1f))
+        panel.addView(split, LinearLayout.LayoutParams(-1, 0, 1f))
+        scrim.addView(panel, FrameLayout.LayoutParams(-1, -1).apply {
+            gravity = Gravity.TOP
+            marginStart = dp(16); marginEnd = dp(16); topMargin = dp(12)
+        })
+        return scrim
     }
 
     private fun matchButton(top: Int = 0, height: Int = 68) =
@@ -1457,7 +1489,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         SettingsCategory.OVERVIEW -> R.string.settings_overview
         SettingsCategory.CONNECTION -> R.string.connection
         SettingsCategory.DISPLAY -> R.string.settings_display
-        SettingsCategory.AUDIO -> R.string.audio
+        // The rail says media, not audio: the category holds the sound routing and the
+        // screen's video settings together, and "media" names both of them.
+        SettingsCategory.AUDIO -> R.string.settings_media
         SettingsCategory.NAVIGATION -> R.string.settings_navigation
         SettingsCategory.VEHICLE -> R.string.settings_vehicle
         SettingsCategory.DIAGNOSTICS -> R.string.diagnostics
@@ -1688,7 +1722,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     }
 
     private fun audioSettings(content: LinearLayout) {
-        settingsPageTitle(content, getString(R.string.audio), getString(R.string.settings_audio_summary))
+        settingsPageTitle(content, getString(R.string.settings_media), getString(R.string.settings_audio_summary))
         renderSections(content, SettingsInformationArchitecture.sectionsByCategory.getValue(SettingsCategory.AUDIO))
     }
 
@@ -2379,16 +2413,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         content.addView(label(getString(R.string.diplay), 40, TEXT, true))
         content.addView(label(getString(R.string.carplay_at_home_in_your_car), 20, MUTED).apply { setPadding(0, dp(8), 0, dp(24)) })
         section(content, "${buildLineLabel()} · ${version()}") { card ->
-            // The two lines differ in one thing that matters: the custom build's identity is
-            // a certified one, provisioned for the car it runs on; the generic build's is
-            // the upstream experimental one. Saying "not certified" about the first would
-            // simply be untrue.
-            card.addView(label(getString(
-                if (genericBuild()) R.string.about_description_generic
-                else R.string.an_independent_carplay_receiver_for_android_head_units_wir), 17, TEXT))
-            // The custom install carries its own provisioned accessory identity.
-            if (!genericBuild()) card.addView(label(getString(R.string.about_identity_custom), 15, MUTED)
-                .apply { setPadding(0, dp(12), 0, 0) })
+            // What this build changed, not what it claims to be: the accessory identity
+            // says nothing about the drive, and the list of what moved does.
+            changelogView()?.let { card.addView(it) }
             card.addView(updateRow())
             toggle(card, getString(R.string.settings_background_update_checks),
                 getString(R.string.settings_background_update_checks_description),
@@ -2525,6 +2552,30 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private fun buildLineLabel(): String =
         if (genericBuild()) getString(R.string.about_build_generic)
         else getString(R.string.about_build_custom)
+
+    /**
+     * What the version that is installed changed, read from the arrays in changelog.xml.
+     *
+     * A version with no array of its own - one built before this page existed, or a
+     * build with no notes kept - shows nothing rather than a guess, so the page stays
+     * honest about what it knows.
+     */
+    private fun changelogView(): View? {
+        val version = version()
+        val arrayName = "changelog_" + version.replace('.', '_').replace('-', '_')
+        val arrayId = resources.getIdentifier(arrayName, "array", packageName)
+        if (arrayId == 0) return null
+        val entries = resources.getStringArray(arrayId)
+        if (entries.isEmpty()) return null
+        val list = column().apply { setPadding(0, 0, 0, dp(4)) }
+        entries.forEach { entry ->
+            list.addView(label("·  $entry", 15, MUTED).apply {
+                setLineSpacing(dp(4).toFloat(), 1f)
+                setPadding(0, dp(4), 0, 0)
+            })
+        }
+        return list
+    }
 
     private fun latestRelease(): UpdateRelease? {
         val json = UpdateClient.fetchText(

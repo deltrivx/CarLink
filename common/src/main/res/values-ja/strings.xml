@@ -385,7 +385,7 @@
     <string name="settings_choose_iphone_action">iPhoneを選択</string>
     <string name="settings_connection_summary">iPhone・ケーブル・無線・自動接続</string>
     <string name="settings_display_summary">外観・全画面・解像度・フレームレート</string>
-    <string name="settings_audio_summary">スピーカー出力と音楽のバッファ</string>
+    <string name="settings_audio_summary">オーディオルーティングと CarPlay ビデオ</string>
     <string name="settings_navigation_summary">位置情報の送信と対応メーターへの案内表示</string>
     <string name="settings_vehicle_summary">運転席側・ステアリングスイッチ・車両ボタン・CarPlayのジェスチャー</string>
     <string name="settings_reconnect_pending">保存しました。一部の変更はCarPlayの再接続後に有効になります。</string>
@@ -934,4 +934,5 @@
     <string name="connection_help_existing_wifi">車載端末とiPhoneが同じWi-Fiネットワークに接続され、その名前とパスワードが车机互联の設定と一致しているか確認して、再試行してください。</string>
     <string name="settings_report_on_phone">スマートフォンでレポートを取得</string>
     <string name="settings_report_on_phone_hint">スマートフォンのカメラでQRコードを読み取って、ブラウザーでページを開き、「レポートをダウンロード」を選んでください。ダウンロードが終わるまでこの画面を開いたままにしてください。</string>
+    <string name="settings_media">メディア</string>
 </resources>
