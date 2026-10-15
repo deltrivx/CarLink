@@ -2946,20 +2946,19 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     pendingCarHotspotSetup = true
                     render()
                 } else if (candidate == WirelessHotspotMode.EXISTING_WIFI) {
-                    // A network already saved means nothing to ask: use it, and let the
-                    // driver change it on the connection page if it is the wrong one. Only
-                    // a first setup, with nothing remembered, has anything to type.
-                    val remembered = AirPlayPersistence.loadExistingWifiSsid(this)
-                        .takeIf { it.isNotBlank() }
-                    if (remembered != null) {
-                        pendingCarHotspotSetup = false
-                        applyWirelessLink(candidate)
-                    } else {
+                    // Nothing saved means nothing to choose from, so the name and password
+                    // have to be asked for once. With a network already remembered the mode
+                    // is simply selected: what to do with it - keep it, change it, open the
+                    // car own Wi-Fi settings - is the driver to choose from what the page
+                    // now shows, not a question to be pushed at them first.
+                    pendingCarHotspotSetup = false
+                    if (AirPlayPersistence.loadExistingWifiSsid(this).isBlank()) {
                         askHotspotCredentials(existingWifi = true) { ssid, password, _ ->
                             AirPlayPersistence.saveExistingWifiCredentials(this, ssid, password)
-                            pendingCarHotspotSetup = false
                             applyWirelessLink(candidate)
                         }
+                    } else {
+                        selectWirelessLink(candidate)
                     }
                 } else {
                     pendingCarHotspotSetup = false
@@ -4422,6 +4421,16 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         // disabling it require a new session. The host also refreshes its location service type.
         if (CarPlayBackgroundSession.hasSession()) connect(AirPlayPersistence.loadWirelessEnabled(this))
         else toast(getString(R.string.saved_for_your_next_connection))
+    }
+
+    /**
+     * Selects a wireless mode and shows what it offers, without claiming anything was
+     * saved. Choosing a mode is not the same as finishing its setup, and a toast saying
+     * otherwise makes the driver think the step is done when it has only begun.
+     */
+    private fun selectWirelessLink(mode: WirelessHotspotMode) {
+        AirPlayPersistence.saveWirelessHotspotMode(this, mode)
+        render()
     }
 
     private fun applyWirelessLink(mode: WirelessHotspotMode) {

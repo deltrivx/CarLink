@@ -17,8 +17,8 @@ android {
         applicationId = "net.easyconn.gwmec"
         minSdk = 25
         targetSdk = 37
-        versionCode = 11561
-        versionName = "1.3.54"
+        versionCode = 11562
+        versionName = "1.3.55"
 
     }
 
