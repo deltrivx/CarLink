@@ -2946,10 +2946,20 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     pendingCarHotspotSetup = true
                     render()
                 } else if (candidate == WirelessHotspotMode.EXISTING_WIFI) {
-                    askHotspotCredentials(existingWifi = true) { ssid, password, _ ->
-                        AirPlayPersistence.saveExistingWifiCredentials(this, ssid, password)
+                    // A network already saved means nothing to ask: use it, and let the
+                    // driver change it on the connection page if it is the wrong one. Only
+                    // a first setup, with nothing remembered, has anything to type.
+                    val remembered = AirPlayPersistence.loadExistingWifiSsid(this)
+                        .takeIf { it.isNotBlank() }
+                    if (remembered != null) {
                         pendingCarHotspotSetup = false
                         applyWirelessLink(candidate)
+                    } else {
+                        askHotspotCredentials(existingWifi = true) { ssid, password, _ ->
+                            AirPlayPersistence.saveExistingWifiCredentials(this, ssid, password)
+                            pendingCarHotspotSetup = false
+                            applyWirelessLink(candidate)
+                        }
                     }
                 } else {
                     pendingCarHotspotSetup = false
