@@ -1383,6 +1383,22 @@ private class VideoDecoder(
         if (outputSurface === surface) return
         outputSurface = surface
         if (surface == null) {
+            // The view is going away — the picture is being handed to another host, or the
+            // activity is being rebuilt. Releasing the decoder here throws away the frames
+            // already queued and the state the codec carries, so the driver watches a black
+            // screen for as long as it takes to configure a new one. Park it instead: it
+            // renders to a surface nothing shows, keeps its queue, and the next handoff is
+            // a setOutputSurface away rather than a rebuild.
+            val codec = decoder
+            if (codec != null && width > 0 && height > 0) {
+                val consumer = parking ?: ParkingOutput(width, height).also { parking = it }
+                val moved = runCatching { codec.setOutputSurface(consumer.surface) }.isSuccess
+                if (moved) {
+                    Log.i(TAG, "video decoder parked off screen")
+                    return
+                }
+                Log.w(TAG, "video decoder could not park; releasing it")
+            }
             releaseDecoder()
             queue.discardCurrentChain()
             Log.i(TAG, "video decoder detached from surface")
@@ -1392,6 +1408,11 @@ private class VideoDecoder(
         if (codec != null) {
             try {
                 codec.setOutputSurface(surface)
+                // The view is back, so nothing renders to the parking consumer any more. It
+                // is left in place rather than closed here: the very next handoff — a
+                // second activity coming forward, or this one detaching again — reuses it,
+                // and a decoder that parks twice in a row would otherwise pay for a new
+                // ImageReader each time. It is closed when the codec itself goes away.
                 Log.i(TAG, "video decoder output surface updated")
                 return
             } catch (error: Exception) {
