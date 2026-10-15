@@ -720,7 +720,23 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             "settings" -> !SettingsLayoutPreferences.isActive(this)
             else -> true
         }
-        val scroll = ScrollView(this).apply { setBackgroundColor(BG); isFillViewport = true; clipToPadding = false }
+        val scroll = ScrollView(this).apply {
+            // The settings page wears a wash rather than a flat fill, so its cards read as
+            // frosted panels; the home keeps its plain colour.
+            background = if (page == "settings") {
+                GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf(
+                        (surfaceTint and 0x00FFFFFF) or (0x1A shl 24),
+                        (BG and 0x00FFFFFF) or (0x00 shl 24),
+                    ),
+                )
+            } else {
+                GradientDrawable().apply { setColor(BG) }
+            }
+            isFillViewport = true
+            clipToPadding = false
+        }
         rootScroll = scroll
         val content = column()
         scroll.addView(content)
@@ -1336,7 +1352,15 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
     // Only the category scrolls, so the rail keeps showing where the driver is.
     private fun expandedSettingsShell(header: View, categoryScroll: ScrollView): LinearLayout = column().apply {
-        setBackgroundColor(BG)
+        // The page's own backdrop: a wash over the window colour rather than a flat fill,
+        // so the cards on top of it read as frosted panels instead of boxes on a wall.
+        background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(
+                (surfaceTint and 0x00FFFFFF) or (0x1A shl 24),
+                (BG and 0x00FFFFFF) or (0x00 shl 24),
+            ),
+        )
         setPadding(dp(32), dp(24), dp(32), 0)
         addView(header)
         addView(space(24))
@@ -1361,6 +1385,15 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
     /** The category rail, in the same plain hand as the settings themselves: no plate. */
     private fun settingsRail(): LinearLayout = column().apply {
+        // The rail is a frosted panel of its own, floating on the page's wash: the same
+        // treatment the cards get, so the two read as one surface language.
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = layoutCornerRadius() * 0.6f
+            setColor((surfaceTint and 0x00FFFFFF) or (0x22 shl 24))
+            setStroke(dp(1), (outline and 0x00FFFFFF) or (0x22 shl 24))
+        }
+        clipToOutline = true
         setPadding(dp(12), dp(12), dp(12), dp(12))
         SettingsCategory.entries.forEach { category ->
             addView(settingsRailDestination(category), matchButton(0, 52).apply {
@@ -2306,7 +2339,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         // the screen", and a driver looking for why a video app is silent looks here.
         filteredSection(content, SettingsSection.CARPLAY_VIDEO,
             getString(R.string.carplay_video_capable), R.drawable.ic_dp_video) { card ->
-            card.addView(label(getString(R.string.carplay_video_capable_description), 15, MUTED))
             toggle(card, getString(R.string.carplay_video_capable),
                 getString(R.string.carplay_video_capable_description),
                 BydOutputSettings.carPlayVideoCapable(this)) {
@@ -5534,7 +5566,27 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      * just the words and the controls on the page's own background. The grouping is kept
      * by its padding and its place, not by a panel behind it.
      */
-    private fun card() = column().apply { setPadding(dp(24), dp(24), dp(24), dp(24)) }
+    /**
+     * A settings card: rounded, filled with the surface colour at a fraction of its
+     * strength, and outlined. The partial fill is what reads as frosted glass — the
+     * page's own colour shows through it — without a blur pass, which would cost a
+     * render on every scroll of a page that is otherwise cheap.
+     */
+    private fun card() = column().apply {
+        val radius = layoutCornerRadius() * 0.72f
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = radius
+            setColor((surfaceTint and 0x00FFFFFF) or (0x2C shl 24))
+            setStroke(dp(1), (outline and 0x00FFFFFF) or (0x28 shl 24))
+        }
+        clipToOutline = true
+        setPadding(dp(22), dp(20), dp(22), dp(20))
+    }
+
+    /** The surface colour at card strength; the page's background shows through it. */
+    private val surfaceTint get() = palette.surface
+    private val outline get() = palette.outline
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(-1, -2) }
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(-1, -2) }
     private class HeaderTitleView(context: android.content.Context) : TextView(context) {
