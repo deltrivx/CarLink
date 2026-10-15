@@ -266,7 +266,7 @@ class WifiP2pGroupManagerTest {
             assertEquals(2437, info.frequencyMHz)
             assertEquals(6, info.channel)
             assertEquals("2.4 GHz", info.bandLabel)
-            assertTrue(info.ssid.startsWith("DIRECT-dp"))
+            assertTrue(info.ssid.startsWith("DIRECT-carplay-"))
             assertEquals(radio.requests.last()!!.passphrase, info.passphrase)
             assertTrue(logs.any { it.contains("ready mode=FIXED_2_GHZ") })
             assertTrue(logs.any { it.contains("requestedMHz=2437 actualMHz=2437 matched=true") })

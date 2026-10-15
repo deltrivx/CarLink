@@ -60,16 +60,7 @@ class WifiP2pGroupManager(
     private var pendingSuccess: (() -> Boolean)? = null
     private var carPlayConfirmed = false
     private val ownership = appContext.getSharedPreferences("carplay_wifi_p2p", Context.MODE_PRIVATE)
-    private val ssidPrefix by lazy {
-        // ANDROID_ID is scoped to the signing key, user and device on our supported OS versions.
-        val id = runCatching { Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID) }
-            .getOrNull()?.takeIf { it.isNotBlank() }
-            ?: ownership.getString("fallback_id", null)
-            ?: java.util.UUID.randomUUID().toString().also {
-                check(ownership.edit().putString("fallback_id", it).commit())
-            }
-        P2pOwnership.prefix(appContext.packageName, id)
-    }
+    private val ssidPrefix = P2pOwnership.PREFIX
 
 
     private var channel: WifiP2pManager.Channel? = null
