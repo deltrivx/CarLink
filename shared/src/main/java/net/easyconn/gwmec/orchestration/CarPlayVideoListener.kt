@@ -53,13 +53,17 @@ internal class VideoInCarGate(
     }
 
     internal fun update(parked: Boolean?) {
-        if (!observed || parked != lastParked) {
+        val first = !observed
+        if (first || parked != lastParked) {
             observed = true
             lastParked = parked
             onObserved(parked)
         }
         val allowed = parked != false
-        if (allowed == VideoInCar.allowed || closed) return
+        // The first answer is always pushed, even when it agrees with the default: /info may
+        // already have been served with video off while the gear was still unread, and the
+        // iPhone keeps what it was told until something says otherwise.
+        if ((allowed == VideoInCar.allowed && !first) || closed) return
         VideoInCar.allowed = allowed
         onChanged(allowed)
     }

@@ -559,6 +559,9 @@ class AirPlaySession(
                 else RtspMessage.Response(headers = mapOf("Content-Type" to OCTET_CONTENT_TYPE), body = body)
             }
             path.endsWith("/info") -> {
+                // Read the gear now rather than the value cached at construction: /info is
+                // often served before the gear has been read once, and answering "video off"
+                // there tells the iPhone not to offer video at all.
                 val info = AirPlayInfoPlist.build(config)
                 if (request.body.isNotEmpty()) {
                     val requestInfo = try {

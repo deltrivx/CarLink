@@ -462,7 +462,13 @@ class CarPlayController(
                 onObserved = { parked ->
                     debugLog("video in car gear=${when (parked) { true -> "P"; false -> "not-P"; null -> "unknown" }}")
                 },
-            ).also { it.start() }
+            ).also { gate ->
+                // Read the gear once before anything can ask about video: /info is served as
+                // soon as the AirPlay listener is up, and answering it with the default
+                // "off" tells the iPhone not to offer video for the whole session.
+                gate.update(runCatching(listener::readParked).getOrNull())
+                gate.start()
+            }
         }
         if (config.transport == CarPlayTransport.WIRED) {
             permissionCloseable = iphoneHost.registerPermissionReceiver(::onIphonePermission)

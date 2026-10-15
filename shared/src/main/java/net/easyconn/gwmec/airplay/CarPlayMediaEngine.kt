@@ -432,7 +432,8 @@ class CarPlayMediaEngine(
         val pending = pendingIapTunnels.remove(session) ?: return
         val attached = try {
             pending.handler(pending.bridge)
-        } catch (error: Throwable) {
+        }
+    catch (error: Throwable) {
             Log.w(TAG, "iAP tunnel relay attachment failed", error)
             false
         }
