@@ -4,6 +4,7 @@ import net.easyconn.gwmec.airplay.VideoInCar
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VideoInCarGateTest {
@@ -13,19 +14,30 @@ class VideoInCarGateTest {
     }
 
     @Test
-    fun videoIsAllowedOnlyWhileTheGearReadsPark() {
+    fun videoFollowsTheGearButAnUnreadableGearIsNotAProhibition() {
         val changes = mutableListOf<Boolean>()
         val gate = VideoInCarGate({ null }, onChanged = { changes += it })
 
-        gate.update(null) // no ADB: stays off
-        gate.update(false)
-        gate.update(true)
-        gate.update(true)
-        gate.update(null) // unreadable while parked: off again
-        gate.update(false)
+        gate.update(true) // parked
+        gate.update(false) // moving: the one thing that stops video
+        gate.update(true) // parked again
+        gate.update(true) // unchanged
+        gate.update(null) // gear went unreadable while parked: keeps playing
+        gate.update(false) // moving again: stops
 
-        assertEquals(listOf(true, false), changes)
+        assertEquals(listOf(true, false, true, false), changes)
         assertFalse(VideoInCar.allowed)
+    }
+
+    @Test
+    fun aCarWithNoGearFeedAtAllStillPlaysVideo() {
+        val changes = mutableListOf<Boolean>()
+        val gate = VideoInCarGate({ null }, onChanged = { changes += it })
+
+        gate.update(null) // no ADB: nothing says the car is moving
+
+        assertEquals(listOf(true), changes)
+        assertTrue(VideoInCar.allowed)
     }
 
     @Test

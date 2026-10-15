@@ -4407,7 +4407,12 @@ class CarPlayHostActivity : ComponentActivity() {
             model = normalizedModel(),
             oemLabel = oemLabel,
             icons = listOf(loadAirPlayIcon()),
-            videoInCar = net.easyconn.gwmec.hud.BydOutputSettings.videoWhileParkedActive(this),
+            // Whether this car can show CarPlay video at all is a capability the iPhone
+            // asks about once, when the session is negotiated — not a driving policy. The
+            // parked setting decides whether video may *play* while moving, which
+            // [VideoInCar.allowed] answers per gear; a driver who turns that off still
+            // gets video when parked, instead of being told the car has no screen.
+            videoInCar = net.easyconn.gwmec.hud.BydOutputSettings.carPlayVideoCapable(this),
             mainBufferedAudio = AirPlayPersistence.loadMainBufferedAudio(this),
             disableAudioOutput = carBluetoothAudio,
         )

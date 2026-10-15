@@ -3940,6 +3940,15 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 onVehicleDataSettingChanged(it)
             }
         }
+        // Whether this car can show CarPlay video at all is its own question, asked of the
+        // iPhone once when the session starts. It is not the parked policy, and turning
+        // that off should not tell the iPhone the car has no screen.
+        toggle(card, getString(R.string.carplay_video_capable),
+            getString(R.string.carplay_video_capable_description),
+            BydOutputSettings.carPlayVideoCapable(this)) {
+            BydOutputSettings.setCarPlayVideoCapable(this, it)
+            reconnectForVehicleSetting()
+        }
     }
 
     private fun onVehicleDataSettingChanged(enabled: Boolean) {
