@@ -848,4 +848,7 @@
     <string name="turn_card_theme_night">始终夜间</string>
     <string name="settings_ambient_album">跟随专辑封面</string>
     <string name="settings_ambient_album_description">按封面取色并近似匹配原车可用色号。灰黑或无封面时使用全部31色；大面积白色封面可使用白色或冷白。</string>
+    <string name="home_progress_connecting">连接中</string>
+    <string name="home_progress_ready">已就绪</string>
+    <string name="home_progress_disconnecting">断开中</string>
 </resources>

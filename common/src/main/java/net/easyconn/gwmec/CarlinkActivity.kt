@@ -950,6 +950,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      */
     private var homeStatusBox: LinearLayout? = null
     private var homeStatusBoxState: HomeState? = null
+    private var homeProgressBar: android.widget.ProgressBar? = null
+    private var homeProgressDetail: TextView? = null
+    private var homeProgressTicker: Runnable? = null
 
     /**
      * Stops the session. The home shows the link going away rather than coming up: a
@@ -1050,6 +1053,23 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             gravity = Gravity.CENTER
             setPadding(0, dp(4), 0, 0)
         }
+        // The link's progress and its numbers: a bar that says how far along the connection
+        // is, and the line under it that says what it is doing and on what. Both are filled
+        // by refreshHomeStatus(), so a transition moves the bar and rewrites the line while
+        // the rest of the page stays where it is.
+        homeProgressBar = android.widget.ProgressBar(
+            this, null, android.R.attr.progressBarStyleHorizontal,
+        ).apply {
+            max = 100
+            progress = 0
+            isIndeterminate = false
+            visibility = View.GONE
+        }
+        homeProgressDetail = label("", 13, MUTED).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(6), 0, 0)
+            visibility = View.GONE
+        }
         fun addToStatusBox(view: View, params: LinearLayout.LayoutParams? = null) {
             box.addView(view, params ?: LinearLayout.LayoutParams(-1, -2))
         }
@@ -1073,6 +1093,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(4), 0, 0)
                 })
+                showHomeProgress(
+                    phase = getString(R.string.home_progress_connecting),
+                    detail = homeConnectionDetail(),
+                    indeterminate = true,
+                )
                 addAction(homeGhost(getString(R.string.retry_carplay_connection)) {
                     disconnectButton?.isEnabled = false
                     stopSession { connect(true) }
@@ -1086,6 +1111,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             }
             HomeState.DISCONNECTING -> {
                 status?.text = getString(R.string.disconnecting)
+                showHomeProgress(
+                    phase = getString(R.string.home_progress_disconnecting),
+                    detail = homeConnectionDetail(),
+                    indeterminate = true,
+                )
                 addToStatusBox(label(getString(R.string.disconnecting_hint), 14, MUTED).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(4), 0, 0)
@@ -1093,6 +1123,12 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             }
             HomeState.CONNECTED -> {
                 status?.text = getString(R.string.carplay_connected)
+                showHomeProgress(
+                    phase = getString(R.string.home_progress_ready),
+                    detail = homeConnectionDetail(),
+                    indeterminate = false,
+                    value = 100,
+                )
                 connectButton = homeButton(getString(R.string.open_carplay), true) { openProjection() }
                 addAction(connectButton!!, first = true)
                 addAction(homeGhost(getString(R.string.choose_iphone)) { choosePhone() })
@@ -1104,6 +1140,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 addAction(homeGhost(getString(R.string.settings)) { page = "settings"; render() })
             }
             HomeState.IDLE -> {
+                hideHomeProgress()
                 connectButton = homeButton(getString(R.string.connect_phone), true) {
                     if (CarPlayBackgroundSession.hasSession()) openProjection()
                     else connect(true)
@@ -1119,6 +1156,67 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
         addToStatusBox(actions, LinearLayout.LayoutParams(-1, -2))
         return true
+    }
+
+    /**
+     * The home's progress bar and the line under it.
+     *
+     * A bar says how far along the link is; the line under it says what it is doing and on
+     * what. Both are hidden when the home has nothing to report, so the idle page stays as
+     * quiet as it was.
+     */
+    private fun showHomeProgress(
+        phase: String,
+        detail: String,
+        indeterminate: Boolean,
+        value: Int = 0,
+    ) {
+        val bar = homeProgressBar ?: return
+        val detailView = homeProgressDetail ?: return
+        if (bar.parent == null) {
+            // Placed after the status line, before the actions: the reading order is what
+            // is happening, how far along it is, then what to do about it.
+            val box = homeStatusBox ?: return
+            box.addView(bar, LinearLayout.LayoutParams(dp(220), dp(4)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(14)
+            })
+            box.addView(detailView, LinearLayout.LayoutParams(-1, -2).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            })
+        }
+        bar.visibility = View.VISIBLE
+        detailView.visibility = if (detail.isEmpty()) View.GONE else View.VISIBLE
+        bar.isIndeterminate = indeterminate
+        if (!indeterminate) bar.progress = value
+        detailView.text = if (phase.isEmpty()) detail else "$phase · $detail"
+    }
+
+    private fun hideHomeProgress() {
+        homeProgressBar?.visibility = View.GONE
+        homeProgressDetail?.visibility = View.GONE
+    }
+
+    /**
+     * What the home says about the link under the bar: how it is connected, and how long
+     * that took. The numbers are only there when they are known.
+     */
+    private fun homeConnectionDetail(): String {
+        val parts = mutableListOf<String>()
+        val mode = AirPlayPersistence.loadWirelessHotspotMode(this)
+        parts += when (mode) {
+            WirelessHotspotMode.WIFI_P2P -> getString(R.string.wifi_direct)
+            WirelessHotspotMode.LOCAL_ONLY_HOTSPOT -> getString(R.string.wifi_direct)
+            WirelessHotspotMode.EXISTING_WIFI -> getString(R.string.existing_wifi_title)
+            WirelessHotspotMode.MANUAL -> getString(R.string.hotspot_name)
+        }
+        if (CarPlayBackgroundSession.active) {
+            val snapshot = CarPlayBackgroundSession.snapshot()
+            if (snapshot != null && snapshot.width > 0 && snapshot.height > 0) {
+                parts += "${snapshot.width}×${snapshot.height}"
+            }
+        }
+        return parts.joinToString(" · ")
     }
 
     /** The hotspot warning the idle state shows, kept in one place for both builders. */
@@ -5248,6 +5346,16 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
         val card = card()
         val heading = row().apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, dp(16)) }
+        // A short bar in the accent colour beside the group's name: it marks where a new
+        // group starts without another divider, and keeps the title aligned with what
+        // follows it.
+        heading.addView(View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(1).toFloat()
+                setColor(ACCENT)
+            }
+        }, LinearLayout.LayoutParams(dp(3), dp(18)).apply { marginEnd = dp(10) })
         if (icon != null) heading.addView(ImageView(this).apply {
             setImageResource(icon); imageTintList = ColorStateList.valueOf(ACCENT)
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
