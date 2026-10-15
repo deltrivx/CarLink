@@ -297,6 +297,28 @@ class AndroidMediaSink(
     private val audioModeLock = Any()
     private var communicationModeStream: AudioStreamId? = null
     private var savedAudioMode = AudioManager.MODE_NORMAL
+    /** Set when the voice path was left, so the media tracks open again at full width. */
+    private var rebuildMediaTracksAfterCall = false
+
+    /**
+     * Closes the media tracks that are open, so the next packet opens them again.
+     *
+     * A track keeps the width the HAL gave it when it was opened, and during a call that
+     * width was the voice path's. Closing them here rather than waiting for the next
+     * packet matters when the music is still playing across the end of the call: the
+     * packets keep arriving, but they arrive at a track already narrowed.
+     */
+    private fun rebuildOpenMediaTracks() {
+        val open = synchronized(this) {
+            audioRenderers.entries.filter { (_, renderer) -> renderer.format.audioType == "media" }
+        }
+        if (open.isEmpty()) return
+        Log.i("CarLink-USB", "audio rebuilding ${open.size} media track(s) after a call")
+        open.forEach { (id, renderer) ->
+            synchronized(this) { if (audioRenderers[id] === renderer) audioRenderers.remove(id) }
+            renderer.close()
+        }
+    }
     private val pendingVideoCodec = ConcurrentHashMap<Int, VideoCodec>()
     private val videoRecoveryHandlers = ConcurrentHashMap<Int, () -> Unit>()
     private val videoDiagnosticHandlers = ConcurrentHashMap<Int, (String) -> Unit>()
@@ -535,6 +557,14 @@ class AndroidMediaSink(
     }
 
     override fun onAudioStarted(id: AudioStreamId, format: AudioFormat, firstSample: Int) {
+        // A call has just ended and left the voice path: the media track still open was
+        // opened while the HAL was narrowing everything, so close it and let the next
+        // line open a fresh one. Without this the music after a call keeps the call's
+        // width until something unrelated rebuilds the track.
+        if (rebuildMediaTracksAfterCall && format.audioType == "media") {
+            rebuildMediaTracksAfterCall = false
+            synchronized(this) { audioRenderers.remove(id)?.close() }
+        }
         audioRenderer(id, format).start()
         if (format.audioType == "media") updateMediaAudio(id, true)
     }
@@ -617,6 +647,13 @@ class AndroidMediaSink(
             val active = communicationModeStream ?: return
             if (id != null && id != active) return
             communicationModeStream = null
+            // Leaving the voice path is not enough on its own: while the mode was
+            // MODE_IN_COMMUNICATION the HAL had already narrowed the media track it was
+            // given, and a track that is already open keeps what it was opened with. The
+            // music that followed a call therefore sounded like the call — narrow, and
+            // quiet — until something else rebuilt it.
+            rebuildMediaTracksAfterCall = true
+            rebuildOpenMediaTracks()
             // The report is built inside the try but sent outside it: reporting from in there
             // would let a failing callback be caught as a failed restore.
             val line = try {
