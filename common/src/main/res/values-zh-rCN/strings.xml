@@ -854,4 +854,5 @@
     <string name="settings_media">媒体</string>
     <string name="about_description_short">面向 Android 设备的独立 CarPlay 接收器。有线和无线连接均在本机运行，并使用本地认证。普通 iPhone 无需越狱、Mac、转接器或登录即可连接。</string>
     <string name="bluetooth_cannot_open_connections">此车机无法打开蓝牙连接，无线 CarPlay 在此不可用。请改用 USB 数据线连接。</string>
+    <string name="iphone_not_in_the_car">所选 iPhone 不在车内。请打开它的蓝牙，或等它在身边时手动连接。</string>
 </resources>
