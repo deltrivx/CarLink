@@ -4407,12 +4407,7 @@ class CarPlayHostActivity : ComponentActivity() {
             model = normalizedModel(),
             oemLabel = oemLabel,
             icons = listOf(loadAirPlayIcon()),
-            // Whether this car can show CarPlay video at all is a capability the iPhone
-            // asks about once, when the session is negotiated — not a driving policy. The
-            // parked setting decides whether video may *play* while moving, which
-            // [VideoInCar.allowed] answers per gear; a driver who turns that off still
-            // gets video when parked, instead of being told the car has no screen.
-            videoInCar = net.easyconn.gwmec.hud.BydOutputSettings.carPlayVideoCapable(this),
+            videoInCar = net.easyconn.gwmec.hud.BydOutputSettings.videoWhileParkedActive(this),
             mainBufferedAudio = AirPlayPersistence.loadMainBufferedAudio(this),
             disableAudioOutput = carBluetoothAudio,
         )
@@ -5311,6 +5306,18 @@ class CarPlayHostActivity : ComponentActivity() {
             if (connectingInBackground && !CarPlayBackgroundSession.hasSession()) finish()
             return
         }
+        // A link that keeps being lost is not a link that is coming back. Stop after the
+        // same budget a failed start gets, say so on screen, and let the driver start again
+        // when the iPhone is actually there — rather than spinning on a phone that is not.
+        val sessionReconnects = reconnectAttempts
+        if (startupFailure == null && sessionReconnects >= MAX_SESSION_RECONNECTS) {
+            startupRetryStopped = true
+            startupRetryButton?.visibility = View.VISIBLE
+            setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
+            appendLog("session reconnect budget spent generation=$restartGeneration reason=$reason attempts=$sessionReconnects")
+            if (connectingInBackground && !CarPlayBackgroundSession.hasSession()) finish()
+            return
+        }
         reconnectScheduled = true
         callPopupSessionReady = false
         updateCallPopupGuard()
@@ -5320,9 +5327,9 @@ class CarPlayHostActivity : ComponentActivity() {
         } else if (reason.contains("AirPlay iAP tunnel", ignoreCase = true)) {
             IAP_TUNNEL_RECONNECT_DELAY_MILLIS
         } else {
-            (RECONNECT_DELAY_MILLIS * (1L shl reconnectAttempts.coerceAtMost(4))).coerceAtMost(30_000L)
+            (RECONNECT_DELAY_MILLIS * (1L shl sessionReconnects.coerceAtMost(4))).coerceAtMost(30_000L)
         }
-        reconnectAttempts += 1
+        reconnectAttempts = sessionReconnects + 1
         appendLog("$reason; retrying in ${delayMillis}ms generation=$generation startupFailure=$startupFailure startupRetries=${startupRetryBudget.retries}")
         mainHandler.postDelayed(
             {
@@ -5911,6 +5918,16 @@ class CarPlayHostActivity : ComponentActivity() {
         const val CONFIGURATION_POLL_INTERVAL_MILLIS = 2_000L
         const val RECONNECT_DELAY_MILLIS = 2_000L
         const val IAP_TUNNEL_RECONNECT_DELAY_MILLIS = 15_000L
+        /**
+         * How many times a session lost mid-drive is rebuilt before giving up.
+         *
+         * A startup failure already stops after [WirelessStartupPolicy.MAX_STARTUP_RETRIES],
+         * but a session that connected and then lost its link counted only the delay, never
+         * the attempts: with the iPhone out of the car the host rebuilt the link every 30 s
+         * forever, holding the Wi-Fi Direct group, the hotspot and the audio focus the whole
+         * time. The driver who comes back finds a dead link and a warm tablet.
+         */
+        const val MAX_SESSION_RECONNECTS = 5
         const val CONTROLLER_CLOSE_TIMEOUT_MILLIS = 4_000L
         const val AUDIO_CAPTURE_MARKER = "audio-capture.enabled"
         const val AUDIO_CAPTURE_DIRECTORY = "audio-captures"

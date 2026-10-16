@@ -22,13 +22,8 @@ interface CarPlayVideoListener {
 }
 
 /**
- * Keeps [VideoInCar.allowed] in step with the car.
- *
- * A gear that reads P allows video; a gear that reads anything else does not. A gear that
- * cannot be read at all — no ADB, a head unit that will not say — is not a prohibition:
- * the driver who turned CarPlay video on chose to have it, and treating "unknown" as
- * "moving" told the iPhone this car had no screen, which is why video apps came across
- * as audio only on a car with no gear feed.
+ * Keeps [VideoInCar.allowed] in step with the car: allowed only while the gear reads P, so an unknown
+ * gear (no ADB) keeps video off. Changes go to [onChanged].
  */
 internal class VideoInCarGate(
     private val readParked: () -> Boolean?,
@@ -59,11 +54,8 @@ internal class VideoInCarGate(
             lastParked = parked
             onObserved(parked)
         }
-        val allowed = parked != false
-        // The first answer is always pushed, even when it agrees with the default: /info may
-        // already have been served with video off while the gear was still unread, and the
-        // iPhone keeps what it was told until something says otherwise.
-        if ((allowed == VideoInCar.allowed && !first) || closed) return
+        val allowed = parked == true
+        if (allowed == VideoInCar.allowed || closed) return
         VideoInCar.allowed = allowed
         onChanged(allowed)
     }

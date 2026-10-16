@@ -2333,16 +2333,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             getString(R.string.settings_navigation_wheel_volume), R.drawable.ic_dp_audio) { card ->
             navigationWheelControls(card)
         }
-        // Video belongs with the sound: both answer "what comes out of the speakers and
-        // the screen", and a driver looking for why a video app is silent looks here.
+        // Parked video lives with the sound: both answer what the driver sees and hears,
+        // and the switch itself is upstream's.
         filteredSection(content, SettingsSection.CARPLAY_VIDEO,
-            getString(R.string.carplay_video_capable), R.drawable.ic_dp_video) { card ->
-            toggle(card, getString(R.string.carplay_video_capable),
-                getString(R.string.carplay_video_capable_description),
-                BydOutputSettings.carPlayVideoCapable(this)) {
-                BydOutputSettings.setCarPlayVideoCapable(this, it)
-                reconnectForVehicleSetting()
-            }
+            getString(R.string.video_while_parked), R.drawable.ic_dp_video) { card ->
             toggle(card, getString(R.string.video_while_parked),
                 getString(R.string.video_while_parked_description),
                 BydOutputSettings.videoWhileParked(this)) {
@@ -4104,15 +4098,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 BydOutputSettings.setVideoWhileParked(this, it)
                 onVehicleDataSettingChanged(it)
             }
-        }
-        // Whether this car can show CarPlay video at all is its own question, asked of the
-        // iPhone once when the session starts. It is not the parked policy, and turning
-        // that off should not tell the iPhone the car has no screen.
-        toggle(card, getString(R.string.carplay_video_capable),
-            getString(R.string.carplay_video_capable_description),
-            BydOutputSettings.carPlayVideoCapable(this)) {
-            BydOutputSettings.setCarPlayVideoCapable(this, it)
-            reconnectForVehicleSetting()
         }
     }
 

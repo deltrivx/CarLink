@@ -4,7 +4,6 @@ import net.easyconn.gwmec.airplay.VideoInCar
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VideoInCarGateTest {
@@ -13,35 +12,22 @@ class VideoInCarGateTest {
         VideoInCar.allowed = false
     }
 
-    @Test
-    fun videoFollowsTheGearButAnUnreadableGearIsNotAProhibition() {
+    @Test fun videoIsAllowedOnlyWhileTheGearReadsPark() {
         val changes = mutableListOf<Boolean>()
         val gate = VideoInCarGate({ null }, onChanged = { changes += it })
 
-        gate.update(true) // parked
-        gate.update(false) // moving: the one thing that stops video
-        gate.update(true) // parked again
-        gate.update(true) // unchanged
-        gate.update(null) // gear went unreadable while parked: keeps playing
-        gate.update(false) // moving again: stops
+        gate.update(null) // no ADB: stays off
+        gate.update(false)
+        gate.update(true)
+        gate.update(true)
+        gate.update(null) // unreadable while parked: off again
+        gate.update(false)
 
-        assertEquals(listOf(true, false, true, false), changes)
+        assertEquals(listOf(true, false), changes)
         assertFalse(VideoInCar.allowed)
     }
 
-    @Test
-    fun aCarWithNoGearFeedAtAllStillPlaysVideo() {
-        val changes = mutableListOf<Boolean>()
-        val gate = VideoInCarGate({ null }, onChanged = { changes += it })
-
-        gate.update(null) // no ADB: nothing says the car is moving
-
-        assertEquals(listOf(true), changes)
-        assertTrue(VideoInCar.allowed)
-    }
-
-    @Test
-    fun closingTheGateTurnsVideoOff() {
+    @Test fun closingTheGateTurnsVideoOff() {
         val gate = VideoInCarGate({ true }, onChanged = {})
         gate.update(true)
         gate.close()
@@ -50,8 +36,7 @@ class VideoInCarGateTest {
         assertFalse(VideoInCar.allowed)
     }
 
-    @Test
-    fun observationsDistinguishUnknownParkAndNotPark() {
+    @Test fun observationsDistinguishUnknownParkAndNotPark() {
         val observations = mutableListOf<Boolean?>()
         val gate = VideoInCarGate({ null }, {}, observations::add)
 

@@ -16,7 +16,6 @@ object BydOutputSettings {
     private const val KEY_CHARGING_CONNECTORS = "charging_connectors"
     private const val KEY_WHEEL_SPEED_TO_IPHONE = "wheel_speed_to_iphone"
     private const val KEY_VIDEO_WHILE_PARKED = "video_while_parked"
-    private const val KEY_CARPLAY_VIDEO = "carplay_video_capable"
     private const val KEY_CLUSTER_SONG = "cluster_song"
     private const val KEY_CLUSTER_SONG_ON_CHANGE = "cluster_song_on_change"
     private const val KEY_HUD_SONG = "hud_song"
@@ -67,21 +66,6 @@ object BydOutputSettings {
 
     fun wheelSpeedToIphoneActive(context: Context): Boolean =
         wheelSpeedToIphone(context) && supportedInSelectedMode(context) { it.motionSupported }
-    /**
-     * Offer the iPhone the CarPlay video capability at all.
-     *
-     * This is separate from [videoWhileParked]: whether video may *play* while driving is a
-     * safety question, but whether the car can *show* video at all is a capability the
-     * iPhone asks about once, when the session is negotiated. Tying the two together meant
-     * a driver who sensibly turned off playing-while-driving also told the iPhone this car
-     * had no screen for video — and every video app then came across as audio-only.
-     */
-    fun carPlayVideoCapable(context: Context): Boolean = prefs(context).getBoolean(KEY_CARPLAY_VIDEO, true)
-
-    fun setCarPlayVideoCapable(context: Context, enabled: Boolean) {
-        prefs(context).edit().putBoolean(KEY_CARPLAY_VIDEO, enabled).commit()
-    }
-
     /** Offer iOS 27 video in car, played only while the gear reads P (needs ADB over network). */
     fun videoWhileParked(context: Context): Boolean = prefs(context).getBoolean(KEY_VIDEO_WHILE_PARKED, false)
 

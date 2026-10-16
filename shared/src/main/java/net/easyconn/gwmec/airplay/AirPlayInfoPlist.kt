@@ -28,7 +28,7 @@ object AirPlayInfoPlist {
     fun features(config: AirPlayConfig): Long =
         if (config.disableAudioOutput) CARPLAY_FEATURES_NO_AUDIO else CARPLAY_FEATURES
 
-    fun build(config: AirPlayConfig, videoAllowed: Boolean = VideoInCar.allowed): Map<String, Any?> {
+    fun build(config: AirPlayConfig): Map<String, Any?> {
         val displays = arrayListOf<Any?>(
             displayEntry(config.main, STREAM_TYPE_MAIN_SCREEN, MAIN_UUID),
         )
@@ -78,7 +78,7 @@ object AirPlayInfoPlist {
         if (config.videoInCar) {
             // The iPhone tears down a session that enables videoPlayback without this key.
             val legacy = features(config)
-            info["videoPlaybackInfo"] = VideoInCar.info(legacy, videoAllowed)
+            info["videoPlaybackInfo"] = VideoInCar.info(legacy, VideoInCar.allowed)
         }
         return info
     }
