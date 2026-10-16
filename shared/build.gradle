@@ -3,6 +3,7 @@ plugins {
 }
 android {
     namespace = 'net.easyconn.gwmec.shared'
+
     compileSdk = 37
 
     defaultConfig {

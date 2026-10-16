@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The custom build for the car shares the system uid. It lives in its own source set,
+  included only by the car build (-PsystemUid=true), so an ordinary build - the public
+  repository's CI, or a first checkout - never sees it and carries no uid.
+
+  A public build that declares a system uid it was never granted is a build Android
+  refuses to update, and an install carrying one can never be upgraded over.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sharedUserId="android.uid.system" />

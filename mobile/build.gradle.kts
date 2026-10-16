@@ -17,13 +17,35 @@ android {
         applicationId = "net.easyconn.gwmec"
         minSdk = 25
         targetSdk = 37
-        versionCode = 11578
-        versionName = "1.3.71"
+        versionCode = 11579
+        versionName = "1.3.72"
 
     }
 
 
     localAuthenticationAssets?.let { sourceSets.getByName("main").assets.srcDir(it) }
+
+
+
+    // Whether this package shares the system uid.
+    //
+    // The custom build for the car needs it; the generic build for any device must not
+    // have it. A public build that declares a system uid it was never granted is a build
+    // Android refuses to update, and an install carrying one can never be upgraded over.
+    //
+    // AGP 9 offers no manifest placeholder for this, so the attribute is written into the
+    // merged manifest by a task that runs before anything packages it: -PsystemUid=true,
+    // which only the car build passes, puts it back; an ordinary build - the public
+    // repository's CI, or a first checkout - leaves it out.
+    val systemUid = providers.gradleProperty("systemUid").map(String::toBoolean).getOrElse(false)
+
+    // The custom build for the car shares the system uid, and that attribute lives in its
+    // own source set. Including it here - only when -PsystemUid=true is passed - means an
+    // ordinary build, the public repository's CI or a first checkout, never sees it and
+    // carries no uid at all.
+    if (systemUid) {
+        sourceSets.getByName("main").manifest.srcFile("src/car/AndroidManifest.xml")
+    }
 
     signingConfigs {
         // The release key is a credential, passed in through the environment and never
