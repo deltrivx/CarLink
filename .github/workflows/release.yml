@@ -5,10 +5,10 @@ name: Release build (generic)
 # check. The custom build for the car is published from the private repository,
 # and the custom install looks there instead.
 #
-# Both lines are signed with the same release key, so an install of one can be
-# upgraded to the other: a driver who starts on the generic build can move to the
-# car's custom build without uninstalling. The key arrives as a repository secret
-# and is written to a file only for the build, never committed.
+# The generic build is signed with the debug key: this repository holds no private
+# key, and must not. A public build signed with a key nobody here controls would
+# be a build nobody can verify, and a key kept in a public repository's secrets
+# would not stay private.
 #
 # The generic build declares no system uid. A public build that declares one it
 # was never granted is a build Android refuses to update, and an install carrying
@@ -40,27 +40,10 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # The same key the car build is signed with, so a generic install can be
-      # upgraded to the custom one. Absent in a fork, which then falls back to
-      # the debug key and still builds.
-      - name: Decode the release keystore
-        env:
-          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
-        run: |
-          set -e
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "No RELEASE_KEYSTORE_B64 secret; the build will use the debug key."
-            exit 0
-          fi
-          mkdir -p "$RUNNER_TEMP/keys"
-          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/keys/release.jks"
-          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/keys/release.jks" >>"$GITHUB_ENV"
-
+      # -PsystemUid=false is explicit: the generic build must never carry the
+      # system uid, whatever the source tree says. -PupdateRepoName names this
+      # repository as the update source, so an install here checks here.
       - name: Build the generic release
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: >
           ./gradlew mobile:assembleRelease --stacktrace
           -PsystemUid=false

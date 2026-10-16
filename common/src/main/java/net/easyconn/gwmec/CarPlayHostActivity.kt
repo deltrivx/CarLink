@@ -423,6 +423,7 @@ class CarPlayHostActivity : ComponentActivity() {
     private var manualHotspotSecurity = ManualHotspotSecurity.OPEN
     private var awaitingVpnConsent = false
     private var awaitingWirelessPermissions = false
+    private var wirelessPermissionsRefused = false
     private var awaitingLocationPermission = false
     private var vpnReady = false
     private var hotspotStatus = HotspotStatus(state = "off")
@@ -871,6 +872,32 @@ class CarPlayHostActivity : ComponentActivity() {
         requiredWirelessPermissions().all {
             checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
         }
+
+    private fun missingWirelessPermissions(): List<String> =
+        requiredWirelessPermissions().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+
+    /**
+     * Once the wireless start permissions were refused, by the driver or silently by Android, the
+     * screen names the access to allow instead of waiting for an iPhone that cannot arrive. Allowing
+     * it in the app's permissions brings the driver back here, where the start goes on.
+     */
+    private fun showMissingWirelessPermission() {
+        if (wirelessPermissionsReady || !wirelessEnabled) {
+            wirelessPermissionsRefused = false
+            return
+        }
+        if (!wirelessPermissionsRefused) return
+        val missing = missingWirelessPermissions()
+        setConnectionStage(getString(
+            if (Manifest.permission.ACCESS_FINE_LOCATION in missing ||
+                Manifest.permission.ACCESS_COARSE_LOCATION in missing
+            ) {
+                R.string.allow_precise_location_for_diplay_in_the_head_unit_s_app_p
+            } else {
+                R.string.allow_nearby_devices_for_diplay_in_the_head_unit_s_app_per
+            },
+        ))
+    }
 
     private fun requiredWirelessPermissions(): List<String> =
         WirelessPermissions.required(wirelessHotspotMode, Build.VERSION.SDK_INT)
@@ -4767,7 +4794,9 @@ class CarPlayHostActivity : ComponentActivity() {
         }
         updateHotspotStatus(status)
         val description = status.describe()
-        setConnectionStage(description)
+        // Once the retries stopped, a later failure of the same attempt, such as its cleanup,
+        // must not wipe the line that says why it stopped.
+        if (!startupRetryStopped || status !is CarPlayStatus.Failed) setConnectionStage(description)
         when (status) {
             is CarPlayStatus.Failed -> if (status.wifiResetRequired) {
                 wifiRecoveryButton?.visibility = View.VISIBLE
@@ -5301,8 +5330,13 @@ class CarPlayHostActivity : ComponentActivity() {
         if (startupFailure != null && startupDelay == null) {
             startupRetryStopped = true
             startupRetryButton?.visibility = View.VISIBLE
-            setConnectionStage(if (startupFailure == WirelessStartupFailure.HOTSPOT_CONFIGURATION) reason
-                else "$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
+            if (startupFailure == WirelessStartupFailure.HOTSPOT_CONFIGURATION) {
+                // Its cause is in English, for the report; the help line says what to check.
+                setConnectionStage("${getString(R.string.hotspot_network_not_ready)}\n" +
+                    getString(R.string.wireless_startup_retries_exhausted))
+            } else {
+                setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
+            }
             appendLog("wireless startup recovery stopped generation=$restartGeneration reason=$startupFailure retries=${startupRetryBudget.retries}")
             // Same reason as the failure itself: a background host with no link is a black
             // screen, not a place to leave the driver. The home states the failure and
@@ -5781,6 +5815,10 @@ class CarPlayHostActivity : ComponentActivity() {
         message == getString(R.string.vpn_authorization_unavailable) -> message
         message == getString(R.string.waiting_for_mfi_coprocessor) ||
             message == getString(R.string.requesting_mfi_usb_permission) -> message
+        // A startup failure that names its cause, and a line saying the retries stopped, are
+        // shown as they are. "Getting CarPlay ready…" in their place said it was still connecting.
+        message == getString(R.string.hotspot_network_not_ready) || message == getString(R.string.first_tcp_timeout) ||
+            message.endsWith(getString(R.string.wireless_startup_retries_exhausted)) -> message
         message.contains("CarPlay configuration request", true) -> getString(R.string.iphone_usb_mode_rejected)
         message.contains("Turn on Wi-Fi", true) -> getString(R.string.turn_on_wi_fi_in_the_head_unit_s_settings_to_connect)
         message.contains("Allow precise Location", true) -> getString(R.string.allow_precise_location_for_diplay_in_the_head_unit_s_app_p)

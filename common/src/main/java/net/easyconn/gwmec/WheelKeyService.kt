@@ -94,6 +94,7 @@ class WheelKeyService : AccessibilityService() {
         handler.removeCallbacks(pollEligibility)
         handler.postDelayed(pollEligibility, ELIGIBILITY_POLL_MILLIS)
         Log.i(TAG, "wheel key service connected")
+        WheelKeyLog.bound()
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -122,6 +123,8 @@ class WheelKeyService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN && event.action != KeyEvent.ACTION_UP) return false
+        // The report is the only place a driver without adb can see a key arrive at all.
+        WheelKeyLog.key(event)
         val down = event.action == KeyEvent.ACTION_DOWN
         val physicalKey = PhysicalWheelKey(event.deviceId, event.keyCode, event.scanCode)
         if (keys.hasConsumedPress(physicalKey)) {
