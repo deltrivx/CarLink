@@ -377,6 +377,10 @@ class CarPlayHostActivity : ComponentActivity() {
     private var displayDiagnosticAttempt: String? = null
     private var hevcEnabled = true
     private var hevcSoftwareDecoderEnabled = false
+    private val hevcDecoders by lazy { HevcSupport.decoders() }
+    /** The codec a session asks for: the HEVC setting falls back to H.264 without a decoder for it. */
+    private val sessionHevc: Boolean
+        get() = HevcSupport.usable(hevcEnabled, hevcSoftwareDecoderEnabled, hevcDecoders)
     private var advancedAudioChannelMappingSupported = false
     private var advancedAudioChannelMapping = false
     private var navigationStreamType = 14
@@ -4123,7 +4127,7 @@ class CarPlayHostActivity : ComponentActivity() {
             "${getString(R.string.resolution_handshake_prefix)}${native.width} x ${native.height} -> " +
                 "${negotiated.widthPixels} x ${negotiated.heightPixels}"
         }
-        val transport = if (!hevcEnabled) {
+        val transport = if (!sessionHevc) {
             "H.264"
         } else {
             "HEVC (H.265, ${if (hevcSoftwareDecoderEnabled) "software" else "hardware"})"
@@ -4400,7 +4404,7 @@ class CarPlayHostActivity : ComponentActivity() {
             main = declared,
             cluster = clusterDisplayConfig(),
             rightHandDrive = rightHandDrive,
-            hevc = hevcEnabled,
+            hevc = sessionHevc,
             microphone = microphoneAvailable,
             microphoneOpus = net.easyconn.gwmec.media.OpusEncoderSupport.isAvailable(),
             manufacturer = normalizedManufacturer(),
@@ -5781,6 +5785,7 @@ class CarPlayHostActivity : ComponentActivity() {
         message.contains("Turn on Wi-Fi", true) -> getString(R.string.turn_on_wi_fi_in_the_head_unit_s_settings_to_connect)
         message.contains("Allow precise Location", true) -> getString(R.string.allow_precise_location_for_diplay_in_the_head_unit_s_app_p)
         message.contains("Allow Nearby devices", true) -> getString(R.string.allow_nearby_devices_for_diplay_in_the_head_unit_s_app_per)
+        message.contains("socket manager missing", true) -> getString(R.string.bluetooth_cannot_open_connections)
         message.contains("createGroup failed", true) -> getString(R.string.the_head_unit_couldn_t_start_carplay_wi_fi_check_wi_fi_and)
         message.contains("needs a reset", true) -> getString(R.string.a_previous_wi_fi_direct_connection_is_still_running_reset)
         message.contains("socket", true) || message.contains("RFCOMM", true) -> getString(R.string.your_iphone_isn_t_available_unlock_it_and_check_bluetooth)

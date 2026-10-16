@@ -894,4 +894,5 @@
     <string name="home_progress_disconnecting">Disconnecting</string>
     <string name="settings_media">Media</string>
     <string name="about_description_short">An independent CarPlay receiver for Android devices. Wired and wireless connections run on the device, with local authentication. A standard iPhone can connect without a jailbreak, Mac, dongle or sign-in.</string>
+    <string name="bluetooth_cannot_open_connections">This head unit cannot open Bluetooth connections, so wireless CarPlay will not work here. Connect with a USB cable instead.</string>
 </resources>

@@ -430,6 +430,32 @@ class CarPlayController(
         }
     }
 
+    /**
+     * Whether this failure means the head unit cannot open Bluetooth connections at all.
+     *
+     * Android exposes that through the platform's socket manager. A head unit whose
+     * firmware keeps Bluetooth for its own calls and music can ship without it, and then
+     * every RFCOMM attempt fails the same way, a few milliseconds in — which is not the
+     * driver's phone being unavailable, and retrying will not make it so.
+     */
+    private fun bluetoothSocketManagerUnavailable(error: Throwable): Boolean {
+        var cause: Throwable? = error
+        while (cause != null) {
+            val name = cause.javaClass.name
+            val message = cause.message ?: ""
+            if (cause is NoSuchMethodException || cause is NoSuchMethodError) return true
+            if (name.contains("NoSuchMethod")) return true
+            if (message.contains("getBluetoothService", true) ||
+                message.contains("socket manager", true) ||
+                message.contains("BluetoothSocketManager", true)
+            ) {
+                return true
+            }
+            cause = cause.cause
+        }
+        return false
+    }
+
     fun isClosed(): Boolean = closed
 
     /** Nonblocking identity for wheel controls: only an unclosed phone with an accepted primary stream. */
@@ -1423,6 +1449,18 @@ class CarPlayController(
                         "failureClass=${diagnosticFailureClass(error)}",
                 )
                 logBluetoothConnectionSnapshot(device, "after-failure")
+                // Some head units give apps no way to open a Bluetooth connection at all:
+                // the platform's socket manager is missing, so every attempt fails within
+                // milliseconds. Retrying under "your iPhone isn't available" sends the
+                // driver looking for a phone that is sitting right there. Say what is
+                // wrong instead, and let the driver choose USB.
+                if (bluetoothSocketManagerUnavailable(error)) {
+                    connectionDiagnostic("Bluetooth socket manager missing; wireless CarPlay cannot work here")
+                    throw WirelessStartupException(
+                        WirelessStartupFailure.BLUETOOTH_UNAVAILABLE,
+                        "Bluetooth socket manager missing; wireless CarPlay cannot work on this head unit",
+                    )
+                }
                 throw error
             }
             debugLog("wireless RFCOMM connected address=${device.address}")

@@ -11,6 +11,12 @@ object WirelessStartupPolicy {
     const val STABLE_SESSION_MILLIS = 60_000L
 }
 
-enum class WirelessStartupFailure { HOTSPOT_NOT_READY, FIRST_TCP_TIMEOUT, HOTSPOT_CONFIGURATION }
+enum class WirelessStartupFailure {
+    HOTSPOT_NOT_READY,
+    FIRST_TCP_TIMEOUT,
+    HOTSPOT_CONFIGURATION,
+    /** The head unit gives apps no way to open a Bluetooth connection, so wireless cannot work at all. */
+    BLUETOOTH_UNAVAILABLE,
+}
 
 class WirelessStartupException(val reason: WirelessStartupFailure, message: String) : IOException(message)

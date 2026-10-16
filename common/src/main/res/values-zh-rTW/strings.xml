@@ -845,4 +845,5 @@
     <string name="settings_ambient_album">跟隨專輯封面</string>
     <string name="settings_ambient_album_description">按封面取色並近似匹配原車可用色號。灰黑或無封面時使用全部31色；大面積白色封面可使用白色或冷白。</string>
     <string name="settings_media">媒體</string>
+    <string name="bluetooth_cannot_open_connections">此車機無法開啟藍牙連線，無線 CarPlay 在此不可用。請改用 USB 傳輸線連接。</string>
 </resources>
