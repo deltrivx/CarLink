@@ -5413,13 +5413,15 @@ class CarPlayHostActivity : ComponentActivity() {
                 setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             }
             appendLog("wireless startup recovery stopped generation=$restartGeneration reason=$startupFailure retries=${startupRetryBudget.retries}")
-            // Same reason as the failure itself: a background host with no link is a black
-            // screen, not a place to leave the driver. The home states the failure and
-            // offers the connection again.
+            // Nothing is being attempted any more, so the home must not say it is: leaving
+            // the session registered there kept the page reading "connecting to iPhone..."
+            // with nothing behind it. The home's idle state offers the connection again.
+            runCatching { CarPlayBackgroundSession.stop() }
+            CarPlayBackgroundSession.active = false
             // Whether it started in the background or the foreground: a host with no link and
             // nothing left to try is a black screen. The home states the failure and offers
             // the connection again, which is where the driver belongs.
-            if (!CarPlayBackgroundSession.hasSession()) finish()
+            finish()
             return
         }
         // A link that keeps being lost is not a link that is coming back. Stop after the
@@ -5431,9 +5433,13 @@ class CarPlayHostActivity : ComponentActivity() {
             startupRetryButton?.visibility = View.VISIBLE
             setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             appendLog("session reconnect budget spent generation=$restartGeneration reason=$reason attempts=$sessionReconnects")
-            // Same: a link that keeps being lost and has no attempts left is not a screen to
-            // leave the driver on. The home says what happened and offers the connection again.
-            if (!CarPlayBackgroundSession.hasSession()) finish()
+            // Same, and for the same reason: nothing is being attempted, so the session is
+            // let go and the home reads idle rather than "connecting".
+            runCatching { CarPlayBackgroundSession.stop() }
+            CarPlayBackgroundSession.active = false
+            // A link that keeps being lost and has no attempts left is not a screen to leave
+            // the driver on. The home says what happened and offers the connection again.
+            finish()
             return
         }
         reconnectScheduled = true
