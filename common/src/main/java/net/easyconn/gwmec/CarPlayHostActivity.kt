@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.content.res.ColorStateList
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.graphics.Bitmap
@@ -952,6 +953,36 @@ class CarPlayHostActivity : ComponentActivity() {
      * looking at a CarPlay that is no longer there. Watching the radios themselves means the
      * link is ended at once, and the driver is put back where they were.
      */
+    /**
+     * The chosen iPhone's Bluetooth dropping while a wireless CarPlay runs.
+     *
+     * Turning the phone's Wi-Fi and Bluetooth off - taking it out of the car - leaves the
+     * AirPlay sockets half-open: nothing times out, nothing is reported, and the picture
+     * stays on screen looking like a CarPlay that is still there. The phone's own link
+     * dropping is the signal that it has gone, so the link is ended here rather than
+     * waited for.
+     */
+    private val phoneLinkReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (!AirPlayPersistence.loadWirelessEnabled(this@CarPlayHostActivity)) return
+            if (intent?.action != BluetoothDevice.ACTION_ACL_DISCONNECTED) return
+            val address = runCatching {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)?.address
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)?.address
+                }
+            }.getOrNull() ?: return
+            val chosen = CarlinkPreferences.phoneAddress(this@CarPlayHostActivity) ?: return
+            if (!address.equals(chosen, ignoreCase = true)) return
+            appendLog("chosen iPhone Bluetooth dropped ($address); ending CarPlay")
+            runCatching { CarPlayBackgroundSession.stop() }
+            CarPlayBackgroundSession.active = false
+            finish()
+        }
+    }
+
     private val radioStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (!AirPlayPersistence.loadWirelessEnabled(this@CarPlayHostActivity)) return
@@ -980,6 +1011,10 @@ class CarPlayHostActivity : ComponentActivity() {
                 addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
                 addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
             },
+        )
+        registerReceiver(
+            phoneLinkReceiver,
+            IntentFilter(BluetoothDevice.ACTION_ACL_DISCONNECTED),
         )
         updateCallPopupGuard()
         val savedNightMode = AirPlayPersistence.loadCarPlayNightMode(this)
@@ -1558,6 +1593,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(radioStateReceiver) }
+        runCatching { unregisterReceiver(phoneLinkReceiver) }
         resetSidePanel()
         releaseSidePanelEffects()
         hostAppearanceResumed = false
