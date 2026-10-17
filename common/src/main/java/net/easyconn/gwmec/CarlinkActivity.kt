@@ -170,8 +170,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private var pendingCarHotspotSetup = false
     private var hotspotJoinControls: HotspotJoinControls? = null
     private var setupError: String? = null
-    /** Set when the automatic connection found the chosen iPhone absent; the home says so. */
-    private var phoneAbsentHint: String? = null
     private var status: TextView? = null
     private var connectButton: android.widget.TextView? = null
     private var disconnectButton: android.widget.TextView? = null
@@ -571,7 +569,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             startCarHotspotOnLaunch()
             if (setupError == null && !CarPlayBackgroundSession.hasSession() &&
                 CarlinkPreferences.autoConnect(this) && intent.getStringExtra("page") == null && page != "setup") {
-                handler.post { autoConnectIfPhoneReachable() }
+                handler.post { connect(CarlinkPreferences.autoConnectWireless(this)) }
             }
         }
     }
@@ -1123,6 +1121,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     stopSession { refreshStatus() }
                 }
                 addAction(disconnectButton!!)
+                addAction(homeGhost(getString(R.string.settings)) { page = "settings"; render() })
             }
             HomeState.DISCONNECTING -> {
                 status?.text = getString(R.string.disconnecting)
@@ -1156,12 +1155,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             }
             HomeState.IDLE -> {
                 hideHomeProgress()
-                phoneAbsentHint?.let { hint ->
-                    addToStatusBox(label(hint, 14, WARNING).apply {
-                        gravity = Gravity.CENTER
-                        setPadding(0, dp(4), 0, 0)
-                    })
-                }
                 connectButton = homeButton(getString(R.string.connect_phone), true) {
                     if (CarPlayBackgroundSession.hasSession()) openProjection()
                     else connect(true)
@@ -4955,53 +4948,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
         parent.addView(control, matchButton(0, 60))
         parent.addView(space(12))
-    }
-
-    /**
-     * Starts the automatic connection, but only when the chosen iPhone is actually there.
-     *
-     * Opening the app with auto-connect on used to start a link whether or not the phone was
-     * in the car: with the iPhone at home, the home page sat at "connecting" through five
-     * retries and a stop, which looks exactly like a connection that is being attempted and
-     * is not. A phone whose Bluetooth is off, or that was never paired, is now reported as
-     * absent instead - and the driver can still connect by hand, which says so.
-     */
-    private fun autoConnectIfPhoneReachable() {
-        phoneAbsentHint = null
-        val address = CarlinkPreferences.phoneAddress(this)
-        if (address == null) {
-            // Nothing chosen yet: the setup wizard is the honest answer, not a failed link.
-            page = "setup"
-            render()
-            return
-        }
-        if (phoneStillPaired(address) == false) {
-            // Say it plainly, where the driver is looking, instead of a link that spins five
-            // times and stops on a phone that is not there.
-            phoneAbsentHint = getString(R.string.iphone_not_in_the_car)
-            refreshHomeStatus()
-            return
-        }
-        connect(CarlinkPreferences.autoConnectWireless(this))
-    }
-
-    /**
-     * Whether the chosen iPhone is still paired, or null when that cannot be told.
-     *
-     * Only one thing is checked: the phone is still among the paired devices. Bluetooth being
-     * off is *not* treated as absence - that is the car's own radio, and the connection will
-     * say so plainly if it is the problem. Nor is a paired phone known to be nearby, which
-     * needs a radio sweep; the connection itself reports that.
-     */
-    private fun phoneStillPaired(address: String): Boolean? {
-        val adapter = runCatching { getSystemService(BluetoothManager::class.java)?.adapter }.getOrNull()
-            ?: return null
-        // No adapter, or one that reports nothing: that is not evidence the phone is gone.
-        if (!adapter.isEnabled) return null
-        val bonded = runCatching { adapter.bondedDevices }.getOrNull() ?: return null
-        // An empty list from a radio that is on is the car saying it holds no pairs at all.
-        if (bonded.isEmpty()) return null
-        return bonded.any { it.address.equals(address, ignoreCase = true) }
     }
 
     private fun connect(wireless: Boolean) {

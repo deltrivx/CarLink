@@ -6,14 +6,10 @@ import android.content.ActivityNotFoundException
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
-import android.content.BroadcastReceiver
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.content.res.ColorStateList
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.graphics.Bitmap
@@ -31,7 +27,6 @@ import android.graphics.drawable.LayerDrawable
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.net.Uri
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -945,77 +940,9 @@ class CarPlayHostActivity : ComponentActivity() {
         if (AirPlayPersistence.loadFpsCounter(this)) fpsCounter?.start() else fpsCounter?.stop()
     }
 
-    /**
-     * Wi-Fi and Bluetooth going away while a wireless CarPlay runs.
-     *
-     * Neither radio's socket tells the app anything: the AirPlay connection stays half-open
-     * and the picture stays on screen until something else notices, so the driver is left
-     * looking at a CarPlay that is no longer there. Watching the radios themselves means the
-     * link is ended at once, and the driver is put back where they were.
-     */
-    /**
-     * The chosen iPhone's Bluetooth dropping while a wireless CarPlay runs.
-     *
-     * Turning the phone's Wi-Fi and Bluetooth off - taking it out of the car - leaves the
-     * AirPlay sockets half-open: nothing times out, nothing is reported, and the picture
-     * stays on screen looking like a CarPlay that is still there. The phone's own link
-     * dropping is the signal that it has gone, so the link is ended here rather than
-     * waited for.
-     */
-    private val phoneLinkReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (!AirPlayPersistence.loadWirelessEnabled(this@CarPlayHostActivity)) return
-            if (intent?.action != BluetoothDevice.ACTION_ACL_DISCONNECTED) return
-            val address = runCatching {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)?.address
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)?.address
-                }
-            }.getOrNull() ?: return
-            val chosen = CarlinkPreferences.phoneAddress(this@CarPlayHostActivity) ?: return
-            if (!address.equals(chosen, ignoreCase = true)) return
-            appendLog("chosen iPhone Bluetooth dropped ($address); ending CarPlay")
-            runCatching { CarPlayBackgroundSession.stop() }
-            CarPlayBackgroundSession.active = false
-            finish()
-        }
-    }
-
-    private val radioStateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (!AirPlayPersistence.loadWirelessEnabled(this@CarPlayHostActivity)) return
-            val wifiOff = intent?.action == WifiManager.WIFI_STATE_CHANGED_ACTION &&
-                intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_ENABLED) ==
-                WifiManager.WIFI_STATE_DISABLED
-            val bluetoothOff = intent?.action == BluetoothAdapter.ACTION_STATE_CHANGED &&
-                intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_ON) ==
-                BluetoothAdapter.STATE_OFF
-            if (!wifiOff && !bluetoothOff) return
-            val radio = if (wifiOff) "Wi-Fi" else "Bluetooth"
-            appendLog("$radio turned off during a wireless session; ending CarPlay")
-            // End the link from here rather than waiting for it: the sockets will not say.
-            runCatching { CarPlayBackgroundSession.stop() }
-            CarPlayBackgroundSession.active = false
-            finish()
-        }
-    }
-
     override fun onResume() {
         super.onResume()
         hostAppearanceResumed = true
-        registerReceiver(
-            radioStateReceiver,
-            IntentFilter().apply {
-                addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
-                addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
-            },
-        )
-        registerReceiver(
-            phoneLinkReceiver,
-            IntentFilter(BluetoothDevice.ACTION_ACL_DISCONNECTED),
-        )
         updateCallPopupGuard()
         val savedNightMode = AirPlayPersistence.loadCarPlayNightMode(this)
         val savedThreshold = AirPlayPersistence.loadAmbientLightThreshold(this)
@@ -1592,8 +1519,6 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        runCatching { unregisterReceiver(radioStateReceiver) }
-        runCatching { unregisterReceiver(phoneLinkReceiver) }
         resetSidePanel()
         releaseSidePanelEffects()
         hostAppearanceResumed = false
@@ -5413,15 +5338,10 @@ class CarPlayHostActivity : ComponentActivity() {
                 setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             }
             appendLog("wireless startup recovery stopped generation=$restartGeneration reason=$startupFailure retries=${startupRetryBudget.retries}")
-            // Nothing is being attempted any more, so the home must not say it is: leaving
-            // the session registered there kept the page reading "connecting to iPhone..."
-            // with nothing behind it. The home's idle state offers the connection again.
-            runCatching { CarPlayBackgroundSession.stop() }
-            CarPlayBackgroundSession.active = false
-            // Whether it started in the background or the foreground: a host with no link and
-            // nothing left to try is a black screen. The home states the failure and offers
-            // the connection again, which is where the driver belongs.
-            finish()
+            // Same reason as the failure itself: a background host with no link is a black
+            // screen, not a place to leave the driver. The home states the failure and
+            // offers the connection again.
+            if (connectingInBackground && !CarPlayBackgroundSession.hasSession()) finish()
             return
         }
         // A link that keeps being lost is not a link that is coming back. Stop after the
@@ -5433,13 +5353,7 @@ class CarPlayHostActivity : ComponentActivity() {
             startupRetryButton?.visibility = View.VISIBLE
             setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             appendLog("session reconnect budget spent generation=$restartGeneration reason=$reason attempts=$sessionReconnects")
-            // Same, and for the same reason: nothing is being attempted, so the session is
-            // let go and the home reads idle rather than "connecting".
-            runCatching { CarPlayBackgroundSession.stop() }
-            CarPlayBackgroundSession.active = false
-            // A link that keeps being lost and has no attempts left is not a screen to leave
-            // the driver on. The home says what happened and offers the connection again.
-            finish()
+            if (connectingInBackground && !CarPlayBackgroundSession.hasSession()) finish()
             return
         }
         reconnectScheduled = true
