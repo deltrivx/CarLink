@@ -8,6 +8,47 @@
   what changed among the words.
 -->
 <resources>
+    <string-array name="changelog_1_3_91">
+        <item>彻底解决点击连接闪屏与连接中断：移除 onDestroy 中的连接终止逻辑</item>
+        <item>彻底取消旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>
+        <item>手机离线或未在身边时，连接超时自动停止并恢复主页就绪状态，绝不卡死</item>
+        <item>主页与投影无缝衔接：仅在收到有效 CarPlay 视频流时才切入全屏投影</item>
+    </string-array>
+    <string-array name="changelog_1_3_90">
+        <item>彻底解决点击连接闪屏与连接失败问题：后台直启会话，杜绝 Activity 闪烁销毁</item>
+        <item>修复只要有会话记录就误判打开旧版投影界面的逻辑漏洞</item>
+        <item>彻底取消全部旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>
+        <item>手机离线或未在身边时，连接超时自动停止并恢复主页就绪状态，绝不卡死</item>
+        <item>主页与投影无缝衔接：仅在收到有效 CarPlay 视频流时才切入全屏投影</item>
+    </string-array>
+    <string-array name="changelog_1_3_89">
+        <item>彻底解决点击连接闪屏与连接失败问题：后台直启会话，杜绝 Activity 闪烁销毁</item>
+        <item>修复只要有会话记录就误判打开旧版投影界面的逻辑漏洞</item>
+        <item>彻底取消全部旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>
+        <item>手机离线或未在身边时，连接超时自动停止并恢复主页就绪状态，绝不卡死</item>
+        <item>主页与投影无缝衔接：仅在收到有效 CarPlay 视频流时才切入全屏投影</item>
+    </string-array>
+    <string-array name="changelog_1_3_88">
+        <item>彻底解决点击连接闪屏与连接中断：纯后台启动会话，绝不拉起任何临时 Activity</item>
+        <item>修复只要有会话记录就误判打开旧版投影界面的逻辑漏洞</item>
+        <item>彻底取消全部旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>
+        <item>手机离线或未在身边时，连接超时自动停止并恢复主页就绪状态，绝不卡死</item>
+        <item>主页与投影无缝衔接：仅在收到有效 CarPlay 视频流时才切入全屏投影</item>
+    </string-array>
+    <string-array name="changelog_1_3_87">
+        <item>彻底解决点击连接闪屏与连接失败问题：后台直启会话，杜绝 Activity 闪烁销毁</item>
+        <item>彻底取消全部旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>
+        <item>手机离线或未在身边时，连接超时自动停止并恢复主页就绪状态，绝不卡死</item>
+        <item>主页与投影无缝衔接：仅在收到有效 CarPlay 视频流时才切入全屏投影</item>
+        <item>同步上游 v0.2.21 全量特性：音乐时钟动态调节、有线超时看门狗、悬浮球、黑圆角遮罩等</item>
+    </string-array>
+    <string-array name="changelog_1_3_86">
+        <item>彻底解决点击连接闪屏与连接失败问题：后台直启会话，杜绝 Activity 闪烁销毁</item>
+        <item>彻底取消全部旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>
+        <item>手机离线或未在身边时，连接超时自动停止并恢复主页就绪状态，绝不卡死</item>
+        <item>主页与投影无缝衔接：仅在收到有效 CarPlay 视频流时才切入全屏投影</item>
+        <item>同步上游 v0.2.21 全量特性：音乐时钟动态调节、有线超时看门狗、悬浮球、黑圆角遮罩等</item>
+    </string-array>
     <string-array name="changelog_1_3_85">
         <item>彻底取消全部旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>
         <item>手机离线或未在身边时，连接超时自动停止并恢复主页就绪状态，绝不卡死</item>

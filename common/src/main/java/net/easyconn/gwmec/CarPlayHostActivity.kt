@@ -136,6 +136,7 @@ class CarPlayHostActivity : ComponentActivity() {
     )
 
     private var connectionPanel: View? = null
+    private var connectingInBackground = false
     private var connectionInstructionsView: TextView? = null
     private data class PendingAssignedSiriDoublePress(
         val physicalKey: Triple<Int, Int, Int>,
@@ -717,6 +718,10 @@ class CarPlayHostActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        connectingInBackground = intent?.getBooleanExtra("background_connect", false) == true
+        if (connectingInBackground) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
+        }
         NavigationWidgetUpdater.attach(applicationContext)
         CarPlayCallKeys.install(applicationContext)
         CenterMapOverlay.requestShow = ::showCenterMap
@@ -1688,9 +1693,6 @@ class CarPlayHostActivity : ComponentActivity() {
         doubleSiriFirstPressWasInCall = false
         pendingDoubleSiri = null
         delayedDoubleSiri = null
-        if (!CarPlayBackgroundSession.active) {
-            CarPlayBackgroundSession.endLink()
-        }
         resetSidePanel()
         releaseSidePanelEffects()
         hostAppearanceResumed = false
@@ -1733,7 +1735,9 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun buildContentView(): View {
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(if (connectingInBackground) Color.TRANSPARENT else Color.BLACK)
+        }
         val video = TextureView(this).apply {
             isOpaque = false
             surfaceTextureListener = textureListener
@@ -1749,6 +1753,10 @@ class CarPlayHostActivity : ComponentActivity() {
             root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
         }
         root.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
+        if (connectingInBackground) {
+            video.visibility = View.INVISIBLE
+            gestureLayer.visibility = View.GONE
+        }
         // Measure the preparation content naturally, then fit it inside the safe viewport.
         val viewport = object : FrameLayout(this) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -4985,6 +4993,15 @@ class CarPlayHostActivity : ComponentActivity() {
                     if (startupFailureGeneration == controllerGeneration) return@report
                     startupFailureGeneration = controllerGeneration
                 }
+                if (connectingInBackground && !CarPlayBackgroundSession.hasSession() &&
+                    !startupRetryPending(status.startupFailure)
+                ) {
+                    Log.i(TAG, "background link failed for good ($description); returning the wait to the home")
+                    CarPlayBackgroundSession.endLink()
+                    CarPlayBackgroundSession.onSessionFailed?.invoke(description)
+                    finish()
+                    return@report
+                }
                 reconnectAfterLoss(description, status.startupFailure)
             }
             else -> Unit
@@ -5306,6 +5323,12 @@ class CarPlayHostActivity : ComponentActivity() {
             appendLog(message)
             Log.i(TAG, message)
             videoView?.let { updateVideoLayout(it.width, it.height) }
+        } else if (controller?.hasActiveAirPlayAttachment() == true || CarPlayBackgroundSession.active) {
+            val message = "Display size adjusted ${previous.width}x${previous.height} -> ${size.width}x${size.height}; " +
+                "keeping active CarPlay session"
+            appendLog(message)
+            Log.i(TAG, message)
+            videoView?.let { updateVideoLayout(it.width, it.height) }
         } else {
             restartCarPlay(
                 "Display changed ${previous.width}x${previous.height} -> ${size.width}x${size.height}",
@@ -5481,8 +5504,7 @@ class CarPlayHostActivity : ComponentActivity() {
             return
         }
         startCarPlay(size)
-        val backgroundConnect = intent?.getBooleanExtra("background_connect", false) == true
-        if (backgroundConnect) finish()
+        if (connectingInBackground) finish()
     }
 
     /**
@@ -5516,7 +5538,7 @@ class CarPlayHostActivity : ComponentActivity() {
             if (!CarPlayBackgroundSession.active) {
                 CarPlayBackgroundSession.endLink()
                 CarPlayBackgroundSession.onSessionFailed?.invoke(reason)
-                showCarlinkHome()
+                finish()
             }
             return
         }
@@ -5529,7 +5551,7 @@ class CarPlayHostActivity : ComponentActivity() {
             if (!CarPlayBackgroundSession.active) {
                 CarPlayBackgroundSession.endLink()
                 CarPlayBackgroundSession.onSessionFailed?.invoke(reason)
-                showCarlinkHome()
+                finish()
             }
             return
         }

@@ -32,6 +32,7 @@ class LauncherIntentTest {
         CarPlayBackgroundSession.clear()
         val stop: ((() -> Unit) -> Unit) = { done -> stops++; done() }
         ReflectionHelpers.setField(CarPlayBackgroundSession, "stopAction", stop)
+        CarPlayBackgroundSession.active = true
     }
 
     @After fun cleanup() {

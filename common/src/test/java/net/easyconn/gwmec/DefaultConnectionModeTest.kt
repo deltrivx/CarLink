@@ -67,6 +67,7 @@ class DefaultConnectionModeTest {
                 shadowOf(activity).nextStartedActivity?.component?.className)
             assertEquals(mode, CarlinkPreferences.defaultConnectionMode(app))
             controller.pause().stop().destroy()
+            CarPlayBackgroundSession.endLink()
         }
     }
 

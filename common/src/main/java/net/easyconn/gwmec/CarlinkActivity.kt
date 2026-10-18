@@ -396,7 +396,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         LastCrashReport.install()
         CrashRecord.install(this)
         // Back on the home page finishes this activity while the session runs on, so the icon lands here.
-        if (savedInstanceState == null && isLauncherIntent(intent) && CarPlayBackgroundSession.hasSession()) {
+        if (savedInstanceState == null && isLauncherIntent(intent) && CarPlayBackgroundSession.active) {
             openProjection(); finish(); return
         }
         scheduleBackgroundUpdateChecks()
@@ -457,7 +457,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         connectionSettingsReturnCategory = null
         // CarPlay runs in its own task, so the launcher icon resumes this one. Settings opened from
         // CarPlay carry a "page" extra, which isLauncherIntent rejects.
-        if (isLauncherIntent(intent) && CarPlayBackgroundSession.hasSession()) {
+        if (isLauncherIntent(intent) && CarPlayBackgroundSession.active) {
             page = "home"; render(); openProjection(); return
         }
         page = intent.getStringExtra("page") ?: "home"; render()
@@ -1173,7 +1173,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     })
                 }
                 connectButton = homeButton(getString(R.string.connect_phone), true) {
-                    if (CarPlayBackgroundSession.hasSession()) openProjection()
+                    if (CarPlayBackgroundSession.active) openProjection()
                     else connect(true)
                 }
                 addAction(connectButton!!, first = true)
@@ -5105,6 +5105,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         val open = {
             AirPlayPersistence.saveWirelessEnabled(this, wireless)
             armProjectionHandover()
+            phoneAbsentHint = null
             startBackgroundConnect()
         }
         if (CarPlayBackgroundSession.hasSession()) CarPlayBackgroundSession.stop { runOnUiThread { open() } }
