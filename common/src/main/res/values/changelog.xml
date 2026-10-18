@@ -8,6 +8,18 @@
   what changed among the words.
 -->
 <resources>
+    <string-array name="changelog_1_3_85">
+        <item>彻底取消全部旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>
+        <item>手机离线或未在身边时，连接超时自动停止并恢复主页就绪状态，绝不卡死</item>
+        <item>主页与投影无缝衔接：仅在收到有效 CarPlay 视频流时才切入全屏投影</item>
+        <item>同步上游 v0.2.21 全量特性：音乐时钟动态调节、有线超时看门狗、悬浮球、黑圆角遮罩等</item>
+    </string-array>
+    <string-array name="changelog_1_3_84">
+        <item>修复手机离线或未连接时，主页状态永久卡在“正在连接”的问题</item>
+        <item>重连耗尽或用户点击返回时，自动释放未就绪会话并恢复主页就绪状态</item>
+        <item>彻底修复启动直接黑屏问题，恢复标准的连接准备与指引界面</item>
+        <item>同步上游 v0.2.21 全量特性：音乐时钟动态调节、有线超时看门狗、悬浮球、黑圆角遮罩等</item>
+    </string-array>
     <string-array name="changelog_1_3_83">
         <item>彻底修复启动或连接时直接黑屏的根本缺陷，恢复完整的连接等待界面</item>
         <item>同步上游 v0.2.21：音乐时钟动态调节与积压丢弃，彻底消除音乐卡顿</item>

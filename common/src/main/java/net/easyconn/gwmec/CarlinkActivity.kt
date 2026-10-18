@@ -171,6 +171,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private var pendingCarHotspotSetup = false
     private var hotspotJoinControls: HotspotJoinControls? = null
     private var setupError: String? = null
+    /** Set when a connection attempt failed because the chosen iPhone was absent / offline. */
+    private var phoneAbsentHint: String? = null
     private var status: TextView? = null
     private var connectButton: android.widget.TextView? = null
     private var disconnectButton: android.widget.TextView? = null
@@ -209,7 +211,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      * connection that was already working finished talking.
      */
     private fun shouldHandToProjection(): Boolean =
-        CarPlayBackgroundSession.hasSession() && page == "home" && !projectionHandled() && !disconnecting
+        CarPlayBackgroundSession.active && page == "home" && !projectionHandled() && !disconnecting
 
     fun markReturnedFromProjection() { setProjectionHandled(true) }
 
@@ -554,6 +556,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             getSharedPreferences("diplay", MODE_PRIVATE).edit().remove("returned_from_projection").apply()
             markReturnedFromProjection()
         }
+        watchForSession()
         // The installer is given the APK and reads it in its own time. Deleting it the
         // moment this screen came back removed the file while the installer was still
         // reading it, which the driver saw as a package that could not be parsed. The
@@ -979,6 +982,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      * stop still holds the session for a moment, which otherwise reads as a connection.
      */
     private fun stopSession(after: () -> Unit = {}) {
+        phoneAbsentHint = null
         disconnecting = true
         // The driver asked to stop. Say so where the Bluetooth wake-up can see it: the
         // iPhone's link is still up, so its ACL events would otherwise start another
@@ -1162,6 +1166,12 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             }
             HomeState.IDLE -> {
                 hideHomeProgress()
+                phoneAbsentHint?.let { hint ->
+                    addToStatusBox(label(hint, 14, WARNING).apply {
+                        gravity = Gravity.CENTER
+                        setPadding(0, dp(4), 0, 0)
+                    })
+                }
                 connectButton = homeButton(getString(R.string.connect_phone), true) {
                     if (CarPlayBackgroundSession.hasSession()) openProjection()
                     else connect(true)
@@ -5094,11 +5104,41 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
         val open = {
             AirPlayPersistence.saveWirelessEnabled(this, wireless)
-            openProjection()
+            armProjectionHandover()
+            startBackgroundConnect()
         }
         if (CarPlayBackgroundSession.hasSession()) CarPlayBackgroundSession.stop { runOnUiThread { open() } }
         else open()
     }
+
+    private fun watchForSession() {
+        CarPlayBackgroundSession.onSessionActive = {
+            handler.post {
+                if (shouldHandToProjection()) {
+                    autoEnterUsedThisRun = true
+                    setProjectionHandled(true)
+                    openProjection()
+                }
+            }
+        }
+        CarPlayBackgroundSession.onSessionFailed = { _ ->
+            handler.post {
+                phoneAbsentHint = getString(R.string.iphone_not_in_the_car)
+                refreshHomeStatus()
+            }
+        }
+    }
+
+    private fun startBackgroundConnect() {
+        phoneAbsentHint = null
+        watchForSession()
+        startActivity(Intent(this, CarPlayHostActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
+                Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                Intent.FLAG_ACTIVITY_NO_USER_ACTION)
+            .putExtra("background_connect", true))
+    }
+
     /**
      * Opens the CarPlay picture.
      */

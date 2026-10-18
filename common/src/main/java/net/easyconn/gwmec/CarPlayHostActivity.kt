@@ -1688,6 +1688,9 @@ class CarPlayHostActivity : ComponentActivity() {
         doubleSiriFirstPressWasInCall = false
         pendingDoubleSiri = null
         delayedDoubleSiri = null
+        if (!CarPlayBackgroundSession.active) {
+            CarPlayBackgroundSession.endLink()
+        }
         resetSidePanel()
         releaseSidePanelEffects()
         hostAppearanceResumed = false
@@ -4858,6 +4861,7 @@ class CarPlayHostActivity : ComponentActivity() {
                         installIphoneCornerMask(session, pending.second.first, pending.second.second)
                     } else clearIphoneCornerMask()
                     CarPlayBackgroundSession.active = true
+                    CarPlayBackgroundSession.onSessionActive?.invoke()
                     callPopupSessionReady = true
                     updateCallPopupGuard()
                     reconnectAttempts = 0
@@ -5477,6 +5481,8 @@ class CarPlayHostActivity : ComponentActivity() {
             return
         }
         startCarPlay(size)
+        val backgroundConnect = intent?.getBooleanExtra("background_connect", false) == true
+        if (backgroundConnect) finish()
     }
 
     /**
@@ -5507,17 +5513,24 @@ class CarPlayHostActivity : ComponentActivity() {
                 setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             }
             appendLog("wireless startup recovery stopped generation=$restartGeneration reason=$startupFailure retries=${startupRetryBudget.retries}")
+            if (!CarPlayBackgroundSession.active) {
+                CarPlayBackgroundSession.endLink()
+                CarPlayBackgroundSession.onSessionFailed?.invoke(reason)
+                showCarlinkHome()
+            }
             return
         }
-        // A link that keeps being lost is not a link that is coming back. Stop after the
-        // same budget a failed start gets, say so on screen, and let the driver start again
-        // when the iPhone is actually there — rather than spinning on a phone that is not.
         val sessionReconnects = reconnectAttempts
         if (startupFailure == null && sessionReconnects >= MAX_SESSION_RECONNECTS) {
             startupRetryStopped = true
             startupRetryButton?.visibility = View.VISIBLE
             setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             appendLog("session reconnect budget spent generation=$restartGeneration reason=$reason attempts=$sessionReconnects")
+            if (!CarPlayBackgroundSession.active) {
+                CarPlayBackgroundSession.endLink()
+                CarPlayBackgroundSession.onSessionFailed?.invoke(reason)
+                showCarlinkHome()
+            }
             return
         }
         reconnectScheduled = true
@@ -5606,6 +5619,9 @@ class CarPlayHostActivity : ComponentActivity() {
      */
     private fun showCarlinkHome(page: String = "home") {
         controller?.sendTouch(emptyList())
+        if (!CarPlayBackgroundSession.active) {
+            CarPlayBackgroundSession.endLink()
+        }
         getSharedPreferences("diplay", MODE_PRIVATE).edit().putBoolean("returned_from_projection", true).apply()
         val home = Intent(this, CarlinkActivity::class.java).putExtra("page", page).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         OwnScreenStart.start(this, home, ::appendLog)
@@ -6032,7 +6048,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun updateDebugOverlays() {
         statusScrollView?.visibility = View.GONE
-        connectionPanel?.visibility = if (activeScreenStreamTypes.isEmpty()) View.VISIBLE else View.GONE
+        connectionPanel?.visibility = View.GONE
     }
 
     private fun friendlyStage(message: String): String = when {
@@ -6321,6 +6337,10 @@ internal object CarPlayBackgroundSession {
 
     /** Called the moment a session is stored, so the home can bring the picture forward. */
     @Volatile var onSessionStored: (() -> Unit)? = null
+    /** Called the moment an AirPlay session becomes active and receives video. */
+    @Volatile var onSessionActive: (() -> Unit)? = null
+    /** Called when a connection attempt fails permanently or exhausts retries. */
+    @Volatile var onSessionFailed: ((String) -> Unit)? = null
 
     /**
      * Ends the link itself, whatever became of the screen that started it.

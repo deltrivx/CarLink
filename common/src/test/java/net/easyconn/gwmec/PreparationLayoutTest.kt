@@ -23,6 +23,7 @@ class PreparationLayoutTest {
         // The viewport is named; a video-only overlay can be inserted before it.
         val viewport = CarPlayHostActivity::class.java.getDeclaredField("connectionPanel")
             .apply { isAccessible = true }.get(activity) as FrameLayout
+        viewport.visibility = View.VISIBLE
         val panel = viewport.getChildAt(0) as LinearLayout
         val density = activity.resources.displayMetrics.density
         fun layout(heightDp: Int) {

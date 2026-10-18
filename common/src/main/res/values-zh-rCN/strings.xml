@@ -891,4 +891,5 @@
     <string name="settings_launcher_bubble_hold_to_unlock">长按 解锁</string>
     <string name="settings_hotspot_interface">热点网络接口（可选）</string>
     <string name="settings_hotspot_interface_description">仅用于把热点放在 Android 不认为是 Wi-Fi 热点的网络接口上的车机，例如部分吉利、领克及其它高通车机上的 eth0.3。留空则自动查找。</string>
+    <string name="iphone_not_in_the_car">所选 iPhone 不在车内。请打开它的蓝牙，或等它在身边时手动连接。</string>
 </resources>
