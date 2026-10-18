@@ -5094,60 +5094,16 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
         val open = {
             AirPlayPersistence.saveWirelessEnabled(this, wireless)
-            // The picture comes forward on its own only when the driver asked for it;
-            // otherwise connecting stays on the home until they open CarPlay themselves.
-            if (CarlinkPreferences.autoEnterCarPlay(this)) armProjectionHandover()
-            else setProjectionHandled(true)
-            startBackgroundConnect()
+            openProjection()
         }
         if (CarPlayBackgroundSession.hasSession()) CarPlayBackgroundSession.stop { runOnUiThread { open() } }
         else open()
     }
     /**
-     * Opens the CarPlay picture. The home owns the wait: while the link is still coming up it
-     * stays in front and shows the connecting state with a way to stop, and the projection is
-     * only brought forward once CarPlay is really up. The host is the picture, not a waiting
-     * room, so there is no second screen to come back from.
+     * Opens the CarPlay picture.
      */
     private fun openProjection() {
         OwnScreenStart.start(this, Intent(this, CarPlayHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
-    }
-
-    /**
-     * Starts the link without leaving the home. The host builds the session — the wait, its
-     * recovery and its stop all live here — so it runs excluded from recents and closes
-     * itself once the link is up. Only then does the home bring the picture forward.
-     */
-    /**
-     * Starts the link. The host is only the machinery that brings it up, so it opens with
-     * no animation, no preview and nothing of its own on screen: the home stays the view
-     * while the link comes up, and the host leaves as soon as the link exists.
-     */
-    /**
-     * Brings the picture forward the moment a session exists, rather than on the next
-     * once-a-second poll. The home is what the driver is looking at while the link comes
-     * up, and a second of black screen between "connected" and "picture" is a second of
-     * looking like it failed.
-     */
-    private fun watchForSessionStored() {
-        CarPlayBackgroundSession.onSessionStored = {
-            handler.post {
-                if (shouldHandToProjection()) {
-                    autoEnterUsedThisRun = true
-                    setProjectionHandled(true)
-                    openProjection()
-                }
-            }
-        }
-    }
-
-    private fun startBackgroundConnect() {
-        watchForSessionStored()
-        startActivity(Intent(this, CarPlayHostActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
-                Intent.FLAG_ACTIVITY_NO_ANIMATION or
-                Intent.FLAG_ACTIVITY_NO_USER_ACTION)
-            .putExtra("background_connect", true))
     }
 
     private fun choosePhone() {

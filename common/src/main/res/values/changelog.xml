@@ -8,6 +8,16 @@
   what changed among the words.
 -->
 <resources>
+    <string-array name="changelog_1_3_83">
+        <item>彻底修复启动或连接时直接黑屏的根本缺陷，恢复完整的连接等待界面</item>
+        <item>同步上游 v0.2.21：音乐时钟动态调节与积压丢弃，彻底消除音乐卡顿</item>
+        <item>有线连接握手超时自动重试，无需重新插拔数据线</item>
+        <item>录音与焦点恢复容错，防止通话挂断后静音或应用闪退</item>
+        <item>新增多指向上滑动临时显示系统栏 5 秒手势</item>
+        <item>新增方向盘播放/暂停按键映射与双击语音键触发 Siri</item>
+        <item>新增桌面悬浮球支持与 CarPlay 黑色圆角遮罩</item>
+        <item>适配比亚迪 DiLink 7.0 宽分屏与仪表地图停止时交还仪表盘</item>
+    </string-array>
     <string-array name="changelog_1_3_82">
         <item>同步上游 v0.2.21：音乐时钟动态调节与积压丢弃，彻底消除音乐卡顿</item>
         <item>有线连接握手超时自动重试，无需重新插拔数据线</item>

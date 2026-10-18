@@ -136,7 +136,7 @@ class CarPlayHostActivity : ComponentActivity() {
     )
 
     private var connectionPanel: View? = null
-    private var connectingInBackground = false
+    private var connectionInstructionsView: TextView? = null
     private data class PendingAssignedSiriDoublePress(
         val physicalKey: Triple<Int, Int, Int>,
         val assignedKey: WheelKey,
@@ -717,13 +717,6 @@ class CarPlayHostActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The home owns the wait: started this way the host builds the link, stays out of
-        // recents, and closes itself as soon as the session has started. It never becomes
-        // a second screen the driver has to come back from.
-        connectingInBackground = intent?.getBooleanExtra("background_connect", false) == true
-        if (connectingInBackground) {
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
-        }
         NavigationWidgetUpdater.attach(applicationContext)
         CarPlayCallKeys.install(applicationContext)
         CenterMapOverlay.requestShow = ::showCenterMap
@@ -1737,12 +1730,7 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun buildContentView(): View {
-        // While the home is holding the wait, this screen must not paint over it: a
-        // black root is exactly the flash the driver sees on connecting. It draws
-        // nothing and shows nothing until it is the picture.
-        val root = FrameLayout(this).apply {
-            setBackgroundColor(if (connectingInBackground) Color.TRANSPARENT else Color.BLACK)
-        }
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         val video = TextureView(this).apply {
             isOpaque = false
             surfaceTextureListener = textureListener
@@ -1758,12 +1746,6 @@ class CarPlayHostActivity : ComponentActivity() {
             root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
         }
         root.addView(gestureLayer, FrameLayout.LayoutParams(-1, -1))
-        // While the home holds the wait, nothing here is seen or touched: the home keeps
-        // the screen and its controls, and this window is the machinery only.
-        if (connectingInBackground) {
-            video.visibility = View.INVISIBLE
-            gestureLayer.visibility = View.GONE
-        }
         // Measure the preparation content naturally, then fit it inside the safe viewport.
         val viewport = object : FrameLayout(this) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -4999,18 +4981,6 @@ class CarPlayHostActivity : ComponentActivity() {
                     if (startupFailureGeneration == controllerGeneration) return@report
                     startupFailureGeneration = controllerGeneration
                 }
-                // A background host is machinery, not a screen: it opens with nothing of
-                // its own while the home holds the wait. Only a failure that will not be
-                // retried may close it — a startup timeout is retried by the controller,
-                // and closing here would take the picture down in the middle of a
-                // connection that was about to succeed.
-                if (connectingInBackground && !CarPlayBackgroundSession.hasSession() &&
-                    !startupRetryPending(status.startupFailure)
-                ) {
-                    Log.i(TAG, "background link failed for good ($description); returning the wait to the home")
-                    finish()
-                    return@report
-                }
                 reconnectAfterLoss(description, status.startupFailure)
             }
             else -> Unit
@@ -5507,8 +5477,6 @@ class CarPlayHostActivity : ComponentActivity() {
             return
         }
         startCarPlay(size)
-        // The home is holding the wait; once the session has started our part is done.
-        if (connectingInBackground) finish()
     }
 
     /**
@@ -5539,10 +5507,6 @@ class CarPlayHostActivity : ComponentActivity() {
                 setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             }
             appendLog("wireless startup recovery stopped generation=$restartGeneration reason=$startupFailure retries=${startupRetryBudget.retries}")
-            // Same reason as the failure itself: a background host with no link is a black
-            // screen, not a place to leave the driver. The home states the failure and
-            // offers the connection again.
-            if (connectingInBackground && !CarPlayBackgroundSession.hasSession()) finish()
             return
         }
         // A link that keeps being lost is not a link that is coming back. Stop after the
@@ -5554,7 +5518,6 @@ class CarPlayHostActivity : ComponentActivity() {
             startupRetryButton?.visibility = View.VISIBLE
             setConnectionStage("$reason\n${getString(R.string.wireless_startup_retries_exhausted)}")
             appendLog("session reconnect budget spent generation=$restartGeneration reason=$reason attempts=$sessionReconnects")
-            if (connectingInBackground && !CarPlayBackgroundSession.hasSession()) finish()
             return
         }
         reconnectScheduled = true
@@ -6069,14 +6032,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun updateDebugOverlays() {
         statusScrollView?.visibility = View.GONE
-        // The wait belongs to the home. This screen shows a preparation panel only when it
-        // was opened as the picture (not from the home's background connect), and only
-        // while no stream is up. The home's background connect finishes before any of
-        // that, so the driver never sees a second screen for the wait.
-        // The wait lives on the home now, so this screen never shows a preparation panel
-        // of its own — not for the home's own connect, and not for a USB attachment that
-        // starts it directly. It is the picture, or nothing.
-        connectionPanel?.visibility = View.GONE
+        connectionPanel?.visibility = if (activeScreenStreamTypes.isEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun friendlyStage(message: String): String = when {
