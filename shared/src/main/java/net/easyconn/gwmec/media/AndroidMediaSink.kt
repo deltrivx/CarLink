@@ -231,6 +231,7 @@ class AndroidMediaSink(
     private val audioFocusAutoYield: Boolean = true,
     private val mediaChannel: Int = 0,
     private val navigationChannel: Int = 0,
+    navigationAttenuationDb: Int = 0,
     context: Context? = null,
     private val navigationStreamType: Int = AudioChannelMapper.DEFAULT_NAVIGATION_STREAM_TYPE,
     onScreenStreamActiveChanged: ((Int, Boolean) -> Unit)? = null,
@@ -293,6 +294,13 @@ class AndroidMediaSink(
     internal var detachGraceNanos = 500_000_000L
     private val mediaAudioTypes = mutableSetOf<AudioStreamId>()
     private val audioRenderers = ConcurrentHashMap<AudioStreamId, AudioRenderer>()
+    @Volatile private var navigationAttenuationDb = NavigationAudioGain.clamp(navigationAttenuationDb)
+
+    /** Apply a saved Audio setting to existing navigation tracks without reconnecting CarPlay. */
+    fun setNavigationAttenuationDb(db: Int) {
+        navigationAttenuationDb = NavigationAudioGain.clamp(db)
+        audioRenderers.values.forEach { it.setNavigationAttenuationDb(navigationAttenuationDb) }
+    }
     private val microphoneUplinks = ConcurrentHashMap<AudioStreamId, MicrophoneUplink>()
     private val audioModeLock = Any()
     private var communicationModeStream: AudioStreamId? = null
@@ -781,8 +789,11 @@ class AndroidMediaSink(
             echoReference = echoReference,
             voiceFilter = callVoiceFilter && format.audioType == TELEPHONY_AUDIO_TYPE,
         ).also {
+            it.setNavigationAttenuationDb(navigationAttenuationDb)
             if (format.audioType == TELEPHONY_AUDIO_TYPE) it.onRoutedToEarpiece = { moveCallToLoudspeaker(id) }
             audioRenderers[id] = it
+            // Cover a Settings change made while this renderer was being prepared.
+            it.setNavigationAttenuationDb(navigationAttenuationDb)
         }
     }
 
@@ -1749,6 +1760,8 @@ private class AudioRenderer(
     @Volatile private var started = false
     private var codec: MediaCodec? = null
     private var track: AudioTrack? = null
+    @Volatile private var navigationAttenuationDb = 0
+    private var appliedNavigationAttenuationDb: Int? = null
     private var pcm = ByteArray(64 * 1024)
     private var playbackStarted = false
     private var prebufferBytes = 0
@@ -1863,6 +1876,8 @@ private class AudioRenderer(
             diagnosticStage = "focus"
             requestAudioFocus()
             while (running) {
+                // Report Settings changes from this worker, never from the UI thread, also between prompts.
+                applyNavigationAttenuation()
                 diagnosticStage = "packet"
                 queue.poll(AUDIO_POLL_MILLIS, TimeUnit.MILLISECONDS)?.let(::handle)
                 // Output becomes ready asynchronously, including after the last packet of a burst.
@@ -2047,6 +2062,30 @@ private class AudioRenderer(
                 "streamOverride=$streamOverride " +
                 "focus=${if (audioFocusEnabled) "on" else "off"}",
         )
+    }
+
+    fun setNavigationAttenuationDb(db: Int) {
+        navigationAttenuationDb = NavigationAudioGain.clamp(db)
+    }
+
+    /**
+     * Worker-thread only. The guidance is scaled in [attenuateNavigation] as it is written, not with
+     * AudioTrack.setVolume: on a BYD DiLink 3.0 the track accepted every setVolume and the guidance on
+     * stream 14 stayed as loud (#719). Each change is reported once, when it reaches this stream.
+     */
+    private fun applyNavigationAttenuation() {
+        if (mappedChannel != AudioChannel.NAVIGATION) return
+        val requestedDb = navigationAttenuationDb
+        if (requestedDb == 0 && appliedNavigationAttenuationDb == null) return
+        if (appliedNavigationAttenuationDb == requestedDb) return
+        appliedNavigationAttenuationDb = requestedDb
+        runCatching { report("Audio: navigation attenuation=" + requestedDb + "dB applied=true") }
+    }
+
+    /** Lowers navigation guidance in the PCM itself; other channels and 0 dB pass through untouched. */
+    private fun attenuateNavigation(data: ByteArray, offset: Int, length: Int) {
+        if (mappedChannel != AudioChannel.NAVIGATION) return
+        NavigationAudioGain.scalePcm16(data, offset, length, navigationAttenuationDb)
     }
 
     /** 0 uses usage-based routing; 1–20 attempt legacy stream types supported by the head unit. */
@@ -2343,6 +2382,8 @@ private class AudioRenderer(
             )
         }
         voiceFilter?.process(data, offset, length)
+        applyNavigationAttenuation()
+        attenuateNavigation(data, offset, length)
         if (!fadeApplied) {
             applyFadeIn(data, offset, length)
             fadeApplied = true

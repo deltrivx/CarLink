@@ -72,6 +72,12 @@ object CarHotspotTethering {
     }
 
     /** An ADB observation supplements hidden platform status, but never overrides a current off state. */
+    internal fun describe(error: Throwable): String {
+        val cause = (error as? java.lang.reflect.InvocationTargetException)?.targetException ?: error
+        val reason = cause.javaClass.simpleName + (cause.message?.let { ": ${it.take(100)}" } ?: "")
+        return if (cause === error) reason else "${error.javaClass.simpleName} caused by $reason"
+    }
+
     internal fun stateWithAdbObservation(
         platformState: () -> Boolean?,
         observation: AtomicReference<Boolean?>,

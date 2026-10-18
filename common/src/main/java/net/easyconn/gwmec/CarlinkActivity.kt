@@ -111,6 +111,7 @@ internal enum class SettingsSection {
     CARPLAY_VIDEO,
     NAVIGATION_WHEEL,
     LOCATION,
+    LAUNCHER_BUBBLE,
     PERMISSIONS_AND_HELP,
     LANGUAGE,
 }
@@ -127,7 +128,7 @@ internal object SettingsInformationArchitecture {
             SettingsSection.BYD_ADB,
             SettingsSection.PERMISSIONS_AND_HELP,
         ),
-        SettingsCategory.DISPLAY to setOf(SettingsSection.DISPLAY_AND_PERFORMANCE),
+        SettingsCategory.DISPLAY to setOf(SettingsSection.DISPLAY_AND_PERFORMANCE, SettingsSection.LAUNCHER_BUBBLE),
         SettingsCategory.AUDIO to setOf(SettingsSection.AUDIO_ROUTING, SettingsSection.CARPLAY_VIDEO),
         SettingsCategory.NAVIGATION to setOf(SettingsSection.LOCATION),
         SettingsCategory.VEHICLE to setOf(
@@ -391,6 +392,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         // report is where it can be read without adb.
         LastCrashReport.bind(this)
         LastCrashReport.install()
+        CrashRecord.install(this)
         // Back on the home page finishes this activity while the session runs on, so the icon lands here.
         if (savedInstanceState == null && isLauncherIntent(intent) && CarPlayBackgroundSession.hasSession()) {
             openProjection(); finish(); return
@@ -529,12 +531,17 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         clusterSafeAreaDialog?.dismiss()
         startupHotspotCancelled = true
         super.onStop()
-        if (!isFinishing && !isChangingConfigurations) CenterMapOverlay.scheduleShow()
+        if (!isFinishing && !isChangingConfigurations) {
+            CenterMapOverlay.scheduleShow()
+            LauncherBubble.scheduleShow()
+        }
     }
 
     override fun onResume() {
         super.onResume()
         applyFullscreenMode()
+        LauncherBubble.attach(this)
+        LauncherBubble.onAppScreenShown()
         // Returning from another activity can bring the head unit's own density back.
         if (enforceInterfaceSize()) render()
         if (Build.VERSION.SDK_INT < 33 && AppLocale.preference(this) != languagePreferenceAtCreate) {
@@ -2224,6 +2231,20 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             ) { label, checked, onChanged ->
                 toggle(card, getString(label), getString(R.string.hide_the_car_s_system_bars_while_carplay_is_open), checked, save = onChanged)
             }
+            toggle(card, getString(R.string.temporary_system_bars), getString(R.string.temporary_system_bars_description),
+                AirPlayPersistence.loadTemporarySystemBars(this)) {
+                AirPlayPersistence.saveTemporarySystemBars(this, it)
+            }
+            val radii = CarPlayBlackCornerOverlay.RADII_DP
+            choice(card, getString(R.string.black_corner_overlay),
+                radii.map { value ->
+                    if (value == CarPlayBlackCornerOverlay.IPHONE_MASK) getString(R.string.iphone_corner_mask_mode)
+                    else if (value == 0) getString(R.string.black_corner_overlay_off)
+                    else getString(R.string.black_corner_overlay_value, value)
+                },
+                radii.indexOf(AirPlayPersistence.loadBlackCornerRadiusDp(this)), reconnects = false) {
+                AirPlayPersistence.saveBlackCornerRadiusDp(this, radii[it])
+            }
             toggle(card, getString(R.string.adapt_pip_resolution), getString(R.string.adapt_pip_resolution_description), AirPlayPersistence.loadAdaptPipResolution(this)) {
                 AirPlayPersistence.saveAdaptPipResolution(this, it)
             }
@@ -2235,6 +2256,27 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 getString(R.string.settings_force_full_settings_hint), SettingsLayoutPreferences.forceFull(this)) {
                 SettingsLayoutPreferences.saveForceFull(this, it)
                 render()
+            }
+        }
+        filteredSection(content, SettingsSection.LAUNCHER_BUBBLE,
+            getString(R.string.settings_launcher_bubble), R.drawable.ic_carplay) { card ->
+            toggle(card, getString(R.string.settings_launcher_bubble),
+                getString(R.string.settings_launcher_bubble_description),
+                AirPlayPersistence.loadLauncherBubble(this)) { enabled ->
+                AirPlayPersistence.saveLauncherBubble(this, enabled)
+                if (enabled && !LauncherBubble.permitted(this)) openOverlayPermission()
+                if (!enabled) LauncherBubble.hide()
+            }
+            if (AirPlayPersistence.loadLauncherBubble(this)) {
+                val sizes = LauncherBubbleLayout.sizePercents
+                choice(card, getString(R.string.settings_launcher_bubble_size),
+                    sizes.map { "$it %" },
+                    sizes.indexOf(AirPlayPersistence.loadLauncherBubbleSize(this)), reconnects = false) {
+                    AirPlayPersistence.saveLauncherBubbleSize(this, sizes[it])
+                }
+                val overlay = LauncherBubble.permitted(this)
+                card.addView(label(if (overlay) getString(R.string.center_map_overlay_allowed)
+                    else getString(R.string.center_map_overlay_missing, packageName), 14, if (overlay) MUTED else WARNING))
             }
         }
         filteredSection(content, SettingsSection.EXPERIMENTAL_DISPLAY,
@@ -3132,7 +3174,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     // now shows, not a question to be pushed at them first.
                     pendingCarHotspotSetup = false
                     if (AirPlayPersistence.loadExistingWifiSsid(this).isBlank()) {
-                        askHotspotCredentials(existingWifi = true) { ssid, password, _ ->
+                        askHotspotCredentials(existingWifi = true) { ssid, password, _, _ ->
                             AirPlayPersistence.saveExistingWifiCredentials(this, ssid, password)
                             applyWirelessLink(candidate)
                         }
@@ -3152,8 +3194,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             parent.addView(button(getString(R.string.open_car_hotspot_settings), false) { openCarWifiSettings() }, matchButton(0, 60))
             val detailsMissing = carHotspotDetailsMissing()
             parent.addView(button(if (detailsMissing) getString(R.string.save_hotspot_details_and_use_this_mode) else "${getString(R.string.edit_saved_hotspot_prefix)}${storedSsid()}", false) {
-                askHotspotCredentials { ssid, password, security ->
-                    saveHotspotCredentials(ssid, password, security)
+                askHotspotCredentials { ssid, password, security, interfaceName ->
+                    saveHotspotCredentials(ssid, password, security, interfaceName)
                     pendingCarHotspotSetup = false
                     applyWirelessLink(WirelessHotspotMode.MANUAL)
                 }
@@ -3168,7 +3210,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             parent.addView(label(getString(R.string.existing_wifi_instructions), 16, MUTED))
             parent.addView(button(getString(R.string.open_car_wi_fi_settings), false) { openCarClientWifiSettings() }, matchButton(12, 60))
             parent.addView(button(getString(R.string.existing_wifi_details), false) {
-                askHotspotCredentials(existingWifi = true) { ssid, password, _ ->
+                askHotspotCredentials(existingWifi = true) { ssid, password, _, _ ->
                     AirPlayPersistence.saveExistingWifiCredentials(this, ssid, password)
                     toast(getString(R.string.saved_for_your_next_connection))
                 }
@@ -3188,7 +3230,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     parent.addView(button(name, false) {
                         if (secret.isEmpty()) {
                             // Known by name only: the password still has to be typed once.
-                            askHotspotCredentials(existingWifi = true) { ssid, password, _ ->
+                            askHotspotCredentials(existingWifi = true) { ssid, password, _, _ ->
                                 AirPlayPersistence.saveExistingWifiCredentials(this, ssid, password)
                                 pendingCarHotspotSetup = false
                                 applyWirelessLink(WirelessHotspotMode.EXISTING_WIFI)
@@ -3328,16 +3370,25 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private fun hotspotError(ssid: String, password: String) =
         net.easyconn.gwmec.orchestration.ManualHotspotValidation.error(ssid, password)?.let { getString(it.messageResource()) }
 
-    private fun saveHotspotCredentials(ssid: String, password: String, security: ManualHotspotSecurity) {
+    private fun saveHotspotCredentials(
+        ssid: String,
+        password: String,
+        security: ManualHotspotSecurity,
+        interfaceName: String = "",
+    ) {
         AirPlayPersistence.saveManualHotspotSsid(this, ssid)
         AirPlayPersistence.saveManualHotspotPassphrase(this, password)
         AirPlayPersistence.saveManualHotspotSecurity(this, security)
         AirPlayPersistence.saveManualHotspotBand(this, net.easyconn.gwmec.orchestration.ManualHotspotBand.AUTO)
         AirPlayPersistence.saveManualHotspotChannel(this, 0)
+        AirPlayPersistence.saveManualHotspotInterface(this, interfaceName)
         markReconnectNeeded()
     }
 
-    private fun askHotspotCredentials(existingWifi: Boolean = false, done: (String, String, ManualHotspotSecurity) -> Unit) {
+    private fun askHotspotCredentials(
+        existingWifi: Boolean = false,
+        done: (String, String, ManualHotspotSecurity, String) -> Unit,
+    ) {
         val dialogContext = appDialogContext()
         val fields = column().apply { setPadding(dp(24), dp(12), dp(24), dp(12)) }
         fields.addView(label(getString(if (existingWifi) R.string.existing_wifi_instructions else R.string.copy_these_from_the_car_s_hotspot_settings_use_5_ghz_if_av), 16, MUTED))
@@ -3388,6 +3439,16 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             if (action == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) { hideKeyboard(); true } else false
         }
         fields.addView(ssid); fields.addView(password)
+        val hotspotInterface = if (existingWifi) null else EditText(dialogContext).apply {
+            hint = getString(R.string.settings_hotspot_interface)
+            setText(AirPlayPersistence.loadManualHotspotInterface(this@CarlinkActivity))
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        }
+        if (hotspotInterface != null) {
+            fields.addView(hotspotInterface)
+            fields.addView(label(getString(R.string.settings_hotspot_interface_description), 14, MUTED))
+        }
         fields.addView(CheckBox(dialogContext).apply {
             text = getString(R.string.show_password)
             setOnCheckedChangeListener { _, checked ->
@@ -3444,7 +3505,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 if (problem != null) error.text = problem
                 else {
                     val security = if (secret.isEmpty()) ManualHotspotSecurity.OPEN else protectedSecurity
-                    hideKeyboard(); dialog.dismiss(); done(name, secret, security)
+                    val iface = hotspotInterface?.text?.toString()?.trim().orEmpty()
+                    hideKeyboard(); dialog.dismiss(); done(name, secret, security, iface)
                 }
             }
         }
@@ -3670,6 +3732,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 WheelZoomSettings.Role.JOYSTICK -> R.string.wheel_key_role_joystick
                 WheelZoomSettings.Role.SELECT -> R.string.wheel_key_role_select
                 WheelZoomSettings.Role.SIRI -> null
+                WheelZoomSettings.Role.MEDIA_PLAY_PAUSE -> null
             }.takeIf { joystick }
             val names = listOfNotNull(zoomName, joystickName)
             if (names.isEmpty()) continue
@@ -3684,8 +3747,39 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             WheelZoomSettings.setSiriKey(this, it)
             render()
         }
-        if (!WheelZoomSettings.siriKey(this)) return
-        wheelKeyAssignButton(card, WheelZoomSettings.Role.SIRI, getString(R.string.wheel_key_role_siri))
+        if (WheelZoomSettings.siriKey(this)) {
+            toggle(card, getString(R.string.wheel_siri_double_press),
+                getString(R.string.wheel_siri_double_press_description),
+                WheelZoomSettings.siriDoublePress(this)) {
+                WheelZoomSettings.setSiriDoublePress(this, it)
+                render()
+            }
+            if (WheelZoomSettings.siriDoublePress(this)) {
+                val intervals = WheelZoomSettings.SIRI_DOUBLE_PRESS_INTERVALS
+                choice(card, getString(R.string.wheel_siri_double_press_interval),
+                    intervals.map { getString(R.string.fps_counter_millis, it) },
+                    intervals.indexOf(WheelZoomSettings.siriDoublePressIntervalMillis(this)), reconnects = false) {
+                    WheelZoomSettings.setSiriDoublePressIntervalMillis(this, intervals[it])
+                }
+                val delays = WheelZoomSettings.SIRI_TRIGGER_DELAYS
+                choice(card, getString(R.string.wheel_siri_trigger_delay),
+                    delays.map { getString(R.string.fps_counter_millis, it) },
+                    delays.indexOf(WheelZoomSettings.siriTriggerDelayMillis(this)), reconnects = false) {
+                    WheelZoomSettings.setSiriTriggerDelayMillis(this, delays[it])
+                }
+            }
+            wheelKeyAssignButton(card, WheelZoomSettings.Role.SIRI, getString(R.string.wheel_key_role_siri))
+        }
+        toggle(card, getString(R.string.wheel_media_play_pause),
+            getString(R.string.wheel_media_play_pause_description),
+            WheelZoomSettings.mediaPlayPause(this)) {
+            WheelZoomSettings.setMediaPlayPause(this, it)
+            render()
+        }
+        if (WheelZoomSettings.mediaPlayPause(this)) {
+            wheelKeyAssignButton(card, WheelZoomSettings.Role.MEDIA_PLAY_PAUSE,
+                getString(R.string.wheel_key_role_media_play_pause))
+        }
     }
 
     private fun wheelKeyServiceControls(card: LinearLayout) {
@@ -3733,8 +3827,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 assign.text = current(key)
                 applyPendingAppearanceRender()
             } } ||
-                // Without the service the Siri key is learnt from this window, so only keys that reach apps.
-                (role == WheelZoomSettings.Role.SIRI && learnInWindow(role, cancelled, refused) {
+                // Without the service, keys that reach this window can still be learnt.
+                ((role == WheelZoomSettings.Role.SIRI ||
+                    role == WheelZoomSettings.Role.MEDIA_PLAY_PAUSE) && learnInWindow(role, cancelled, refused) {
                     assign.text = current(it)
                     applyPendingAppearanceRender()
                 })
@@ -3753,6 +3848,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         WheelZoomSettings.Role.NEXT -> R.string.wheel_key_role_next
         WheelZoomSettings.Role.SELECT -> R.string.wheel_key_role_select
         WheelZoomSettings.Role.SIRI -> R.string.wheel_key_role_siri
+        WheelZoomSettings.Role.MEDIA_PLAY_PAUSE -> R.string.wheel_key_role_media_play_pause
     }
 
     private class WindowKeyLearning(
@@ -3787,7 +3883,17 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         ) {
             val learning = windowLearning
             if (learning == null || event.keyCode == KeyEvent.KEYCODE_BACK) return@filter WheelZoomKeys.Action.PASS
-            if (inCall(this) || !WheelZoomSettings.siriKey(this)) {
+            if (learning.role == WheelZoomSettings.Role.MEDIA_PLAY_PAUSE &&
+                CarPlayRemoteKeys.isProtectedNavigationKey(event.keyCode)) {
+                toast(getString(R.string.wheel_media_navigation_reserved))
+                return@filter WheelZoomKeys.Action.CONSUME
+            }
+            val enabled = when (learning.role) {
+                WheelZoomSettings.Role.SIRI -> WheelZoomSettings.siriKey(this)
+                WheelZoomSettings.Role.MEDIA_PLAY_PAUSE -> WheelZoomSettings.mediaPlayPause(this)
+                else -> false
+            }
+            if (inCall(this) || !enabled) {
                 cancelKeyLearning()
                 return@filter WheelZoomKeys.Action.PASS
             }
@@ -5004,7 +5110,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      * room, so there is no second screen to come back from.
      */
     private fun openProjection() {
-        startActivity(Intent(this, CarPlayHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        OwnScreenStart.start(this, Intent(this, CarPlayHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
     }
 
     /**
@@ -5204,8 +5310,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     appendLine("Session: ${if (CarPlayBackgroundSession.active) "active" else if (CarPlayBackgroundSession.hasSession()) "connecting" else "stopped"}")
                     appendLine(PhoneWakeDiagnostics.report(appContext))
                     appendLine(LastCrashReport.report(appContext))
-                    appendLine(WheelKeyLog.report())
+                    appendLine(CrashRecord.report(appContext))
+                    WheelKeyLog.report(WheelKeyService.connected()).forEach { appendLine(it) }
                     appendLine("Head-unit board: ${Build.BOARD}; hardware: ${Build.HARDWARE}; build: ${Build.DISPLAY}")
+                    appendLine()
+                    appendLine(BluetoothDiagnosticSnapshot.report(appContext))
                     appendLine()
                     appendLine("--- Current cluster display diagnostics (even when disabled) ---")
                     appendLine(ClusterMapPresentation.diagnosticReport(appContext))

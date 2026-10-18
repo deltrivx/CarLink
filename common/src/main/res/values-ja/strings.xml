@@ -935,4 +935,14 @@
     <string name="settings_report_on_phone">スマートフォンでレポートを取得</string>
     <string name="settings_report_on_phone_hint">スマートフォンのカメラでQRコードを読み取って、ブラウザーでページを開き、「レポートをダウンロード」を選んでください。ダウンロードが終わるまでこの画面を開いたままにしてください。</string>
     <string name="settings_media">メディア</string>
+
+    <string name="settings_hotspot_interface">Hotspot interface (optional)</string>
+    <string name="settings_hotspot_interface_description">Only for head units that run their hotspot on a network interface Android does not report as a Wi-Fi hotspot, for example eth0.3 on some Geely, Lynk &amp; Co and other Qualcomm units. Leave empty to find it automatically.</string>
+    <string name="settings_launcher_bubble">Home-screen bubble (experimental)</string>
+    <string name="settings_launcher_bubble_description">Shows the app icon as a bubble over the head unit\'s home screen: tap it to come back to CarPlay and drag it anywhere. It hides as soon as an app screen is open and comes back when you leave. Hold it to lock its place, hold it again to unlock. Needs \"display over other apps\".</string>
+    <string name="settings_launcher_bubble_hold_to_lock">Hold to lock</string>
+    <string name="settings_launcher_bubble_hold_to_unlock">Hold to unlock</string>
+    <string name="settings_launcher_bubble_locked">Place locked</string>
+    <string name="settings_launcher_bubble_size">Bubble size</string>
+    <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
 </resources>

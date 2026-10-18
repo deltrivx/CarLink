@@ -29,6 +29,11 @@ data class AirPlayDisplayConfig(
     val viewAreas: List<AirPlayViewArea>? = null,
     /** The area CarPlay starts in, an index into [viewAreas]. */
     val initialViewArea: Int = 0,
+    val mainDisplayCornerMasks: Boolean? = null,
+    /** Separately opt into iOS's genuine corner-mask PNG stream (not the old square-corner mode). */
+    val useIphoneCornerMask: Boolean = false,
+    /** When true, do not declare safeArea in viewAreas dictionary to avoid conflict with cornerMasks. */
+    val mainDisplayDisableSafeArea: Boolean = (mainDisplayCornerMasks == true),
 )
 
 /**

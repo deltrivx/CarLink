@@ -6,18 +6,19 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * What the wheel key service saw and did with it, for the diagnostic report.
+ * What the wheel key service saw and did with it, for the diagnostic report. The service wrote only to
+ * logcat, so a head unit without adb could not show whether a wheel key reaches Android at all (#662).
+ * The media keys that reach DiPlay's media session, and its audio focus changes, are noted here too:
+ * without them a report could not tell a key the head unit kept from one the iPhone ignored (#610).
  *
- * The service wrote only to logcat, so a head unit without adb could not show whether a
- * wheel key reaches Android at all. Kept in memory since the process started: storage on a
- * key press would delay the head unit's own key handling. A press is one entry; a held key's
- * repeats and its release add nothing.
+ * Kept in memory since the app process started: storage on a key press would delay the head unit's own
+ * key handling. A press is one entry; a held key's repeats and its release add nothing.
  *
- * The service is handed every hardware key, a connected keyboard's too. A key that writes
- * text is counted and never listed, and no input device name is kept.
+ * The service is handed every hardware key, a connected keyboard's too. A key that writes text is counted
+ * and never listed, and no input device name is kept.
  */
 internal object WheelKeyLog {
-    private const val ENTRIES = 40
+    internal const val ENTRIES = 40
 
     private class Entry(val atMillis: Long, val text: String, var times: Int = 1, var lastMillis: Long = atMillis) {
         fun copy() = Entry(atMillis, text, times, lastMillis)
@@ -38,48 +39,70 @@ internal object WheelKeyLog {
     @Synchronized
     fun note(message: String, nowMillis: Long = System.currentTimeMillis()) = add(message, nowMillis)
 
-    /** A key the service was given, before anything decided what it does. */
+    /** [text] is a key that writes text; [detail] says which feature kept the key or why one did not. */
     @Synchronized
-    fun key(event: KeyEvent, nowMillis: Long = System.currentTimeMillis()) {
-        presses++
-        // A key that types is not a wheel key, and listing it would fill the report with typing.
-        if (event.unicodeChar != 0 || event.keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z ||
-            event.keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9
-        ) {
+    fun press(code: Int, scan: Int, device: Int, kept: Boolean, detail: String?, text: Boolean,
+        nowMillis: Long = System.currentTimeMillis()) {
+        if (text) {
             textKeys++
             return
         }
-        val name = runCatching { KeyEvent.keyCodeToString(event.keyCode) }.getOrNull() ?: "key${event.keyCode}"
-        add("key=$name down=${event.action == KeyEvent.ACTION_DOWN}", nowMillis)
+        presses++
+        if (kept) this.kept++
+        add("key $code/$scan device $device ${if (kept) "kept" else "left to the head unit"}" +
+            (detail?.let { ": $it" } ?: ""), nowMillis)
     }
 
+    // Some head units send a held key as a new press every 100 ms; one entry counts them.
     private fun add(text: String, nowMillis: Long) {
-        val bound = boundAtMillis
-        if (bound != null && nowMillis < bound) return
-        val last = entries.lastOrNull()
-        if (last != null && last.text == text && nowMillis - last.lastMillis < REPEAT_WINDOW_MILLIS) {
-            last.times++
-            last.lastMillis = nowMillis
+        entries.lastOrNull()?.takeIf { it.text == text }?.let {
+            it.times++
+            it.lastMillis = nowMillis
             return
         }
-        while (entries.size >= ENTRIES) entries.removeFirst()
+        if (entries.size == ENTRIES) entries.removeFirst()
         entries.addLast(Entry(nowMillis, text))
-        kept++
     }
 
-    /** The report's section: how many keys arrived, and the last ones in order. */
-    @Synchronized
-    fun report(nowMillis: Long = System.currentTimeMillis()): String {
-        if (presses == 0) return "Wheel and hardware keys: none since the app started"
-        val stamp = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
-        val lines = mutableListOf("Wheel and hardware keys: presses=$presses listed=$kept textKeys=$textKeys")
-        entries.forEach { entry ->
-            val at = stamp.format(Date(entry.atMillis))
-            val times = if (entry.times > 1) " x${entry.times}" else ""
-            lines += "  $at ${entry.text}$times"
+    /** [bound] is whether the service is running now. A key press waits only for the copy, not for the text. */
+    fun report(bound: Boolean, nowMillis: Long = System.currentTimeMillis()): List<String> {
+        val summary: String
+        val seen: List<Entry>
+        synchronized(this) {
+            val boundAt = boundAtMillis
+            if (boundAt == null && entries.isEmpty()) {
+                return listOf("Wheel keys: the service has not run since DiPlay started")
+            }
+            summary = "Wheel keys since DiPlay started: presses=$presses kept=$kept " +
+                "leftToHeadUnit=${presses - kept} textKeysNotListed=$textKeys " +
+                (if (bound && boundAt != null) "boundForMs=${nowMillis - boundAt}" else "bound=false") +
+                if (bound && presses + textKeys == 0) "; no key has reached the service" else ""
+            seen = entries.map { it.copy() }
         }
-        return lines.joinToString("\n")
+        val time = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+        return (listOf(summary) + seen.map { entry ->
+            "Wheel keys: ${time.format(Date(entry.atMillis))}  ${entry.text}" +
+                if (entry.times > 1) " x${entry.times}, last ${time.format(Date(entry.lastMillis))}" else ""
+        }).mapNotNull(DiagnosticRedactor::redact)
     }
 
-    private const val REPEAT_WINDOW_MILLIS = 600L
+    /** A keyboard's typing area: characters, and the keys that edit or modify them. */
+    fun writesText(code: Int): Boolean =
+        code in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_POUND ||
+            code in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_SYM ||
+            code in KeyEvent.KEYCODE_ENTER..KeyEvent.KEYCODE_NUM ||
+            code == KeyEvent.KEYCODE_PLUS ||
+            code in KeyEvent.KEYCODE_PAGE_UP..KeyEvent.KEYCODE_SWITCH_CHARSET ||
+            code in KeyEvent.KEYCODE_ESCAPE..KeyEvent.KEYCODE_INSERT ||
+            code in KeyEvent.KEYCODE_NUM_LOCK..KeyEvent.KEYCODE_NUMPAD_RIGHT_PAREN ||
+            code in KeyEvent.KEYCODE_ZENKAKU_HANKAKU..KeyEvent.KEYCODE_KANA
+
+    @Synchronized
+    internal fun reset() {
+        entries.clear()
+        boundAtMillis = null
+        presses = 0
+        kept = 0
+        textKeys = 0
+    }
 }
