@@ -1992,7 +1992,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             if (assistant.hasConfig(this)) {
                 toggle(card, getString(R.string.settings_remote_assistant_enabled),
                     getString(R.string.settings_remote_assistant_enabled_description),
-                    assistant.isEnabled(this)) { assistant.setEnabled(this, it) }
+                    assistant.isEnabled(this)) { enabled ->
+                    assistant.setEnabled(this, enabled)
+                    if (enabled) requestVpnPermissionAndStart()
+                }
                 card.addView(button(getString(R.string.settings_remote_assistant_forget), false) {
                     assistant.forget(this)
                     toast(getString(R.string.settings_remote_assistant_forgotten))
@@ -2007,6 +2010,24 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 setPadding(0, dp(14), 0, dp(4))
             })
             card.addView(log)
+        }
+    }
+
+    private val vpnPermissionLauncher =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant.start(this)
+            } else {
+                toast(getString(R.string.vpn_authorization_unavailable))
+            }
+        }
+
+    private fun requestVpnPermissionAndStart() {
+        val intent = android.net.VpnService.prepare(this)
+        if (intent != null) {
+            vpnPermissionLauncher.launch(intent)
+        } else {
+            net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant.start(this)
         }
     }
 
@@ -2027,7 +2048,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 contentResolver.openInputStream(uri)?.use { input ->
                     val text = input.readBytes().toString(Charsets.UTF_8)
                     net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant.import(this, text)
-                        .onSuccess { toast(getString(R.string.settings_remote_assistant_imported)) }
+                        .onSuccess {
+                            toast(getString(R.string.settings_remote_assistant_imported))
+                            requestVpnPermissionAndStart()
+                        }
                         .onFailure { error ->
                             toast(error.message ?: getString(R.string.settings_remote_assistant_import_failed))
                         }

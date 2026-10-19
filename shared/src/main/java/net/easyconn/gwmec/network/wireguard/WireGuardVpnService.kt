@@ -33,13 +33,21 @@ class WireGuardVpnService : VpnService() {
         val log: (String) -> Unit = { message -> Log.i(TAG, message) }
         val descriptor = establish(config, log)
         if (descriptor == null) {
-            WireGuardRemoteAssistant.reportStopped("the system refused the tunnel")
+            WireGuardRemoteAssistant.reportStopped("系统拒绝创建 VPN 隧道（请确认系统 VPN 权限）")
             stopSelf()
             return START_NOT_STICKY
         }
         tunnel = descriptor
-        WireGuardRemoteAssistant.reportTunnelUp()
-        runner = WireGuardTunnelRunner(descriptor, config, log).also { it.start() }
+        val runnerLog: (String) -> Unit = { message ->
+            Log.i(TAG, message)
+            WireGuardRemoteAssistant.report(message)
+        }
+        runner = WireGuardTunnelRunner(
+            tunnel = descriptor,
+            config = config,
+            vpnService = this,
+            log = runnerLog,
+        ).also { it.start() }
         return START_STICKY
     }
 
@@ -91,6 +99,7 @@ class WireGuardVpnService : VpnService() {
                 }
             }.establish()
         }.onFailure { error ->
+            Log.e(TAG, "establish failed with exception", error)
             log("tunnel refused: ${error.message ?: error.javaClass.simpleName}")
         }.getOrNull()
 

@@ -12,20 +12,18 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.SocketTimeoutException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Runs the tunnel: the handshake over UDP, then packets between the TUN device and
- * the peer.
- *
- * Two directions, one thread each. Outbound reads the TUN device, encrypts with the
- * sending key and sends to the peer; inbound does the reverse. The handshake runs
- * first and is repeated when the peer says it is time, as the protocol asks — every
- * two minutes of silence, or sooner if the peer asks.
+ * Runs the WireGuard tunnel: the Noise_IKpsk2 handshake over UDP, followed by bidirectional
+ * transport packet processing between the TUN interface and the WireGuard peer endpoint.
  */
 internal class WireGuardTunnelRunner(
     private val tunnel: ParcelFileDescriptor,
     private val config: WireGuardConfig,
+    private val vpnService: android.net.VpnService? = null,
     private val log: (String) -> Unit,
 ) {
     private val running = AtomicBoolean(false)
@@ -36,24 +34,31 @@ internal class WireGuardTunnelRunner(
     private var receivingCounter = 0L
     private var uplink: Thread? = null
     private var downlink: Thread? = null
+    private var keepaliveThread: Thread? = null
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
-        val endpoint = config.peerEndpoint
-        if (endpoint == null) {
-            log("no endpoint in the configuration; the tunnel can only answer")
-        } else {
-            val host = endpoint.substringBeforeLast(':')
-            val port = endpoint.substringAfterLast(':').toIntOrNull() ?: 51820
-            runCatching {
-                socket = DatagramSocket().apply { soTimeout = HANDSHAKE_TIMEOUT_MILLIS }
-                peerAddress = InetSocketAddress(InetAddress.getByName(host), port)
-            }.onFailure { log("endpoint $endpoint unreachable: ${it.message}") }
-        }
-        handshake()
-        uplink = Thread(::runUplink, "wireguard-uplink").apply { isDaemon = true; start() }
-        downlink = Thread(::runDownlink, "wireguard-downlink").apply { isDaemon = true; start() }
-        log("running: uplink and downlink started")
+        Thread({
+            val endpoint = config.peerEndpoint
+            if (endpoint == null) {
+                log("no endpoint in the configuration; the tunnel can only answer")
+            } else {
+                val host = endpoint.substringBeforeLast(':')
+                val port = endpoint.substringAfterLast(':').toIntOrNull() ?: 51820
+                runCatching {
+                    val s = DatagramSocket().apply { soTimeout = HANDSHAKE_TIMEOUT_MILLIS }
+                    val protected = vpnService?.protect(s)
+                    log("DatagramSocket created, protect result=$protected")
+                    socket = s
+                    peerAddress = InetSocketAddress(InetAddress.getByName(host), port)
+                }.onFailure { log("endpoint $endpoint unreachable: ${it.message}") }
+            }
+            handshake()
+            uplink = Thread(::runUplink, "wireguard-uplink").apply { isDaemon = true; start() }
+            downlink = Thread(::runDownlink, "wireguard-downlink").apply { isDaemon = true; start() }
+            keepaliveThread = Thread(::runKeepalive, "wireguard-keepalive").apply { isDaemon = true; start() }
+            log("running: uplink and downlink started")
+        }, "wireguard-startup").apply { isDaemon = true; start() }
     }
 
     fun stop() {
@@ -62,6 +67,7 @@ internal class WireGuardTunnelRunner(
         runCatching { tunnel.close() }
         uplink?.interrupt()
         downlink?.interrupt()
+        keepaliveThread?.interrupt()
         log("stopped")
     }
 
@@ -88,18 +94,50 @@ internal class WireGuardTunnelRunner(
             socket?.receive(packet)
             val reply = buffer.copyOf(packet.length)
             keys = initiator.consumeResponse(reply)?.also {
+                sendingCounter = 0L
+                receivingCounter = 0L
+                log("已连接")
                 log("handshake complete: sending index ${it.sendingIndex}, " +
                     "peer index ${it.receivingIndex}")
+                sendKeepalive(it)
             } ?: run {
-                log("handshake refused: the reply did not verify")
+                log("握手失败：对端回复未能通过校验")
                 null
             }
         }.onFailure { error ->
             if (error is SocketTimeoutException) {
-                log("handshake timed out: no reply from $target")
+                log("连接超时：未收到对端响应（$target）")
             } else {
-                log("handshake failed: ${error.message ?: error.javaClass.simpleName}")
+                log("连接失败：${error.message ?: error.javaClass.simpleName}")
             }
+        }
+    }
+
+    private fun sendKeepalive(current: TransportKeys) {
+        val target = peerAddress ?: return
+        val header = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN).apply {
+            putInt(4) // Type 4: Transport data
+            putInt(current.receivingIndex)
+            putLong(sendingCounter)
+        }.array()
+        val encrypted = Aead(current.sendingKey, sendingCounter).encrypt(ByteArray(0))
+        sendingCounter++
+        val packet = header + encrypted
+        runCatching { socket?.send(DatagramPacket(packet, packet.size, target)) }
+            .onFailure { log("keepalive send failed: ${it.message}") }
+    }
+
+    private fun runKeepalive() {
+        val intervalSec = config.persistentKeepalive ?: 25
+        if (intervalSec <= 0) return
+        while (running.get()) {
+            try {
+                Thread.sleep(intervalSec * 1000L)
+            } catch (_: InterruptedException) {
+                break
+            }
+            val current = keys ?: continue
+            sendKeepalive(current)
         }
     }
 
@@ -116,10 +154,19 @@ internal class WireGuardTunnelRunner(
             if (read == 0) continue
             val current = keys ?: continue
             val packet = ByteArray(read).also { System.arraycopy(buffer, 0, it, 0, read) }
-            val encrypted = Aead(current.sendingKey, sendingCounter).encrypt(packet, ByteArray(0), ByteArray(0))
+
+            val header = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN).apply {
+                putInt(4) // Type 4: Transport data
+                putInt(current.receivingIndex)
+                putLong(sendingCounter)
+            }.array()
+
+            val encrypted = Aead(current.sendingKey, sendingCounter).encrypt(packet)
             sendingCounter++
+            val wirePacket = header + encrypted
+
             peerAddress?.let { target ->
-                runCatching { socket?.send(DatagramPacket(encrypted, encrypted.size, target)) }
+                runCatching { socket?.send(DatagramPacket(wirePacket, wirePacket.size, target)) }
                     .onFailure { log("uplink send failed: ${it.message}") }
             }
         }
@@ -132,7 +179,6 @@ internal class WireGuardTunnelRunner(
         while (running.get()) {
             val current = keys
             if (current == null) {
-                // No keys yet: keep listening so the peer can start the handshake.
                 Thread.sleep(50)
                 continue
             }
@@ -143,25 +189,30 @@ internal class WireGuardTunnelRunner(
                 }
                 null
             } ?: continue
-            if (packet.length == 0) continue
-            // A handshake response arriving on the data port, as the protocol allows.
-            if (packet.length >= 1 && buffer[0] == 2.toByte()) {
-                log("downlink: a handshake reply arrived after the exchange")
+            if (packet.length < 32) continue // 16 header + 16 auth tag minimum
+
+            val bb = ByteBuffer.wrap(buffer, 0, 16).order(ByteOrder.LITTLE_ENDIAN)
+            val msgType = bb.int
+            if (msgType != 4) {
+                if (msgType == 2) {
+                    log("downlink: a handshake reply arrived after the exchange")
+                }
                 continue
             }
-            val received = buffer.copyOf(packet.length)
-            val plain = Aead(current.receivingKey, receivingCounter)
-                .let { cipher ->
-                    // The tag is the last 16 bytes; verify before writing anything to TUN.
-                    val body = received.copyOfRange(0, received.size - 16)
-                    val tag = received.copyOfRange(received.size - 16, received.size)
-                    if (cipher.verify(body, tag, ByteArray(0))) body else null
-                }
+            val receiverIndex = bb.int
+            val counter = bb.long
+
+            val cipherText = buffer.copyOfRange(16, packet.length)
+            val plain = Aead(current.receivingKey, counter).verify(cipherText)
             if (plain == null) {
                 log("downlink: a packet did not verify")
                 continue
             }
-            receivingCounter++
+            if (plain.isEmpty()) {
+                // Keepalive packet from peer
+                continue
+            }
+            receivingCounter = maxOf(receivingCounter, counter + 1)
             runCatching { output.write(plain); output.flush() }
                 .onFailure { log("downlink write failed: ${it.message}") }
         }

@@ -76,7 +76,7 @@ object WireGuardRemoteAssistant {
         }
         report("正在连接…")
         runCatching {
-            context.startService(Intent(context, WireGuardVpnService::class.java).setAction("connect"))
+            context.startService(Intent(context, WireGuardVpnService::class.java).setAction("net.easyconn.gwmec.wireguard.CONNECT"))
         }.onFailure { error ->
             report("无法启动隧道：${error.message ?: error.javaClass.simpleName}")
         }
@@ -103,7 +103,7 @@ object WireGuardRemoteAssistant {
         listeners.remove(observer)
     }
 
-    internal fun report(message: String) {
+    fun report(message: String) {
         Log.i(TAG, message)
         lastMessage = message
         listeners.toList().forEach { listener -> runCatching { listener(message) } }

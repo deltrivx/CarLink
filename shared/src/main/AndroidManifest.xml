@@ -69,5 +69,14 @@
             android:name="net.easyconn.gwmec.network.CarPlayVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:exported="false" />
+
+        <service
+            android:name="net.easyconn.gwmec.network.wireguard.WireGuardVpnService"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

@@ -8,6 +8,17 @@
   what changed among the words.
 -->
 <resources>
+    <string-array name="changelog_1_3_93">
+        <item>彻底解决定制版应用名称丢失和无图标问题：在车机系统 Manifest 与公共库中完整补全 icon 与 label</item>
+        <item>彻底解决 WireGuard 远程助手导入配置后一直卡“正在连接…”的问题：建立真实握手状态反馈机制</item>
+        <item>实现标准的 Noise_IKpsk2 握手协议，完整支持与 Linux 内核/VPS WireGuard 双向通信</item>
+    </string-array>
+    <string-array name="changelog_1_3_92">
+        <item>彻底修复 WireGuard 远程助手：完整对齐 Linux 内核 Noise_IKpsk2 握手规范与报文封包</item>
+        <item>注册 WireGuardVpnService 服务与 VpnService 权限请求流程，确保隧道稳定启动</item>
+        <item>实现双向数据流加密通信与心跳保活（Keepalive），支持异网远程调试</item>
+        <item>彻底解决点击连接闪屏与连接中断，所有连接状态与重试并入主页展示</item>
+    </string-array>
     <string-array name="changelog_1_3_91">
         <item>彻底解决点击连接闪屏与连接中断：移除 onDestroy 中的连接终止逻辑</item>
         <item>彻底取消旧版等待界面，所有连接中状态、进度与重试全部并入主页展示</item>

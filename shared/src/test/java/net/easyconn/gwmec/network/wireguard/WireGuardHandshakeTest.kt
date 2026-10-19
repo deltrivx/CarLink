@@ -58,14 +58,9 @@ class WireGuardHandshakeTest {
     fun anInitiationIsTheSizeTheProtocolSpecifies() {
         val ours = WireGuardHandshake.generateKeyPair()
         val theirs = WireGuardHandshake.generateKeyPair()
-        val withPsk = WireGuardHandshake.Initiator(ours.privateKey, ours.publicKey, theirs.publicKey,
-            preSharedKey = ByteArray(32) { 7 })
-        // 1 type + 32 ephemeral + 48 static + 28 timestamp + 48 pre-shared key.
-        assertEquals(157, withPsk.initiation().size)
-
-        val without = WireGuardHandshake.Initiator(ours.privateKey, ours.publicKey, theirs.publicKey)
-        // The same, without the pre-shared key's payload and tag.
-        assertEquals(109, without.initiation().size)
+        val initiator = WireGuardHandshake.Initiator(ours.privateKey, ours.publicKey, theirs.publicKey)
+        // WireGuard initiation packet is always 148 bytes (1 type + 3 reserved + 4 sender + 32 ephemeral + 48 static + 28 timestamp + 16 mac1 + 16 mac2)
+        assertEquals(148, initiator.initiation().size)
     }
 
     @Test
