@@ -1,56 +1,83 @@
-# 车机互联
-
-[English](README.en.md) | **简体中文**
+# CarLink · 车机互联
 
 [![最新版本](https://img.shields.io/github/v/release/deltrivx/CarLink?display_name=tag&sort=semver&label=最新版本)](https://github.com/deltrivx/CarLink/releases/latest)
-[![平台](https://img.shields.io/badge/平台-Android%207.1%2B-3DDC84?logo=android&logoColor=white)](https://github.com/deltrivx/CarLink)
+[![Android](https://img.shields.io/badge/Android-9.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
+[![构建](https://img.shields.io/badge/构建-FnOS%20本地-1E6FA8)](https://github.com/deltrivx/CarLink)
+[![签名](https://img.shields.io/badge/签名-飞思平台-8a2be2)](https://github.com/deltrivx/CarLink/releases/latest)
 
-为 Android 设备提供 **CarPlay 接收与投射**，采用 DiAuto 风格界面。包名：`net.easyconn.gwmec`。
+面向车机与手机的互联应用，把手机投屏、媒体控制与车机数据读取融为一体。支持 Android Auto 与 CarPlay 双协议，内置热点、同局域网、WiFi Direct 三种连接方式，并提供电量、车速、仪表盘歌曲等车机专有功能。
 
-> 本项目源自车机场景，也适用于平板、手机等 Android 设备。车机仪表盘、车辆数据等依赖车机硬件与 ADB 授权的能力，仅在对应环境下可用。
+> 当前版本：**2026.10.19** · 应用 ID：`net.easyconn.gwmec` · 最低 Android：**9.0（API 28）**
 
-![车机互联 主页](docs/assets/home.png)
+![车机互联](asset/xcertplay_small.png)
 
-## 核心能力
+## 为什么选择 CarLink
 
 | 能力 | 说明 |
 |---|---|
-| CarPlay 接收 | 有线（USB）与无线两种连接方式，采用本地认证 |
-| 无线连接 | 支持 Wi-Fi 直连、设备热点，或「现有 Wi-Fi / 同一局域网」 |
-| 主页完成连接 | 等待、重试、停止都在主页，不再单独占用一屏 |
-| 显示调节 | 图标与文字大小、分辨率、帧率 |
-| 诊断导出 | 本地导出报告；仅在你选择分享时才会发送
+| 双协议投屏 | Android Auto 与 CarPlay 同时支持，一套应用覆盖两类手机 |
+| 三种连接 | 车机内置热点、同一局域网、WiFi Direct，按场景切换 |
+| 车机数据 | 电量、充电状态、车速、仪表盘歌曲，经 ADB 读取 |
+| 媒体控制 | 播放/暂停/切歌，兼容 DiLink 各代按键映射 |
+| 本地构建 | 全部构建在 FnOS 本机完成，不依赖 GitHub Actions |
+| 平台签名 | 飞思卡尔平台签名（`android@freescale.com`），APK Signature Scheme v2 + v3 |
+
+## 连接方式
+
+| 方式 | 说明 | 需要 ADB |
+|---|:---:|:---:|
+| 车机内置热点 | 车机开热点，手机蓝牙传凭据自动加入 | — |
+| 同一局域网 | 车机与手机接同一路由器 | — |
+| WiFi Direct | 可选 2.4G / 5G 信道 | — |
+| 网络 ADB | `127.0.0.1:5555`，用于车机专有功能 | ✓ |
 
 ## 安装
 
-在**安卓设备**上安装（平板、手机、车机等）。使用无需越狱、转接器、Mac、账号或认证服务器。核心 CarPlay 不需要 ADB。设备需允许安装 APK。
+从 [Releases](https://github.com/deltrivx/CarLink/releases/latest) 下载：
 
-APK 支持 Android 7.1+（API 25）；Android 7.1–8.1 支持尚未确认。
+```text
+CarLink-2026.10.19.apk
+```
 
-### 安装方式
-
-将 APK 复制到设备存储后用文件管理器打开安装，或：
+校验文件完整性：
 
 ```bash
-adb install -r CarLink-<版本>-generic.apk
+sha256sum -c SHA256SUMS-CarLink.txt
 ```
 
-## 构建
+**签名已变更**：本版本起改用飞思卡尔平台签名。若设备上装有旧版本（`v1.3.x`），须先卸载旧版再安装，否则会报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`。
 
-```
-./gradlew mobile:assembleRelease
-```
+## 版本号规则
 
-发布构建启用 R8 混淆与资源压缩：仅保留 Activity 类名（清单按名称引用），其余重命名；并移除 `Log.v` 与 `Log.d` 调用。
+版本号按日期命名，同日多个版本加 `-N` 区分：
 
-构建需要配件身份（`offline-mfi/identity.pk8`、`offline-mfi/certificate.p7b`）与签名密钥，通过环境变量注入。这些属于凭证，**不在本仓库中**。
+| 场景 | 写法 |
+|---|---|
+| 当日首版 | `2026.10.19` |
+| 当日第二版 | `2026.10.19-2` |
+| 次日首版 | `2026.10.20` |
 
-## 许可证
+## 与定制版的区别
 
-**GNU 通用公共许可证第 3 版**（GPL-3.0），见 [LICENSE](LICENSE)。
+| 项 | CarLink（本仓） | EasyConnect |
+|---|---|---|
+| 仓库 | 公开 | 私有 |
+| 定位 | 通用版 | 定制版 |
+| APK 命名 | `CarLink-<版本>.apk` | `EasyConnect-<版本>.apk` |
 
-本项目是 **DiPlay**（<https://github.com/shihabal3amri/DiPlay>）的衍生作品，而 DiPlay 衍生自 **XcertPlay**，两者均以 GPL-3.0 授权，因此本项目沿用相同条款。
+两者签名相同（同为飞思平台签名），但**不可互相覆盖安装**，须分别卸载后安装。
 
-## 未经 Apple 认证
+## 技术参数
 
-本项目是独立的接收器，使用实验性配件身份，仍在测试与不同 iPhone 和设备的兼容性。本产品未经 Apple 认证。
+| 项 | 值 |
+|---|---|
+| applicationId | `net.easyconn.gwmec` |
+| compileSdk / targetSdk | 37 |
+| minSdk | 28（Android 9.0） |
+| AGP / Kotlin | 9.3.0 / 2.2.10 |
+| Gradle | 9.5.0 |
+| 模块 | `common` `mobile` `automotive` `shared` `maphost` `home` |
+
+## 更新日志
+
+见 [CHANGELOG.md](CHANGELOG.md)。
