@@ -8,6 +8,12 @@
   what changed among the words.
 -->
 <resources>
+    <string-array name="changelog_1_3_94">
+        <item>彻底解决定制版应用名字与图标丢失问题：补齐 Manifest 中 Application 和 Activity 的 label 与 icon 声明</item>
+        <item>彻底修复定制版 OTA 404 报错：将 GitHub OTA 授权令牌自动打入定制版 assets</item>
+        <item>修复 OTA 下载安装包后解析失败：为定制版启用 PackageInstaller 静默安装及扩展 FileProvider 外部存储授权</item>
+        <item>修复 WireGuard 远程助手导入配置后一直卡正在连接问题：实现实时握手状态反馈机制</item>
+    </string-array>
     <string-array name="changelog_1_3_93">
         <item>彻底解决定制版应用名称丢失和无图标问题：在车机系统 Manifest 与公共库中完整补全 icon 与 label</item>
         <item>彻底解决 WireGuard 远程助手导入配置后一直卡“正在连接…”的问题：建立真实握手状态反馈机制</item>

@@ -2717,7 +2717,25 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
     private fun installUpdate() {
         val file = updateFile ?: return
-        // Before Oreo, the installer handles the global unknown-sources setting.
+        // On automotive/system-signed builds, attempt seamless PackageInstaller install
+        if (!genericBuild()) {
+            runCatching {
+                toast(getString(R.string.update_verifying))
+                net.easyconn.gwmec.update.UpdateInstaller.install(this, file) { success: Boolean, msg: String ->
+                    runOnUiThread {
+                        if (!success) {
+                            Log.w("Carlink-Update", "silent install failed: $msg, falling back to intent")
+                            fallbackInstallApk(file)
+                        }
+                    }
+                }
+                return
+            }
+        }
+        fallbackInstallApk(file)
+    }
+
+    private fun fallbackInstallApk(file: File) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()) {
             installApk(file)
         } else {
