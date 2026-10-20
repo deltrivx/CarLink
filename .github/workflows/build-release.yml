@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Version Name (e.g. 2026.10.20.6)'
+        description: 'Version Name (e.g. 2026.10.20-2)'
         required: false
       version_code:
-        description: 'Version Code (e.g. 2026102006)'
+        description: 'Version Code (e.g. 2026102002)'
         required: false
 
 permissions:
@@ -21,21 +21,26 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0 ndk;28.2.13676358'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Add Android Build Tools to PATH
+        run: |
+          echo "$ANDROID_HOME/build-tools/36.0.0" >> "$GITHUB_PATH"
 
       - name: Prepare Signing Keys and MFi Assets
         env:
@@ -49,7 +54,6 @@ jobs:
           # 解压 MFi 离线授权文件
           if [ -n "$AUTH_ASSETS_BASE64" ]; then
             echo "$AUTH_ASSETS_BASE64" | base64 -d | tar -xz -C auth-assets 2>/dev/null || true
-            # 如果直接解压在顶层，兼容放入 offline-mfi/ 目录下
             if [ -f auth-assets/identity.pk8 ] && [ ! -f auth-assets/offline-mfi/identity.pk8 ]; then
               cp auth-assets/identity.pk8 auth-assets/certificate.p7b auth-assets/offline-mfi/ 2>/dev/null || true
             fi
@@ -66,13 +70,21 @@ jobs:
           INPUT_VCODE="${{ github.event.inputs.version_code }}"
           if [ -n "$INPUT_VNAME" ]; then
             VNAME="$INPUT_VNAME"
-            VCODE="${INPUT_VCODE:-$(echo "$VNAME" | tr -d '.')}"
-          elif [[ "$TAG_NAME" =~ ^v?[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+ ]]; then
+            VCODE="${INPUT_VCODE:-$(echo "$VNAME" | tr -cd '0-9')}"
+          elif [ -n "$TAG_NAME" ]; then
             VNAME="${TAG_NAME#v}"
-            VCODE="$(echo "$VNAME" | tr -d '.')"
+            # 2026.10.20-2 -> 2026102002
+            TODAY="$(echo "$VNAME" | cut -d'-' -f1 | tr -d '.')"
+            SUFFIX="$(echo "$VNAME" | grep '-' | cut -d'-' -f2 || echo '1')"
+            [ -n "$SUFFIX" ] || SUFFIX="1"
+            if [ ${#SUFFIX} -eq 1 ]; then
+              VCODE="${TODAY}0${SUFFIX}"
+            else
+              VCODE="${TODAY}${SUFFIX}"
+            fi
           else
             TODAY="$(date +%Y.%m.%d)"
-            VNAME="${TODAY}.1"
+            VNAME="${TODAY}-1"
             VCODE="${TODAY//./}01"
           fi
           echo "VNAME=$VNAME" >> "$GITHUB_OUTPUT"
