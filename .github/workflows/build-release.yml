@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Version Name (e.g. 2026.10.20-2)'
+        description: 'Version Name (e.g. 2026.10.21.1)'
         required: false
       version_code:
-        description: 'Version Code (e.g. 2026102002)'
+        description: 'Version Code (e.g. 2026102101)'
         required: false
 
 permissions:
@@ -51,7 +51,6 @@ jobs:
           mkdir -p secrets auth-assets/offline-mfi
           echo "$PLATFORM_PK8_BASE64" | base64 -d > secrets/platform.pk8
           echo "$PLATFORM_PEM_BASE64" | base64 -d > secrets/platform.x509.pem
-          # 解压 MFi 离线授权文件
           if [ -n "$AUTH_ASSETS_BASE64" ]; then
             echo "$AUTH_ASSETS_BASE64" | base64 -d | tar -xz -C auth-assets 2>/dev/null || true
             if [ -f auth-assets/identity.pk8 ] && [ ! -f auth-assets/offline-mfi/identity.pk8 ]; then
@@ -73,23 +72,39 @@ jobs:
             VCODE="${INPUT_VCODE:-$(echo "$VNAME" | tr -cd '0-9')}"
           elif [ -n "$TAG_NAME" ]; then
             VNAME="${TAG_NAME#v}"
-            # 2026.10.20-2 -> 2026102002
-            TODAY="$(echo "$VNAME" | cut -d'-' -f1 | tr -d '.')"
-            SUFFIX="$(echo "$VNAME" | grep '-' | cut -d'-' -f2 || echo '1')"
+            # 支持 YYYY.MM.DD.N 与 YYYY.MM.DD-N
+            if [[ "$VNAME" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+ ]]; then
+              DATE_PART="$(echo "$VNAME" | cut -d'.' -f1-3 | tr -d '.')"
+              SUFFIX="$(echo "$VNAME" | cut -d'.' -f4)"
+            elif [[ "$VNAME" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]+ ]]; then
+              DATE_PART="$(echo "$VNAME" | cut -d'-' -f1 | tr -d '.')"
+              SUFFIX="$(echo "$VNAME" | cut -d'-' -f2)"
+            else
+              DATE_PART="$(echo "$VNAME" | tr -d '.')"
+              SUFFIX="1"
+            fi
             [ -n "$SUFFIX" ] || SUFFIX="1"
             if [ ${#SUFFIX} -eq 1 ]; then
-              VCODE="${TODAY}0${SUFFIX}"
+              VCODE="${DATE_PART}0${SUFFIX}"
             else
-              VCODE="${TODAY}${SUFFIX}"
+              VCODE="${DATE_PART}${SUFFIX}"
             fi
           else
             TODAY="$(date +%Y.%m.%d)"
-            VNAME="${TODAY}-1"
+            VNAME="${TODAY}.1"
             VCODE="${TODAY//./}01"
           fi
           echo "VNAME=$VNAME" >> "$GITHUB_OUTPUT"
           echo "VCODE=$VCODE" >> "$GITHUB_OUTPUT"
           echo "Building version: $VNAME ($VCODE)"
+
+      - name: Update README with New Version & Badge
+        run: |
+          sed -i -E 's/构建-FnOS%20本地-1E6FA8/构建-GitHub%20Actions-2088FF/g' README.md
+          sed -i -E 's/全部构建在 FnOS 本机完成，不依赖 GitHub Actions/由 GitHub Actions 全自动构建并飞思平台签名开源发版/g' README.md
+          # 更新 README 中的最新版本示例
+          sed -i -E "s/CarLink-[0-9]{4}\.[0-9]{2}\.[0-9]{2}[-.0-9]*\.apk/CarLink.apk/g" README.md
+          sed -i -E "s/EasyConnect-[0-9]{4}\.[0-9]{2}\.[0-9]{2}[-.0-9]*\.apk/EasyConnect.apk/g" README.md
 
       - name: Build Generic (CarLink.apk - without system UID)
         env:
@@ -114,9 +129,8 @@ jobs:
             --v2-signing-enabled true \
             --v3-signing-enabled true \
             --min-sdk-version 21 \
-            --out "dist/CarLink-${{ steps.ver.outputs.VNAME }}.apk" \
+            --out "dist/CarLink.apk" \
             "$UNSIGNED"
-          cp "dist/CarLink-${{ steps.ver.outputs.VNAME }}.apk" "dist/CarLink.apk"
 
       - name: Clean build cache before custom build
         run: ./gradlew clean --no-daemon
@@ -143,16 +157,15 @@ jobs:
             --v2-signing-enabled true \
             --v3-signing-enabled true \
             --min-sdk-version 21 \
-            --out "dist/EasyConnect-${{ steps.ver.outputs.VNAME }}.apk" \
+            --out "dist/EasyConnect.apk" \
             "$UNSIGNED"
-          cp "dist/EasyConnect-${{ steps.ver.outputs.VNAME }}.apk" "dist/EasyConnect.apk"
 
       - name: Verification and Checksums
         run: |
           cd dist
-          apksigner verify --verbose "CarLink-${{ steps.ver.outputs.VNAME }}.apk"
-          apksigner verify --verbose "EasyConnect-${{ steps.ver.outputs.VNAME }}.apk"
-          sha256sum *.apk > SHA256SUMS.txt
+          apksigner verify --verbose "CarLink.apk"
+          apksigner verify --verbose "EasyConnect.apk"
+          sha256sum CarLink.apk EasyConnect.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Publish GitHub Release
@@ -163,4 +176,4 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
             --title "Release $TAG" \
             --notes "CarLink & EasyConnect $TAG release. Both signed with Freescale platform key. CarLink is generic; EasyConnect includes sharedUserId=android.uid.system."
-          gh release upload "$TAG" dist/*.apk dist/SHA256SUMS.txt --clobber
+          gh release upload "$TAG" dist/CarLink.apk dist/EasyConnect.apk dist/SHA256SUMS.txt --clobber

@@ -2,7 +2,7 @@
 
 [![最新版本](https://img.shields.io/github/v/release/deltrivx/CarLink?display_name=tag&sort=semver&label=最新版本)](https://github.com/deltrivx/CarLink/releases/latest)
 [![Android](https://img.shields.io/badge/Android-9.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
-[![构建](https://img.shields.io/badge/构建-FnOS%20本地-1E6FA8)](https://github.com/deltrivx/CarLink)
+[![构建](https://img.shields.io/badge/构建-GitHub%20Actions-2088FF)](https://github.com/deltrivx/CarLink)
 [![签名](https://img.shields.io/badge/签名-飞思平台-8a2be2)](https://github.com/deltrivx/CarLink/releases/latest)
 
 面向车机与手机的互联应用，把手机投屏、媒体控制与车机数据读取融为一体。支持 Android Auto 与 CarPlay 双协议，内置热点、同局域网、WiFi Direct 三种连接方式，并提供电量、车速、仪表盘歌曲等车机专有功能。
@@ -19,7 +19,7 @@
 | 三种连接 | 车机内置热点、同一局域网、WiFi Direct，按场景切换 |
 | 车机数据 | 电量、充电状态、车速、仪表盘歌曲，经 ADB 读取 |
 | 媒体控制 | 播放/暂停/切歌，兼容 DiLink 各代按键映射 |
-| 本地构建 | 全部构建在 FnOS 本机完成，不依赖 GitHub Actions |
+| 本地构建 | 由 GitHub Actions 云端自动化构建与双包飞思签名开源发布 |
 | 平台签名 | 飞思卡尔平台签名（`android@freescale.com`），APK Signature Scheme v2 + v3 |
 
 ## 连接方式
@@ -31,14 +31,19 @@
 | WiFi Direct | 可选 2.4G / 5G 信道 | — |
 | 网络 ADB | `127.0.0.1:5555`，用于车机专有功能 | ✓ |
 
-## 安装
+## 安装与下载
 
-从 [Releases](https://github.com/deltrivx/CarLink/releases/latest) 下载（文件名中的版本号随每次发布变化）：
+从 [最新 Releases](https://github.com/deltrivx/CarLink/releases/latest) 下载开源预编译 APK：
+
+| 产物名称 | 适用场景 | 权限特性 | 签名方案 |
+|---|---|---|---|
+| **`CarLink.apk`** | 普通安卓设备、车载平板、通用车机 | 通用权限（无系统 uid 限制） | 飞思平台签名（v1/v2/v3） |
+| **`EasyConnect.apk`** | 原厂定制要求车机、特定系统环境 | 含 `android.uid.system` 权限 | 飞思平台签名（v1/v2/v3） |
 
 校验文件完整性：
 
 ```bash
-sha256sum -c SHA256SUMS-CarLink.txt
+sha256sum -c SHA256SUMS.txt
 ```
 
 **签名已变更**：本版本起改用飞思卡尔平台签名。若设备上装有旧版本（`v1.3.x`），须先卸载旧版再安装，否则会报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`。
@@ -49,9 +54,9 @@ sha256sum -c SHA256SUMS-CarLink.txt
 
 | 场景 | 写法 |
 |---|---|
-| 当日首版 | `2026.10.19` |
-| 当日第二版 | `2026.10.19-2` |
-| 次日首版 | `2026.10.20` |
+| 当日首版 | `2026.10.21.1` |
+| 当日第二版 | `2026.10.21.2` |
+| 次日首版 | `2026.10.22.1` |
 
 ## 与定制版的区别
 
