@@ -793,4 +793,7 @@
     <string name="settings_launcher_bubble_locked">Place locked</string>
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
+    <string name="settings_remote_assistant_home_switch">Mostrar asistente remoto en inicio</string>
+    <string name="settings_remote_assistant_home_switch_description">Muestra el interruptor del asistente remoto en la esquina de inicio</string>
+    <string name="remote_assistant_home_unconfigured">Asistente remoto: sin configurar</string>
 </resources>

@@ -932,4 +932,7 @@
     <string name="connection_help_wifi_direct">Keep the head unit\'s Wi-Fi and Bluetooth on and the iPhone unlocked nearby, then retry. If it keeps failing, forget the car on the iPhone under Settings → General → CarPlay and connect again.</string>
     <string name="connection_help_existing_wifi">Make sure the head unit and the iPhone are on the same Wi-Fi network and its name and password match settings, then retry.</string>
     <string name="iphone_not_in_the_car">The chosen iPhone is not in the car. Turn on its Bluetooth, or connect by hand when it is here.</string>
+    <string name="settings_remote_assistant_home_switch">Show remote assistant on home</string>
+    <string name="settings_remote_assistant_home_switch_description">Show the remote assistant switch in the home corner</string>
+    <string name="remote_assistant_home_unconfigured">Remote assistant: not configured</string>
 </resources>

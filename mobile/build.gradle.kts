@@ -15,11 +15,11 @@ plugins {
 // --- Automatic date-based versioning -----------------------------------------------
 // The version is never written by hand. Every build derives it:
 //
-//   versionName = YYYY.MM.DD, or YYYY.MM.DD-N when the day already shipped N builds
-//                 (N counted from the git tags of this day — the remote tags are the
-//                 only authority on what has shipped; a clean checkout has none, and
+//   versionName = YYYY.MM.DD.NN — NN is the day's build number, always at least 1
+//                 (counted from the git tags of this day; the remote tags are the
+//                 only authority on what has shipped; a clean checkout has none and
 //                 falls back to the day's first build)
-//   versionCode = YYYYMMDD*100 + N   (N = 0 for the first build of the day)
+//   versionCode = YYYYMMDD*100 + NN  (2026.10.20.12 → 2026102012)
 //
 // versionCode stays a strictly increasing 32-bit int: the worst case a real date can
 // reach is 9999_12_31_99 = 999,123,199, three times under the 2,147,483,647 ceiling,
@@ -69,15 +69,18 @@ fun computeAutoVersion(): Pair<Int, String> {
     val shipped = tags.mapNotNull { tag ->
         when (tag) {
             today -> 0
-            else -> Regex("^${Regex.escape(today)}-(\\d+)$").find(tag)
+            else -> Regex("^${Regex.escape(today)}[.-](\\d+)$").find(tag)
                 ?.groupValues?.get(1)?.toIntOrNull()
         }
     }
     // Next build number: one past everything the day has already shipped.
-    val n = (shipped.maxOrNull() ?: -1) + 1
+    // The day's next build, always at least 1: the version is a four-segment dotted
+    // name (YYYY.MM.DD.NN, NN two digits) and its code the same digits concatenated.
+    // 2026.10.20.12 / 2026102012 — both parse as numbers, both compare correctly.
+    val n = (shipped.maxOrNull() ?: 0) + 1
     check(n <= 99) { "more than 100 builds on $today: give -PversionCode and -PversionName by hand" }
     val code = today.replace(".", "").toInt() * 100 + n
-    val name = if (n == 0) today else "$today-$n"
+    val name = "$today.$n"
     return code to name
 }
 
@@ -101,6 +104,12 @@ android {
         targetSdk = 37
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
+
+        // The app ships its own translations for these and no others; the AndroidX
+        // and Material libraries alone otherwise drag in eighty locales nobody reads
+        // on the car. Filtering to what the app itself carries keeps the resource
+        // table — and so the APK — smaller without touching a single string.
+        resourceConfigurations += listOf("en", "ar", "es", "ja", "ru", "uk", "zh-rCN", "zh-rTW")
 
     }
 

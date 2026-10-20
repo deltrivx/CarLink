@@ -15,6 +15,16 @@ import org.junit.Test
  */
 class WireGuardHandshakeTest {
     @Test
+    fun theProtocolIdentifierIsExactlyTheOfficial34AsciiBytes() {
+        // Regression guard: this string is hashed into every handshake and MAC, and a
+        // single byte off makes peers drop the packet without a word. The previous
+        // break was a non-ASCII placeholder replacing the middle of the identifier.
+        val expected = "WireGuard v1 zx2c4 Jason@zx2c4.com".toByteArray(Charsets.US_ASCII)
+        assertEquals(34, expected.size)
+        assertArrayEquals(expected, WireGuardHandshake.PROTOCOL_IDENTIFIER)
+    }
+
+    @Test
     fun aKeyPairIsItsOwnPublicKey() {
         val pair = WireGuardHandshake.generateKeyPair()
         assertArrayEquals(pair.publicKey, WireGuardHandshake.publicKey(pair.privateKey))

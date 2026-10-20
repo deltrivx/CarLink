@@ -805,4 +805,7 @@
     <string name="settings_launcher_bubble_locked">Place locked</string>
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
+    <string name="settings_remote_assistant_home_switch">Показувати віддаленого помічника на головній</string>
+    <string name="settings_remote_assistant_home_switch_description">Показувати перемикач віддаленого помічника в кутку головного екрана</string>
+    <string name="remote_assistant_home_unconfigured">Віддалений помічник: не налаштовано</string>
 </resources>

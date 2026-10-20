@@ -793,4 +793,7 @@
     <string name="settings_launcher_bubble_locked">Place locked</string>
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
+    <string name="settings_remote_assistant_home_switch">Показывать удалённого помощника на главном</string>
+    <string name="settings_remote_assistant_home_switch_description">Показывать выключатель удалённого помощника в углу главного экрана</string>
+    <string name="remote_assistant_home_unconfigured">Удалённый помощник: не настроен</string>
 </resources>

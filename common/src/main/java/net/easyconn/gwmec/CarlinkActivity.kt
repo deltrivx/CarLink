@@ -596,6 +596,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
     override fun onDestroy() {
         settingsSearchPopup?.dismiss()
+        // The assistant's status listeners live in a singleton; drop ours or it
+        // holds a destroyed Activity and calls refill() on a dead view tree.
+        remoteAssistantObservers.forEach { net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant.forget(it) }
+        remoteAssistantObservers.clear()
         appearanceObserverRemoval?.invoke()
         appearanceObserverRemoval = null
         handler.removeCallbacks(appearancePoll)
@@ -668,6 +672,21 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     /** The system bars' hidden state as this activity last asked for it. */
     private var fullscreenTopHidden = false
     private var fullscreenBottomHidden = false
+
+    /**
+     * Whether the system bars are really hidden right now, asked of the window
+     * itself rather than remembered. setContentView — every render — replaces the
+     * content the insets were last dispatched for, and the relayout that follows
+     * can land with the bars showing before any listener runs. Re-asking the real
+     * state keeps the remembered flags honest so the next applyFullscreenMode
+     * actually re-hides instead of trusting a stale "already hidden".
+     */
+    private fun systemBarsActuallyHidden(): Pair<Boolean, Boolean> {
+        val root = window.decorView
+        val insets = ViewCompat.getRootWindowInsets(root) ?: return Pair(false, false)
+        val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+        return Pair(bars.top == 0, bars.bottom == 0)
+    }
 
     private val isNaturallyExpandedSettingsLayout: Boolean
         get() = resources.configuration.let {
@@ -800,8 +819,31 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     bottomMargin = lift
                 })
             }
+            // The corner also carries the remote assistant switch when the driver asked
+            // for it there. One control, at hand, instead of a trip through settings.
+            // An update available takes the corner: one corner, one thing at a time,
+            // and an update matters to everyone while the assistant is a debug tool.
+            if (availableUpdate == null && RemoteAssistantPreferences.showOnHome(this@CarlinkActivity)) {
+                addView(remoteAssistantCornerChip(), FrameLayout.LayoutParams(-2, -2).apply {
+                    gravity = Gravity.BOTTOM or Gravity.END
+                    marginEnd = edge
+                    bottomMargin = lift
+                })
+            }
         } else root
         setContentView(screen)
+        // A relayout with the content replaced can show the bars for one frame even
+        // though nothing asked for them. Catch it now — before the frame is drawn —
+        // and re-hide, so a page change is not a visible push of the page downward.
+        val wantedTop = AirPlayPersistence.loadHideTopBar(this) &&
+            !(Build.VERSION.SDK_INT >= 24 && isInMultiWindowMode)
+        if (wantedTop && fullscreenTopHidden) {
+            val (topHidden, _) = systemBarsActuallyHidden()
+            if (!topHidden) {
+                WindowInsetsControllerCompat(window, window.decorView)
+                    .hide(WindowInsetsCompat.Type.statusBars())
+            }
+        }
         ViewCompat.requestApplyInsets(screen)
         renderedPage = page
         renderedSettingsCategory = settingsCategory.takeIf { page == "settings" }
@@ -1027,12 +1069,123 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private val keyManualStop = "manual_stop"
     /** Set when a just-seen release should be fetched without waiting for a tap. */
     private var pendingAutoDownload = false
+    /** The assistant status listeners this Activity registered, for removal in onDestroy. */
+    private val remoteAssistantObservers = mutableListOf<(String) -> Unit>()
 
     /**
      * The bottom-right corner, as the design shows it: a down-arrow and the update's own
      * words in the warning colour, on no plate and inside no border. It is still a
      * comfortable target; the words are the affordance, not a filled chip.
      */
+    /**
+     * The home's corner control for the remote assistant.
+     *
+     * Unconfigured, it says so and does nothing else — a switch with nothing to switch
+     * would only confuse. Configured, it is a switch that says what the tunnel is.
+     *
+     * Turning it on against a tunnel that cannot come up does not pretend: the chip
+     * shows the failure instead of the switch for three seconds, then goes back to
+     * being a switch. Trying again repeats the cycle — the error stays readable and
+     * the control stays usable. The settings page shows the same reason without the
+     * cycling: a page can carry a line, a corner cannot.
+     */
+    private fun remoteAssistantCornerChip(): View {
+        val assistant = net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant
+        val container = row().apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+        }
+        // The three-second window after the driver turned the switch on: the tunnel's
+        // answer — success or failure — owns the corner until it closes, then the
+        // switch comes back. The failure reason is what the driver turned it on to
+        // see, and it must survive the switch's snap back to off. A failure that
+        // arrives late (handshake timeout is 5s) reopens the window, so the driver
+        // still sees the reason and not a switch that pretends nothing happened.
+        var showingAnswerUntil = 0L
+        var lastShownStatus: String? = null
+        var answerWindowTimerScheduled = false
+        fun refill() {
+            container.removeAllViews()
+            if (!assistant.hasConfig(this)) {
+                container.addView(label(getString(R.string.remote_assistant_home_unconfigured), 15, MUTED))
+                return
+            }
+            // A failure arrives like this: the last refill saw "正在连接…" (the
+            // switch was on), and now the status is a failure line — the tunnel
+            // answered with bad news. Note enabled is already false by then
+            // (reportAbnormal writes it before notifying), so "on" cannot be the
+            // test; the transition out of "正在连接…" is. Hold the answer for
+            // three more seconds so the reason stays readable.
+            val on = assistant.isEnabled(this)
+            val currentStatus = assistant.status
+            val failureJustArrived = lastShownStatus == "正在连接…" &&
+                currentStatus != "正在连接…" && currentStatus != "已连接" && currentStatus != "未配置"
+            if (failureJustArrived) {
+                showingAnswerUntil = System.currentTimeMillis() + 3000
+                answerWindowTimerScheduled = false
+            }
+            lastShownStatus = currentStatus
+            val now = System.currentTimeMillis()
+            val answering = now < showingAnswerUntil
+            if (answering) {
+                val answer = currentStatus.takeIf { it != "未配置" } ?: "正在连接…"
+                container.addView(label(answer, 14, WARNING).apply { maxLines = 2 })
+                // One redraw timer per window: status refreshes inside the window
+                // re-run refill directly, they do not each stack another timer.
+                if (!answerWindowTimerScheduled) {
+                    answerWindowTimerScheduled = true
+                    this@CarlinkActivity.handler.postDelayed({
+                        answerWindowTimerScheduled = false
+                        refill()
+                    }, 3100)
+                }
+                return
+            }
+            val switch = Switch(this@CarlinkActivity).apply {
+                isChecked = on
+                contentDescription = getString(R.string.settings_remote_assistant)
+                setOnClickListener {
+                    // Branch decision is driven strictly by internal intent (isEnabled),
+                    // never by transient widget animation or desynchronized checked state.
+                    val currentlyWanted = assistant.isEnabled(this@CarlinkActivity)
+                    val next = !currentlyWanted
+                    isChecked = next
+                    if (next) {
+                        // The tunnel's answer — three seconds of it, error or "已连接"
+                        // — then the switch again. The switch below may snap to off
+                        // while the window is open; the answer stays until it closes.
+                        showingAnswerUntil = System.currentTimeMillis() + 3000
+                        assistant.setEnabled(this@CarlinkActivity, true)
+                        requestVpnPermissionAndStart()
+                    } else {
+                        assistant.setEnabled(this@CarlinkActivity, false)
+                    }
+                    // NOTE: must go through the Activity's handler. Bare `handler` here
+                    // resolves to View.getHandler(), which is null until the freshly
+                    // rebuilt switch attaches to the window — a tap in that gap crashed.
+                    this@CarlinkActivity.handler.postDelayed({ refill() }, 3000)
+                }
+            }
+            container.addView(label(getString(R.string.settings_remote_assistant), 15, TEXT)
+                .apply { setPadding(0, 0, dp(10), 0) })
+            container.addView(switch)
+            container.setOnClickListener { switch.performClick() }
+        }
+        refill()
+        // Registered so status changes refresh the corner, unregistered in onDestroy —
+        // the listener is a singleton's and would otherwise hold a dead Activity.
+        val observer: (String) -> Unit = {
+            runOnUiThread {
+                // A status change during the answer window refreshes the answer;
+                // outside it the switch follows the state as before.
+                refill()
+            }
+        }
+        assistant.observe(observer)
+        remoteAssistantObservers.add(observer)
+        return container
+    }
+
     private fun updateCornerChip(release: UpdateRelease): View {
         return row().apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -1982,13 +2135,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         val assistant = net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant
         section(content, getString(R.string.settings_remote_assistant), R.drawable.ic_dp_remote) { card ->
             card.addView(label(getString(R.string.settings_remote_assistant_description), 14, MUTED))
-            val log = label(assistant.lastMessage, 13, MUTED).apply {
-                setPadding(0, dp(10), 0, 0)
-                typeface = Typeface.MONOSPACE
-            }
-            assistant.observe { message ->
-                log.post { log.text = message }
-            }
+            // One line of state, then the tunnel's own log underneath: a state that
+            // only ever said "connecting…" told nobody why nothing worked.
+            val state = label(assistant.status, 14, TEXT).apply { setPadding(0, dp(10), 0, 0) }
+            assistant.observe { message -> state.post { state.text = message } }
+            card.addView(state)
             if (assistant.hasConfig(this)) {
                 toggle(card, getString(R.string.settings_remote_assistant_enabled),
                     getString(R.string.settings_remote_assistant_enabled_description),
@@ -2006,9 +2157,24 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     importRemoteAssistantConfig()
                 }, matchButton(10, 52))
             }
+            // Whether the home's corner carries the assistant switch. Off unless the
+            // driver turns it on: the corner belongs to the drive, not the debug tool.
+            toggle(card, getString(R.string.settings_remote_assistant_home_switch),
+                getString(R.string.settings_remote_assistant_home_switch_description),
+                RemoteAssistantPreferences.showOnHome(this)) { show ->
+                    RemoteAssistantPreferences.saveShowOnHome(this, show)
+                }
             card.addView(label(getString(R.string.settings_remote_assistant_log), 13, ACCENT, true).apply {
                 setPadding(0, dp(14), 0, dp(4))
             })
+            val log = label(assistant.log, 13, MUTED).apply {
+                setPadding(0, 0, 0, 0)
+                typeface = Typeface.MONOSPACE
+                // The log grows downward and never pushes the page around while the
+                // tunnel speaks; it scrolls inside its own box.
+                maxLines = 12
+                movementMethod = android.text.method.ScrollingMovementMethod()
+            }
             card.addView(log)
         }
     }

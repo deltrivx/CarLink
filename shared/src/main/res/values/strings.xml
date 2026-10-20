@@ -2,4 +2,6 @@
 <resources>
     <string name="carapp_hw_status_title">xcertplay hardware status</string>
     <string name="carapp_hw_not_configured">Hardware transport is not configured. Board I2C needs a /dev/i2c-N path and OS/SELinux permission; CH341 needs deployed VID/PID configuration.</string>
+    <string name="remote_assistant_timeout">Connection timed out: no answer from the peer</string>
+    <string name="remote_assistant_connect_failed">Connection failed</string>
 </resources>

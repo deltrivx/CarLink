@@ -856,4 +856,7 @@
     <string name="settings_launcher_bubble_locked">Place locked</string>
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
+    <string name="settings_remote_assistant_home_switch">主頁顯示遠端助手</string>
+    <string name="settings_remote_assistant_home_switch_description">在主頁右下角顯示遠端助手開關</string>
+    <string name="remote_assistant_home_unconfigured">遠端助手：未配置</string>
 </resources>

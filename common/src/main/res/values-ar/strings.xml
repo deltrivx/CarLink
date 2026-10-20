@@ -793,4 +793,7 @@
     <string name="settings_launcher_bubble_locked">Place locked</string>
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
+    <string name="settings_remote_assistant_home_switch">إظهار المساعد عن بُعد في الرئيسية</string>
+    <string name="settings_remote_assistant_home_switch_description">اعرض مفتاح المساعد عن بُعد في زاوية الشاشة الرئيسية</string>
+    <string name="remote_assistant_home_unconfigured">المساعد عن بُعد: غير مُعد</string>
 </resources>

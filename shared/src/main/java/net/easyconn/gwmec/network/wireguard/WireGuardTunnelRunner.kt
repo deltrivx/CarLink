@@ -54,6 +54,13 @@ internal class WireGuardTunnelRunner(
                 }.onFailure { log("endpoint $endpoint unreachable: ${it.message}") }
             }
             handshake()
+            // Stopped while the handshake was in flight (a newer CONNECT tore us
+            // down, or the switch went off): do not start the packet threads, and
+            // do not report — the failure belongs to a runner already replaced.
+            if (!running.get()) {
+                log("startup abandoned: the runner was stopped during handshake")
+                return@Thread
+            }
             uplink = Thread(::runUplink, "wireguard-uplink").apply { isDaemon = true; start() }
             downlink = Thread(::runDownlink, "wireguard-downlink").apply { isDaemon = true; start() }
             keepaliveThread = Thread(::runKeepalive, "wireguard-keepalive").apply { isDaemon = true; start() }
@@ -63,11 +70,17 @@ internal class WireGuardTunnelRunner(
 
     fun stop() {
         if (!running.compareAndSet(true, false)) return
+        // Close the socket first: threads blocked in receive()/send() then wake with
+        // an exception and exit on their own, instead of outliving the stop call.
         runCatching { socket?.close() }
+        socket = null
         runCatching { tunnel.close() }
         uplink?.interrupt()
         downlink?.interrupt()
         keepaliveThread?.interrupt()
+        uplink = null
+        downlink = null
+        keepaliveThread = null
         log("stopped")
     }
 
@@ -96,19 +109,40 @@ internal class WireGuardTunnelRunner(
             keys = initiator.consumeResponse(reply)?.also {
                 sendingCounter = 0L
                 receivingCounter = 0L
-                log("已连接")
                 log("handshake complete: sending index ${it.sendingIndex}, " +
                     "peer index ${it.receivingIndex}")
+                WireGuardRemoteAssistant.reportTunnelUp()
                 sendKeepalive(it)
             } ?: run {
                 log("握手失败：对端回复未能通过校验")
                 null
             }
         }.onFailure { error ->
+            // A runner that was stopped does not get to report: teardown closes the
+            // socket out from under a handshake still in flight, and that "failure"
+            // used to force the switch off while the next tunnel was already coming
+            // up — the state tear that left tun impossible to bring down.
+            if (!running.get()) {
+                log("handshake abandoned: the runner was stopped while waiting")
+                return
+            }
+            // The switch wanted on and the tunnel could not come up: say so in the
+            // state line (the home chip shows it), not just the log. Localized
+            // through the app's resources so every language reads its own reason.
+            val appContext = WireGuardRemoteAssistant.appContextForErrorText()
             if (error is SocketTimeoutException) {
                 log("连接超时：未收到对端响应（$target）")
+                val text = appContext?.getString(
+                    net.easyconn.gwmec.shared.R.string.remote_assistant_timeout)
+                    ?: "连接超时：未收到对端响应"
+                WireGuardRemoteAssistant.reportHandshakeFailed(text)
             } else {
                 log("连接失败：${error.message ?: error.javaClass.simpleName}")
+                val base = appContext?.getString(
+                    net.easyconn.gwmec.shared.R.string.remote_assistant_connect_failed)
+                    ?: "连接失败"
+                WireGuardRemoteAssistant.reportHandshakeFailed(
+                    "$base: ${error.message ?: error.javaClass.simpleName}")
             }
         }
     }

@@ -30,6 +30,7 @@ internal object UpdateCatalog {
     internal const val CHECKSUMS_FILE = "SHA256SUMS.txt"
     internal const val CUSTOM_CHECKSUMS_FILE = "SHA256SUMS-custom.txt"
     internal const val GENERIC_CHECKSUMS_FILE = "SHA256SUMS-generic.txt"
+    internal const val CARLINK_CHECKSUMS_FILE = "SHA256SUMS-CarLink.txt"
     internal const val GENERIC_APK_SUFFIX = "-generic.apk"
 
     /**
@@ -45,7 +46,7 @@ internal object UpdateCatalog {
         for (index in 0 until releases.length()) {
             val release = releases.optJSONObject(index) ?: continue
             if (release.optBoolean("draft")) continue
-            val assets = release.optJSONArray("assets") ?: return null
+            val assets = release.optJSONArray("assets") ?: continue
             var apkName = ""
             var apkUrl = ""
             var checksumsUrl = ""
@@ -76,6 +77,7 @@ internal object UpdateCatalog {
                 }
                 if (name.equals(GENERIC_CHECKSUMS_FILE, ignoreCase = true)) genericChecksumsUrl = url
                 if (name.equals(CUSTOM_CHECKSUMS_FILE, ignoreCase = true)) customChecksumsUrl = url
+                if (name.equals(CARLINK_CHECKSUMS_FILE, ignoreCase = true)) checksumsUrl = url
                 if (name.equals(CHECKSUMS_FILE, ignoreCase = true)) checksumsUrl = url
             }
             if (generic) {

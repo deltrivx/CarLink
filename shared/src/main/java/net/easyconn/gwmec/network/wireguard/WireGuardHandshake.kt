@@ -19,8 +19,11 @@ import java.security.SecureRandom
  */
 internal object WireGuardHandshake {
     private val CONSTRUCTION = "Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s".toByteArray(Charsets.US_ASCII)
-    // "WireGuard v1 zx2c4 [邮箱]" exact 34 ASCII bytes
-    private val IDENTIFIER = "WireGuard v1 zx2c4 [邮箱]".toByteArray(Charsets.US_ASCII)
+    // WireGuard's fixed protocol identifier, hashed into every handshake. The exact
+    // 34 ASCII bytes matter byte-for-byte: the peer's MAC and hash chain are computed
+    // over them, and any deviation makes the server drop the packet silently.
+    internal val PROTOCOL_IDENTIFIER = "WireGuard v1 zx2c4 Jason@zx2c4.com".toByteArray(Charsets.US_ASCII)
+    private val IDENTIFIER = PROTOCOL_IDENTIFIER
     private val LABEL_MAC1 = "mac1----".toByteArray(Charsets.US_ASCII)
 
     const val KEY_LEN = 32

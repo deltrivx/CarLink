@@ -2,4 +2,6 @@
 <resources>
     <string name="carapp_hw_status_title">حالة عتاد xcertplay</string>
     <string name="carapp_hw_not_configured">لم يتم تهيئة نقل العتاد. يحتاج مسار I2C على اللوحة إلى مسار /dev/i2c-N وصلاحية OS/SELinux؛ ويتطلب CH341 إعداد VID/PID منشوراً.</string>
+    <string name="remote_assistant_timeout">انتهت مهلة الاتصال: لا يوجد رد من الطرف الآخر</string>
+    <string name="remote_assistant_connect_failed">فشل الاتصال</string>
 </resources>
