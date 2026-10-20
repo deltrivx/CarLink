@@ -43,10 +43,19 @@ jobs:
           PLATFORM_PEM_BASE64: ${{ secrets.PLATFORM_PEM_BASE64 }}
           AUTH_ASSETS_BASE64: ${{ secrets.DEPLAY_AUTH_ASSETS_BASE64 }}
         run: |
-          mkdir -p secrets auth-assets
+          mkdir -p secrets auth-assets/offline-mfi
           echo "$PLATFORM_PK8_BASE64" | base64 -d > secrets/platform.pk8
           echo "$PLATFORM_PEM_BASE64" | base64 -d > secrets/platform.x509.pem
-          echo "$AUTH_ASSETS_BASE64" | base64 -d | tar -xz -C auth-assets 2>/dev/null || true
+          # 解压 MFi 离线授权文件
+          if [ -n "$AUTH_ASSETS_BASE64" ]; then
+            echo "$AUTH_ASSETS_BASE64" | base64 -d | tar -xz -C auth-assets 2>/dev/null || true
+            # 如果直接解压在顶层，兼容放入 offline-mfi/ 目录下
+            if [ -f auth-assets/identity.pk8 ] && [ ! -f auth-assets/offline-mfi/identity.pk8 ]; then
+              cp auth-assets/identity.pk8 auth-assets/certificate.p7b auth-assets/offline-mfi/ 2>/dev/null || true
+            fi
+          fi
+          echo "Listing auth-assets/offline-mfi:"
+          ls -la auth-assets/offline-mfi/
           chmod +x gradlew
 
       - name: Determine Version
