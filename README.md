@@ -7,7 +7,7 @@
 
 面向车机与手机的互联应用，把手机投屏、媒体控制与车机数据读取融为一体。支持 Android Auto 与 CarPlay 双协议，内置热点、同局域网、WiFi Direct 三种连接方式，并提供电量、车速、仪表盘歌曲等车机专有功能。
 
-> 当前版本：**2026.10.19** · 应用 ID：`net.easyconn.gwmec` · 最低 Android：**9.0（API 28）**
+> 版本号按发布日期自动生成（`YYYY.MM.DD`，同日多版 `-N`）· 应用 ID：`net.easyconn.gwmec` · 最低 Android：**9.0（API 28）**
 
 ![车机互联](asset/xcertplay_small.png)
 
@@ -33,11 +33,7 @@
 
 ## 安装
 
-从 [Releases](https://github.com/deltrivx/CarLink/releases/latest) 下载：
-
-```text
-CarLink-2026.10.19.apk
-```
+从 [Releases](https://github.com/deltrivx/CarLink/releases/latest) 下载（文件名中的版本号随每次发布变化）：
 
 校验文件完整性：
 

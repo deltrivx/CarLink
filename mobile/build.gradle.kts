@@ -1,7 +1,89 @@
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.provider.ValueSource
+import org.gradle.api.provider.ValueSourceParameters
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// --- Automatic date-based versioning -----------------------------------------------
+// The version is never written by hand. Every build derives it:
+//
+//   versionName = YYYY.MM.DD, or YYYY.MM.DD-N when the day already shipped N builds
+//                 (N counted from the git tags of this day — the remote tags are the
+//                 only authority on what has shipped; a clean checkout has none, and
+//                 falls back to the day's first build)
+//   versionCode = YYYYMMDD*100 + N   (N = 0 for the first build of the day)
+//
+// versionCode stays a strictly increasing 32-bit int: the worst case a real date can
+// reach is 9999_12_31_99 = 999,123,199, three times under the 2,147,483,647 ceiling,
+// and up to a hundred builds a day. A day that somehow needs more stops the build
+// rather than silently overflowing into another day's numbers.
+//
+// -PversionName / -PversionCode (or VERSION_NAME / VERSION_CODE in the environment)
+// override everything, so a release script that has already asked the remote for the
+// day's tag list injects the exact pair it planned; the fallback here is only for
+// builds that did not ask — assembleDebug offline, a fresh checkout, CI.
+val autoVersionName: String = providers.gradleProperty("versionName")
+    .orElse(providers.environmentVariable("VERSION_NAME"))
+    .orElse(providers.gradleProperty("autoVersionName"))
+    .getOrElse("")
+val autoVersionCode: String = providers.gradleProperty("versionCode")
+    .orElse(providers.environmentVariable("VERSION_CODE"))
+    .getOrElse("")
+
+// The day's shipped tags, read the configuration-cache way: a ValueSource runs
+// outside the cache, so the git call cannot invalidate it. With no .git (a source
+// archive) or a git failure the day has shipped nothing and this is build zero.
+abstract class TodaysVersionTags : ValueSource<List<String>, TodaysVersionTags.Params> {
+    @Suppress("unused")
+    interface Params : ValueSourceParameters {
+        @get:Input
+        val projectDir: Property<String>
+    }
+
+    override fun obtain(): List<String> {
+        val today = SimpleDateFormat("yyyy.MM.dd").format(Date())
+        return runCatching {
+            val process = ProcessBuilder("git", "tag", "--list", "$today*")
+                .directory(File(parameters.projectDir.get()))
+                .redirectErrorStream(true)
+                .start()
+            process.inputStream.bufferedReader().readLines()
+                .filter { it.startsWith(today) }
+        }.getOrDefault(emptyList())
+    }
+}
+
+fun computeAutoVersion(): Pair<Int, String> {
+    val today = SimpleDateFormat("yyyy.MM.dd").format(Date())
+    val tags = providers.of(TodaysVersionTags::class.java) {
+        parameters.projectDir.set(rootDir.absolutePath)
+    }.get()
+    val shipped = tags.mapNotNull { tag ->
+        when (tag) {
+            today -> 0
+            else -> Regex("^${Regex.escape(today)}-(\\d+)$").find(tag)
+                ?.groupValues?.get(1)?.toIntOrNull()
+        }
+    }
+    // Next build number: one past everything the day has already shipped.
+    val n = (shipped.maxOrNull() ?: -1) + 1
+    check(n <= 99) { "more than 100 builds on $today: give -PversionCode and -PversionName by hand" }
+    val code = today.replace(".", "").toInt() * 100 + n
+    val name = if (n == 0) today else "$today-$n"
+    return code to name
+}
+
+val computedAutoVersion: Pair<Int, String> by lazy { computeAutoVersion() }
+val resolvedVersionCode: Int = autoVersionCode.toIntOrNull() ?: computedAutoVersion.first
+val resolvedVersionName: String = autoVersionName.ifEmpty { computedAutoVersion.second }
 
 // Optional local-only input. CI and ordinary source builds contain no accessory identity.
 val localAuthenticationAssets = providers.environmentVariable("DIPLAY_AUTH_ASSETS_DIR")
@@ -17,8 +99,8 @@ android {
         applicationId = "net.easyconn.gwmec"
         minSdk = 25
         targetSdk = 37
-        versionCode = 20261019
-        versionName = "2026.10.19"
+        versionCode = resolvedVersionCode
+        versionName = resolvedVersionName
 
     }
 
