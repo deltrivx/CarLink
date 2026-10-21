@@ -98,6 +98,7 @@
     <string name="a_familiar_drive">Un trayecto familiar.</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">Hay una conexión Wi-Fi Direct anterior todavía en ejecución. Restablécela para conectarte.</string>
     <string name="about">Acerca de</string>
+        <string name="home_version_new_available">Nueva versión disponible %1$s</string>
     <string name="about_diplay">Acerca de 车机互联</string>
     <string name="active">Activo</string>
     <string name="advanced_audio_channel_mapping">Asignación avanzada de canales de audio</string>

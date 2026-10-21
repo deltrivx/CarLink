@@ -64,6 +64,7 @@ internal object UpdateAvailability {
             .putString(APK_URL, release.apkUrl)
             .putString(CHECKSUMS_URL, release.checksumsUrl)
             .apply()
+        notifyStatusChanged()
     }
 
     fun clear(context: Context) {
@@ -73,6 +74,7 @@ internal object UpdateAvailability {
             .remove(APK_URL)
             .remove(CHECKSUMS_URL)
             .apply()
+        notifyStatusChanged()
     }
 
     fun shouldCheck(context: Context, nowMillis: Long): Boolean =
@@ -104,5 +106,29 @@ internal object UpdateAvailability {
 
     internal fun clearAllForTest(context: Context) {
         preferences(context).edit().clear().commit()
+    }
+
+    // --- status observers ------------------------------------------------------
+    //
+    // The home's corner label shows "there is a newer release" the moment a
+    // background check finds one. A view built before the check finished has to be
+    // repainted when the state changes, and only a change notification carries
+    // that: re-attaching alone repaints a stale view with a stale state.
+
+    private val statusListeners = mutableListOf<() -> Unit>()
+
+    fun observeStatus(observer: () -> Unit) {
+        synchronized(statusListeners) { statusListeners.add(observer) }
+    }
+
+    fun unobserveStatus(observer: () -> Unit) {
+        synchronized(statusListeners) { statusListeners.remove(observer) }
+    }
+
+    /** Called after a check saved or cleared a cached release. */
+    fun notifyStatusChanged() {
+        synchronized(statusListeners) { statusListeners.toList() }.forEach {
+            runCatching { it() }
+        }
     }
 }

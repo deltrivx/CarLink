@@ -805,9 +805,13 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             addView(root, FrameLayout.LayoutParams(-1, -1))
             val edge = dp(44)
             val lift = dp(26)
-            addView(label("v${version()}", 14, MUTED).apply {
-                letterSpacing = .1f
-            }, FrameLayout.LayoutParams(-2, -2).apply {
+            // The build's own version, bottom-left, is the way into About: a driver
+            // looking for what changed taps what says which build this is. When a
+            // newer release is waiting, the line says so in the warning colour —
+            // "有新版本 x.y.z" — and the same tap lands on the same page, where the
+            // download lives. availableUpdate is the update check's own verdict,
+            // cached and refreshed on open, so the hint is never invented here.
+            addView(bottomLeftVersionLabel(), FrameLayout.LayoutParams(-2, -2).apply {
                 gravity = Gravity.BOTTOM or Gravity.START
                 marginStart = edge
                 bottomMargin = lift
@@ -1184,6 +1188,50 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         assistant.observe(observer)
         remoteAssistantObservers.add(observer)
         return container
+    }
+
+    /**
+     * The bottom-left version line: the installed build's version, or — while a newer
+     * release waits — that release's version in the warning colour, so the corner
+     * says "there is something newer" without opening a dialog the driver did not ask
+     * for. Either way a tap opens About, where the download button already lives.
+     */
+    private fun bottomLeftVersionLabel(): TextView = label("", 14, MUTED).apply {
+        letterSpacing = .1f
+        isClickable = true
+        isFocusable = true
+        contentDescription = getString(R.string.about)
+        setOnClickListener { openAboutFromHome() }
+        fun paint() {
+            val waiting = availableUpdate
+            if (waiting != null) {
+                text = getString(R.string.home_version_new_available, waiting.tagName.removePrefix("v"))
+                setTextColor(WARNING)
+                contentDescription = "${getString(R.string.about)}：${getString(R.string.home_version_new_available, waiting.tagName.removePrefix("v"))}"
+            } else {
+                text = "v${version()}"
+                setTextColor(MUTED)
+                contentDescription = getString(R.string.about)
+            }
+        }
+        paint()
+        // The update check may finish after this view was built; repaint then, so a
+        // release seen a moment later is not a corner that still says "up to date".
+        // Re-attach alone is not enough: the release can arrive while the view is
+        // already on screen, and only a status change carries that.
+        val observer: () -> Unit = { runOnUiThread { paint() } }
+        net.easyconn.gwmec.update.UpdateAvailability.observeStatus(observer)
+        addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) { paint() }
+            override fun onViewDetachedFromWindow(v: View) {
+                net.easyconn.gwmec.update.UpdateAvailability.unobserveStatus(observer)
+            }
+        })
+    }
+
+    private fun openAboutFromHome() {
+        page = "about"
+        render()
     }
 
     private fun updateCornerChip(release: UpdateRelease): View {

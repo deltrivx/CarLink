@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Version Name (e.g. 2026.10.21.1)'
+        description: 'Version Name (e.g. 2026.10.21.01)'
         required: false
       version_code:
         description: 'Version Code (e.g. 2026102101)'
@@ -72,7 +72,7 @@ jobs:
             VCODE="${INPUT_VCODE:-$(echo "$VNAME" | tr -cd '0-9')}"
           elif [ -n "$TAG_NAME" ]; then
             VNAME="${TAG_NAME#v}"
-            # 支持 YYYY.MM.DD.N 与 YYYY.MM.DD-N
+            # 支持 YYYY.MM.DD.N 与 YYYY.MM.DD-N；末段统一补零到两位（2026.10.21.1 → 2026.10.21.01）
             if [[ "$VNAME" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]+ ]]; then
               DATE_PART="$(echo "$VNAME" | cut -d'.' -f1-3 | tr -d '.')"
               SUFFIX="$(echo "$VNAME" | cut -d'.' -f4)"
@@ -84,14 +84,14 @@ jobs:
               SUFFIX="1"
             fi
             [ -n "$SUFFIX" ] || SUFFIX="1"
-            if [ ${#SUFFIX} -eq 1 ]; then
-              VCODE="${DATE_PART}0${SUFFIX}"
-            else
-              VCODE="${DATE_PART}${SUFFIX}"
-            fi
+            # 末段固定两位：1→01，12→12
+            SUFFIX_PADDED="$(printf '%02d' "$((10#$SUFFIX))")"
+            VNAME="${DATE_PART:0:4}.${DATE_PART:4:2}.${DATE_PART:6:2}.${SUFFIX_PADDED}"
+            VCODE="${DATE_PART}${SUFFIX_PADDED}"
           else
             TODAY="$(date +%Y.%m.%d)"
-            VNAME="${TODAY}.1"
+            # 全新一天无 tag 时的兜底：当天第 01 版，末段同样两位
+            VNAME="${TODAY}.01"
             VCODE="${TODAY//./}01"
           fi
           echo "VNAME=$VNAME" >> "$GITHUB_OUTPUT"

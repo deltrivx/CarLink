@@ -94,6 +94,7 @@
     <string name="about">关于</string>
     <string name="about_build_custom">车机互联定制版</string>
     <string name="about_build_generic">车机互联通用版</string>
+        <string name="home_version_new_available">有新版本 %1$s</string>
     <string name="about_diplay">关于 车机互联</string>
     <string name="active">已启用</string>
     <string name="advanced_audio_channel_mapping">高级音频通道映射</string>

@@ -102,6 +102,7 @@
     <string name="about">About</string>
     <string name="about_build_custom">CarLink Custom</string>
     <string name="about_build_generic">CarLink Generic</string>
+        <string name="home_version_new_available">有新版本 %1$s</string>
     <string name="about_diplay">About 车机互联</string>
     <string name="active">Active</string>
     <string name="advanced_audio_channel_mapping">Advanced audio channel mapping</string>

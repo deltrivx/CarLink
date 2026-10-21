@@ -75,12 +75,14 @@ fun computeAutoVersion(): Pair<Int, String> {
     }
     // Next build number: one past everything the day has already shipped.
     // The day's next build, always at least 1: the version is a four-segment dotted
-    // name (YYYY.MM.DD.NN, NN two digits) and its code the same digits concatenated.
-    // 2026.10.20.12 / 2026102012 — both parse as numbers, both compare correctly.
+    // name (YYYY.MM.DD.NN, NN fixed two digits, zero-padded) and its code the same
+    // digits concatenated. 2026.10.20.12 / 2026102012 and 2026.10.21.02 / 2026102102
+    // both parse as numbers, both compare correctly.
     val n = (shipped.maxOrNull() ?: 0) + 1
     check(n <= 99) { "more than 100 builds on $today: give -PversionCode and -PversionName by hand" }
     val code = today.replace(".", "").toInt() * 100 + n
-    val name = "$today.$n"
+    // The fourth segment is fixed two digits: 2 → 02, 12 → 12 (team rule 2026-10-21).
+    val name = "%s.%02d".format(today, n)
     return code to name
 }
 

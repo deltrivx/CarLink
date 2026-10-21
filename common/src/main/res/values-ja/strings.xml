@@ -948,4 +948,5 @@
     <string name="settings_remote_assistant_home_switch">ホームにリモートアシスタントを表示</string>
     <string name="settings_remote_assistant_home_switch_description">ホームの隅にリモートアシスタントのスイッチを表示します</string>
     <string name="remote_assistant_home_unconfigured">リモートアシスタント：未設定</string>
+    <string name="home_version_new_available">新しいバージョン %1$s</string>
 </resources>
