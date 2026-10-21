@@ -24,6 +24,23 @@ object WireGuardRemoteAssistant {
     private const val KEY_ENABLED = "enabled"
 
     /**
+     * A second home for the imported configuration.
+     *
+     * The configuration lives in [PREFS], and a SharedPreferences file is a single
+     * file: when it goes away — cleared data, a restore that landed after our write,
+     * a reset on a car image that keeps no user data across boots — the keys go with
+     * it. On 2026-10-21 a car lost its configuration exactly this way: the file was
+     * rewritten with the config gone, and with it the enabled flag and the home
+     * switch. Nothing in this app deletes the config except [forget], so a file that
+     * resets itself is not this app's doing — but the driver should not have to
+     * retype the tunnel because of it. Keeping a copy in a second file makes the
+     * loss recoverable, and recovery silent: the next start puts the configuration
+     * back where it was.
+     */
+    private const val PREFS_BACKUP = "diplay_wireguard_backup"
+    private const val KEY_CONFIG_BACKUP = "config"
+
+    /**
      * How many tunnel log lines are kept. The official WireGuard Android app keeps a
      * ring of log lines the driver can scroll; this keeps the last [LOG_CAPACITY]
      * entries, which is the whole of what fits in one settings card anyway.
@@ -95,6 +112,9 @@ object WireGuardRemoteAssistant {
             .putString(KEY_CONFIG, text)
             .putBoolean(KEY_ENABLED, true)
             .commit()
+        // The copy in a second file, written after the first succeeded: the
+        // configuration outlives a reset of the file that holds it.
+        backupPrefs(context).edit().putString(KEY_CONFIG_BACKUP, text).commit()
         start(context)
         return Result.success(parsed)
     }
@@ -103,7 +123,33 @@ object WireGuardRemoteAssistant {
     fun forget(context: Context) {
         // commit(): forgetting must survive a crash, or a "forgotten" config returns.
         prefs(context).edit().remove(KEY_CONFIG).putBoolean(KEY_ENABLED, false).commit()
+        // The copy goes too — a forgotten tunnel is not meant to come back, not even
+        // through the recovery below.
+        backupPrefs(context).edit().remove(KEY_CONFIG_BACKUP).commit()
         stop(context)
+    }
+
+    /**
+     * Puts a lost configuration back, if a copy of one exists.
+     *
+     * Called on app start, before anything asks the tunnel to come up. Only writes
+     * when the configuration is really gone: a driver who turned the tunnel off has
+     * not lost anything, and a "forget" removed both files, so neither is touched.
+     * The enabled flag is left where the reset left it — an off tunnel comes up the
+     * moment the driver wants it, and silently re-arming it on a car nobody asked
+     * would be this app deciding for the driver.
+     */
+    private fun recoverConfigIfLost(context: Context) {
+        val main = prefs(context)
+        if (main.contains(KEY_CONFIG)) return
+        val text = backupPrefs(context).getString(KEY_CONFIG_BACKUP, null) ?: return
+        val parsed = WireGuardConfigParser.parse("imported", text)
+        if (parsed == null || !parsed.usable) {
+            Log.w(TAG, "backup configuration is not usable; leaving the tunnel unconfigured")
+            return
+        }
+        main.edit().putString(KEY_CONFIG, text).commit()
+        Log.i(TAG, "restored the imported configuration from its backup")
     }
 
     /** Brings the tunnel up if a configuration wants it up. Safe to call repeatedly. */
@@ -165,6 +211,9 @@ object WireGuardRemoteAssistant {
 
     /** Brings the tunnel up on boot and on every app start, if it is wanted. */
     fun startIfWanted(context: Context) {
+        // A reset of the configuration file must not cost the driver their tunnel:
+        // put it back before anything reads it.
+        recoverConfigIfLost(context)
         if (isEnabled(context)) start(context)
     }
 
@@ -280,4 +329,7 @@ object WireGuardRemoteAssistant {
 
     private fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private fun backupPrefs(context: Context): SharedPreferences =
+        context.getSharedPreferences(PREFS_BACKUP, Context.MODE_PRIVATE)
 }
