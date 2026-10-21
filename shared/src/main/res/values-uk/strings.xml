@@ -2,6 +2,5 @@
 <resources>
     <string name="carapp_hw_status_title">Стан обладнання xcertplay</string>
     <string name="carapp_hw_not_configured">Апаратний транспорт не налаштовано. Для I2C на платі потрібен шлях /dev/i2c-N і дозвіл ОС/SELinux; для CH341 потрібна конфігурація VID/PID.</string>
-    <string name="remote_assistant_timeout">Час очікування з\'єднання вичерпано: немає відповіді від іншої сторони</string>
-    <string name="remote_assistant_connect_failed">Не вдалося підключитися</string>
+
 </resources>

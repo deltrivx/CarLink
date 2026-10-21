@@ -8,6 +8,10 @@
   what changed among the words.
 -->
 <resources>
+    <string-array name="changelog_2026_10_21_04">
+        <item>全线移除内置 WireGuard 远程助手模块与前端控件，轻量化车机资源占用</item>
+        <item>取消底层 WireGuardVpnService 守护与后台生命周期绑定，进一步保障系统稳定性</item>
+    </string-array>
     <string-array name="changelog_1_3_94">
         <item>彻底解决定制版应用名字与图标丢失问题：补齐 Manifest 中 Application 和 Activity 的 label 与 icon 声明</item>
         <item>彻底修复定制版 OTA 404 报错：将 GitHub OTA 授权令牌自动打入定制版 assets</item>

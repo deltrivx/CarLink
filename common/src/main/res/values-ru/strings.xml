@@ -688,16 +688,7 @@
     <string name="update_saved_to">Сохранено в %1$s</string>
     <string name="settings_background_update_checks">Проверять обновления в фоне</string>
     <string name="settings_background_update_checks_description">Раз в сутки CarLink проверяет GitHub на новую версию и показывает её на главном экране. Загрузка начинается только после вашего нажатия.</string>
-    <string name="settings_remote_assistant">Удалённый помощник</string>
-    <string name="settings_remote_assistant_description">Импортируйте конфигурацию WireGuard, чтобы получить доступ к автомобилю из другой сети для удалённой отладки. Конфигурация хранится на устройстве и никуда не отправляется.</string>
-    <string name="settings_remote_assistant_enabled">Включить удалённого помощника</string>
-    <string name="settings_remote_assistant_enabled_description">Подключает настроенный туннель при включении, отключает при выключении.</string>
-    <string name="settings_remote_assistant_import">Импортировать конфигурацию WireGuard</string>
-    <string name="settings_remote_assistant_imported">Конфигурация импортирована; подключение</string>
-    <string name="settings_remote_assistant_import_failed">Не удалось прочитать эту конфигурацию</string>
-    <string name="settings_remote_assistant_forget">Удалить конфигурацию и отключиться</string>
-    <string name="settings_remote_assistant_forgotten">Конфигурация удалена</string>
-    <string name="settings_remote_assistant_log">Журнал подключения</string>
+
     <string name="settings_auto_download_update">Загружать новые версии автоматически</string>
     <string name="settings_auto_download_update_description">Загружает новую сборку, как только она появляется. Хранится только последняя: старая удаляется, а файл исчезает после установки.</string>
     <string name="setup_guide">Мастер настройки</string>
@@ -794,7 +785,5 @@
     <string name="settings_launcher_bubble_locked">Place locked</string>
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
-    <string name="settings_remote_assistant_home_switch">Показывать удалённого помощника на главном</string>
-    <string name="settings_remote_assistant_home_switch_description">Показывать выключатель удалённого помощника в углу главного экрана</string>
-    <string name="remote_assistant_home_unconfigured">Удалённый помощник: не настроен</string>
+
 </resources>

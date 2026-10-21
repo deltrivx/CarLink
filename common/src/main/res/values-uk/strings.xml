@@ -700,16 +700,7 @@
     <string name="update_saved_to">Збережено в %1$s</string>
     <string name="settings_background_update_checks">Перевіряти оновлення у фоні</string>
     <string name="settings_background_update_checks_description">Раз на добу CarLink перевіряє GitHub на нову версію і показує її на головному екрані. Завантаження починається лише після вашого дотику.</string>
-    <string name="settings_remote_assistant">Віддалений помічник</string>
-    <string name="settings_remote_assistant_description">Імпортуйте конфігурацію WireGuard, щоб отримати доступ до автомобіля з іншої мережі для віддаленої діагностики. Конфігурація зберігається на пристрої і нікуди не надсилається.</string>
-    <string name="settings_remote_assistant_enabled">Увімкнути віддаленого помічника</string>
-    <string name="settings_remote_assistant_enabled_description">Підключає налаштований тунель при увімкненні, відключає при вимкненні.</string>
-    <string name="settings_remote_assistant_import">Імпортувати конфігурацію WireGuard</string>
-    <string name="settings_remote_assistant_imported">Конфігурацію імпортовано; підключення</string>
-    <string name="settings_remote_assistant_import_failed">Не вдалося прочитати цю конфігурацію</string>
-    <string name="settings_remote_assistant_forget">Видалити конфігурацію і від\'єднатися</string>
-    <string name="settings_remote_assistant_forgotten">Конфігурацію видалено</string>
-    <string name="settings_remote_assistant_log">Журнал підключення</string>
+
     <string name="settings_auto_download_update">Завантажувати нові версії автоматично</string>
     <string name="settings_auto_download_update_description">Завантажує нову збірку, щойно вона з\'явиться. Зберігається лише найновіша: стару видалено, а файл зникає після встановлення.</string>
     <string name="setup_guide">Майстер налаштування</string>
@@ -806,7 +797,5 @@
     <string name="settings_launcher_bubble_locked">Place locked</string>
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
-    <string name="settings_remote_assistant_home_switch">Показувати віддаленого помічника на головній</string>
-    <string name="settings_remote_assistant_home_switch_description">Показувати перемикач віддаленого помічника в кутку головного екрана</string>
-    <string name="remote_assistant_home_unconfigured">Віддалений помічник: не налаштовано</string>
+
 </resources>

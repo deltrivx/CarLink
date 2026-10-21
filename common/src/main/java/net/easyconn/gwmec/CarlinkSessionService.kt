@@ -20,9 +20,6 @@ class CarlinkSessionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             CarPlayBackgroundSession.stop()
-            // The session ending means the app is leaving the car's screen: a remote
-            // assistant tunnel that outlives it is a zombie VPN nobody asked for.
-            net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant.stop(applicationContext)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -62,8 +59,6 @@ class CarlinkSessionService : Service() {
         // BYD's recents force-stops the package ~10 ms after removing the task: end guidance first.
         net.easyconn.gwmec.hud.BydNavigationOutputs.endNow()
         CarPlayBackgroundSession.stop()
-        // Same as an explicit disconnect: the task going away takes the tunnel with it.
-        net.easyconn.gwmec.network.wireguard.WireGuardRemoteAssistant.stop(applicationContext)
         stopSelf()
     }
     companion object {
