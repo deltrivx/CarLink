@@ -2,7 +2,7 @@ import java.util.Properties
 import java.io.FileInputStream
 
 plugins {
-    alias(libs.plugins.android.library)
+    id("com.android.library")
 }
 
 android {
