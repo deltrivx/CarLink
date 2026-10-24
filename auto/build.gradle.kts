@@ -91,8 +91,6 @@ android {
                 getDefaultProguardFile("proguard-android.txt"),
                 "proguard-project.txt"
             )
-
-            }
         }
 
         getByName("debug") {
