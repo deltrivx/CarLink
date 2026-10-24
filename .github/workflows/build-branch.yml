@@ -28,3 +28,9 @@ jobs:
 
       - name: Assemble debug (host app + auto engine)
         run: ./gradlew :mobile:assembleDebug :auto:assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CarLink-debug
+          path: mobile/build/outputs/apk/debug/*.apk
