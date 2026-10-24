@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -26,5 +26,5 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Assemble debug
-        run: ./gradlew :mobile:assembleDebug --stacktrace
+      - name: Assemble debug (host app + auto engine)
+        run: ./gradlew :mobile:assembleDebug :auto:assembleDebug --stacktrace
