@@ -64,7 +64,7 @@ android {
 
     defaultConfig {
         // Preserve upgrade compatibility and existing DiLink pairing/calibration.
-        minSdk = 16
+        minSdk = 28
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true
         vectorDrawables.useSupportLibrary = true
