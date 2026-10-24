@@ -124,9 +124,7 @@ android {
     }
 
     kotlinOptions {
-        (this as KotlinJvmOptions).let {
-            it.jvmTarget = "17"
-        }
+        jvmTarget = "17"
     }
 
 }
