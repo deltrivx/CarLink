@@ -43,3 +43,17 @@
 
 - 分支 CI：`.github/workflows/build-branch.yml`，push 即 `:mobile:assembleDebug`（含 `:auto` 编译），本地零构建。
 - 导入工作流：`.github/workflows/import-diauto.yml`（workflow_dispatch，一次性，验证通过后删除）。
+
+## 5. 落地验证记录（2026-10-25）
+
+- **端到端协议验证**：以 Mac 上的模拟手机端（UDP 7999 广播 + 7 通道 TCP + 手机侧状态机应答）对平板实测：
+  握手全链（版本协商→统计→设备信息→鉴权→特征配置→视频参数→开始推流）逐条通过；H.264 测试流经通道 2
+  到达平板并由 MediaCodec 解码渲染成功（彩条画面截图确认）；心跳保活正常。
+- **触控**：发送侧已在平板日志验证（SurfaceView OnTouchListener，坐标按视频分辨率缩放，通道 6 帧）；
+  接收侧需真实手机 CarLife App 验证（测试架进程在桌面环境无法长活所致）。
+- **修复记录**：编码器重协商循环（videoStarted 守卫）、版本协商匹配后停发 98305（versionMatched 守卫）、
+  CarLifeVideoActivity 设 singleTask 防双会话、触控改用 SurfaceView 监听。
+- **BYD 通用化结论**：DiAuto 引擎的 BYD 仪表盘/HUD 层自带 `appliesTo()`（厂商/品牌探测）与
+  `available()` 运行时探测，非 BYD 设备自动关闭；`com.byd.spi` 仅被动引用。无需改写，满足"改通用"要求。
+- **许可**：合并 DiAuto（AGPL-3.0）后主工程已由 GPL-3.0 升级为 AGPL-3.0（LICENSE 与 README 已更新）。
+- **测试工具**：`/tmp/fake_phone.py`（模拟手机端，可复用于后续回归）。
