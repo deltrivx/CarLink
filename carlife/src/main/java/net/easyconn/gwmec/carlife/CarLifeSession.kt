@@ -35,6 +35,7 @@ class CarLifeSession(
     private val outputs = HashMap<Int, BufferedOutputStream>()
     private var udpSocket: java.net.DatagramSocket? = null
     private var videoSeq = 0
+    @Volatile private var videoStarted = false
 
     fun start() {
         if (running) return
@@ -46,6 +47,7 @@ class CarLifeSession(
     fun stop() {
         if (!running) return
         running = false
+        videoStarted = false
         listener.onState("已断开")
         try { udpSocket?.close() } catch (_: Exception) {}
         synchronized(sockets) {
@@ -197,12 +199,16 @@ class CarLifeSession(
                 val (w, h, fps) = CarLifeMessages.parseEncoderInfo(payload)
                 listener.onLog("手机确认编码参数 ${w}x${h}@$fps")
                 sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_START)
+                videoStarted = true
                 listener.onState("已连接")
             }
             CarLifeProtocol.MSG_MD_VIDEO_ENCODER_DONE -> {
-                listener.onLog("手机编码器就绪，重发视频参数确认")
-                sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_INIT,
-                    CarLifeMessages.videoEncoderInfo(videoWidth, videoHeight, frameRate))
+                // 编码器就绪确认后重发一次视频参数；已开始推流则不再重发，避免循环
+                if (!videoStarted) {
+                    listener.onLog("手机编码器就绪，重发视频参数确认")
+                    sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_INIT,
+                        CarLifeMessages.videoEncoderInfo(videoWidth, videoHeight, frameRate))
+                }
             }
             CarLifeProtocol.MSG_VIDEO_HEARTBEAT -> { /* 心跳应答，保活即可 */ }
             CarLifeProtocol.MSG_MD_GO_TO_DESKTOP -> listener.onState("手机回桌面")

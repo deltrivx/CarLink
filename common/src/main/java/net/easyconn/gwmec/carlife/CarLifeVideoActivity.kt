@@ -29,6 +29,10 @@ class CarLifeVideoActivity : Activity() {
         super.onCreate(savedInstanceState)
         val frame = FrameLayout(this)
         val surface = SurfaceView(this)
+        surface.setOnTouchListener { _, event ->
+            handleTouch(event)
+            true
+        }
         surface.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) = startSession(holder.surface)
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
@@ -100,18 +104,18 @@ class CarLifeVideoActivity : Activity() {
         }
     }
 
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        val s = session ?: return super.onTouchEvent(event)
+    private fun handleTouch(event: MotionEvent) {
+        val s = session ?: return
         val action = when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> 0
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> 1
             MotionEvent.ACTION_MOVE -> 2
-            else -> return false
+            else -> return
         }
         val x = (event.x / resources.displayMetrics.widthPixels.toFloat() * videoWidth).toInt()
         val y = (event.y / resources.displayMetrics.heightPixels.toFloat() * videoHeight).toInt()
         s.sendTouch(action, x, y)
-        return true
+        Log.d("CarLifeVideo", "touch $action ($x,$y)")
     }
 
     override fun onDestroy() {
