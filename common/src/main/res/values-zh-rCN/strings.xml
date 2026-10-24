@@ -166,6 +166,7 @@
     <string name="common_cancel">取消</string>
     <string name="connect">连接</string>
     <string name="connect_phone">连接手机</string>
+    <string name="carlife_connect">安卓手机（CarLife）</string>
     <string name="connect_when_diplay_opens">打开 车机互联 时连接</string>
     <string name="auto_enter_carplay_title">仅在首次连接成功后自动进入 CarPlay 界面</string>
     <string name="auto_enter_carplay_summary">连接建立后自动进入一次 CarPlay 画面，之后返回主页不再自动进入。</string>

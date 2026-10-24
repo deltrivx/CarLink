@@ -172,6 +172,7 @@
     <string name="cluster_map_size">Dashboard map size</string>
     <string name="connect">Connect</string>
     <string name="connect_phone">Connect phone</string>
+    <string name="carlife_connect">Android phone (CarLife)</string>
     <string name="connect_when_diplay_opens">Connect when 车机互联 opens</string>
     <string name="auto_enter_carplay_title">Enter CarPlay once when the link first comes up</string>
     <string name="auto_enter_carplay_summary">Bring the picture forward once, after a connection started here succeeds. After that, returning to the home stays put.</string>

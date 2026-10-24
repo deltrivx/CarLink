@@ -47,6 +47,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import net.easyconn.gwmec.adb.LocalAdb
 import net.easyconn.gwmec.airplay.CarPlayClusterDisplay
+import net.easyconn.gwmec.carlife.CarLifeDiscovery
+import net.easyconn.gwmec.carlife.CarLifeVideoActivity
 import net.easyconn.gwmec.airplay.CarPlayDisplayScale
 import net.easyconn.gwmec.airplay.ClusterTurnCardOverlay
 import net.easyconn.gwmec.compat.closeCompat
@@ -1129,6 +1131,36 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      * Nothing changed and the box is already filled: leave the pixels alone — refilling
      * identical content reads as a blink, and the connect path asks often.
      */
+
+    /** 进入 CarLife 投屏（安卓手机经百度 CarLife 协议连接）。 */
+    private fun startCarLife() {
+        stopCarLifeDiscovery()
+        startActivity(Intent(this, CarLifeVideoActivity::class.java))
+    }
+
+    /**
+     * CarLife 自动连接：主页空闲时监听手机的局域网广播，发现即进入投屏。
+     * 仅在主页空闲状态启用，连接建立或离开主页即停，避免与 CarPlay 的连接流互相打扰。
+     */
+    private var carLifeDiscoveryActive = false
+
+    private fun maybeStartCarLifeDiscovery() {
+        if (page != "home" || homeState() != HomeState.IDLE || carLifeDiscoveryActive) return
+        carLifeDiscoveryActive = true
+        CarLifeDiscovery.start { _ ->
+            runOnUiThread {
+                carLifeDiscoveryActive = false
+                if (homeState() == HomeState.IDLE) startCarLife()
+            }
+        }
+    }
+
+    private fun stopCarLifeDiscovery() {
+        if (!carLifeDiscoveryActive) return
+        carLifeDiscoveryActive = false
+        CarLifeDiscovery.stop()
+    }
+
     private fun refreshHomeStatus(): Boolean {
         val box = homeStatusBox ?: return false
         val state = homeState()
@@ -1245,6 +1277,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 }
                 addAction(connectButton!!, first = true)
                 addAction(homeGhost(getString(R.string.connect_with_usb)) { connect(false) })
+                addAction(homeGhost(getString(R.string.carlife_connect)) { startCarLife() })
                 if (homeHotspotProblem()) {
                     addAction(homeGhost(getString(R.string.open_car_hotspot_settings), warn = true) { openCarWifiSettings() })
                 }
@@ -1259,6 +1292,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             host.removeAllViews()
             host.addView(actions, LinearLayout.LayoutParams(-1, -2))
         }
+        if (state == HomeState.IDLE) maybeStartCarLifeDiscovery() else stopCarLifeDiscovery()
         return true
     }
 
