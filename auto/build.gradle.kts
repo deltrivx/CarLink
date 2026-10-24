@@ -65,6 +65,9 @@ android {
     defaultConfig {
         // Preserve upgrade compatibility and existing DiLink pairing/calibration.
         minSdk = 28
+        buildConfigField("String", "VERSION_NAME", "\"0.3.12\"")
+        buildConfigField("String", "VERSION_CODE", "\"112\"")
+        buildConfigField("String", "APPLICATION_ID", "\"net.easyconn.gwmec\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true
         vectorDrawables.useSupportLibrary = true
