@@ -40,6 +40,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":carlife"))
     api(project(":shared"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
