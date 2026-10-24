@@ -65,7 +65,6 @@ android {
     defaultConfig {
         // Preserve upgrade compatibility and existing DiLink pairing/calibration.
         minSdk = 16
-        targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true
         vectorDrawables.useSupportLibrary = true
@@ -119,10 +118,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
 }
