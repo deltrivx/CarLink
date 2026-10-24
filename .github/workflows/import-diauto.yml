@@ -1,0 +1,65 @@
+name: Import DiAuto engine (one-off)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout CarLink
+        uses: actions/checkout@v7
+        with:
+          ref: feature/dual-protocol
+          fetch-depth: 0
+
+      - name: Clone DiAuto (upstream)
+        run: git clone --depth 1 https://github.com/shihabal3amri/DiAuto /tmp/diauto
+
+      - name: Copy sources
+        run: |
+          mkdir -p auto contract
+          cp -r /tmp/diauto/app/. auto/
+          cp -r /tmp/diauto/contract/. contract/
+          cp /tmp/diauto/LICENSE auto/DIAUTO_LICENSE
+          cp /tmp/diauto/COPYRIGHT_MICHAEL_REID_GPLv3AFFERO.txt auto/ || true
+
+      - name: Convert to library modules
+        run: python3 scripts/transform_diauto.py
+
+      - name: Wire into settings.gradle.kts
+        run: |
+          python3 - <<'PY'
+          src = open("settings.gradle.kts", encoding="utf-8").read()
+          if ":auto" not in src:
+              src = src.replace(
+                  'include(":shared")',
+                  'include(":shared")\ninclude(":auto")\ninclude(":auto-contract")\nproject(":auto-contract").projectDir = file("contract")',
+              )
+          # jitpack for any transitive deps carried over from DiAuto
+          if "jitpack.io" not in src:
+              src = src.replace(
+                  "        mavenCentral()\n    }",
+                  "        mavenCentral()\n        maven {\n            url = uri(\"https://jitpack.io\")\n        }\n    }",
+              )
+          open("settings.gradle.kts", "w", encoding="utf-8").write(src)
+          print(open("settings.gradle.kts").read())
+          PY
+
+      - name: Commit import
+        run: |
+          git config user.name "carlink-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(auto): import DiAuto (open-headunit) engine as :auto/:auto-contract libraries
+
+          - app -> auto (library), contract -> :auto-contract
+          - compileSdk 37 / NDK 28.2.13676358 / jvmTarget 17 to match CarLink toolchain
+          - flavors, signing, applicationVariants and kapt processors removed
+          - DiAuto auto-start entry points disabled; dispatch owned by CarLink home frame
+          - AGPL-3.0 license kept in auto/DIAUTO_LICENSE"
+          git push origin feature/dual-protocol

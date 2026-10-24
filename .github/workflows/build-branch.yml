@@ -1,0 +1,30 @@
+name: Branch build check
+
+on:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0 ndk;28.2.13676358'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Assemble debug
+        run: ./gradlew :mobile:assembleDebug --stacktrace
