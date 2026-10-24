@@ -36,6 +36,7 @@ class CarLifeSession(
     private var udpSocket: java.net.DatagramSocket? = null
     private var videoSeq = 0
     @Volatile private var videoStarted = false
+    @Volatile private var versionMatched = false
 
     fun start() {
         if (running) return
@@ -48,6 +49,7 @@ class CarLifeSession(
         if (!running) return
         running = false
         videoStarted = false
+        versionMatched = false
         listener.onState("已断开")
         try { udpSocket?.close() } catch (_: Exception) {}
         synchronized(sockets) {
@@ -160,7 +162,7 @@ class CarLifeSession(
         listener.onState("版本协商")
         thread(name = "CarLife-Handshake") {
             var retries = 0
-            while (running) {
+            while (running && !versionMatched) {
                 if (!sendCmd(CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 0))) return@thread
                 retries++
                 if (retries % 4 == 0) listener.onLog("等待手机响应版本协商…（请确认手机 CarLife 在前台）")
@@ -172,6 +174,7 @@ class CarLifeSession(
     private fun handleCommand(serviceType: Int, payload: ByteArray) {
         when (serviceType) {
             CarLifeProtocol.MSG_MD_PROTOCOL_VERSION_MATCH -> {
+                versionMatched = true
                 listener.onLog("手机版本匹配成功，发送统计信息")
                 sendCmd(CarLifeProtocol.MSG_HU_STATISTIC_INFO, CarLifeMessages.statisticsInfo())
                 startHeartbeat()

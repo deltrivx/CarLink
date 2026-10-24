@@ -106,7 +106,7 @@
         </activity>
 
         <activity android:name="net.easyconn.gwmec.carlife.CarLifeVideoActivity"
-            android:exported="false"
+            android:exported="false" android:launchMode="singleTask"
             android:screenOrientation="sensorLandscape"
             android:resizeableActivity="true"
             android:theme="@style/Theme.Xcertplay" />
