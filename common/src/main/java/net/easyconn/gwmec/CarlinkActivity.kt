@@ -397,6 +397,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         LastCrashReport.bind(this)
         LastCrashReport.install()
         CrashRecord.install(this)
+        // 插拔数据线时刷新主页的有线连接入口。
+        registerReceiver(usbStateReceiver, android.content.IntentFilter(android.hardware.usb.UsbManager.ACTION_USB_DEVICE_ATTACHED).apply {
+            addAction(android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED)
+        })
         // Back on the home page finishes this activity while the session runs on, so the icon lands here.
         if (savedInstanceState == null && isLauncherIntent(intent) && CarPlayBackgroundSession.active) {
             openProjection(); finish(); return
@@ -594,6 +598,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     }
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(usbStateReceiver) }
         settingsSearchPopup?.dismiss()
         appearanceObserverRemoval?.invoke()
         appearanceObserverRemoval = null
@@ -1132,6 +1137,19 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      * identical content reads as a blink, and the connect path asks often.
      */
 
+    /**
+     * 有线连接入口只在实际插着数据线时出现：充电线不会枚举出 USB 设备，
+     * 只有真正的数据连接才会，因此设备列表非空即可视为插着数据线。
+     */
+    private fun usbDataConnected(): Boolean =
+        getSystemService(android.hardware.usb.UsbManager::class.java)?.deviceList?.isNotEmpty() == true
+
+    private val usbStateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: android.content.Intent) {
+            if (page == "home") refreshHomeStatus()
+        }
+    }
+
     /** 进入 CarLife 投屏（安卓手机经百度 CarLife 协议连接）。 */
     private fun startCarLife() {
         stopCarLifeDiscovery()
@@ -1276,12 +1294,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     else connect(true)
                 }
                 addAction(connectButton!!, first = true)
-                addAction(homeGhost(getString(R.string.connect_with_usb)) { connect(false) })
+                if (usbDataConnected()) addAction(homeGhost(getString(R.string.connect_with_usb)) { connect(false) })
                 addAction(homeGhost(getString(R.string.carlife_connect)) { startCarLife() })
                 if (homeHotspotProblem()) {
                     addAction(homeGhost(getString(R.string.open_car_hotspot_settings), warn = true) { openCarWifiSettings() })
                 }
-                addAction(homeGhost(getString(R.string.choose_iphone)) { choosePhone() })
                 addAction(homeGhost(getString(R.string.settings)) { page = "settings"; render() })
             }
         }
