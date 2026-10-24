@@ -4,7 +4,7 @@ android {
     compileSdk = 37
     namespace = "net.easyconn.gwmec.carlife"
 
-    defaultConfig { minSdk = 28 }
+    defaultConfig { minSdk = 24 }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
