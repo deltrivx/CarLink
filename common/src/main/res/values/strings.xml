@@ -957,4 +957,6 @@
     <string name="carlife_log_empty">Nothing yet.</string>
     <string name="carlife_help_body">Wired: connect the phone with a data cable and allow the USB prompt. Wireless: install Baidu CarLife on the phone, join the car hotspot or the same Wi-Fi, then tap Connect in the app.</string>
     <string name="dilink_generic">Other head unit (generic)</string>
+    <string name="setup_feature_hud">HUD navigation projection</string>
+    <string name="setup_feature_hud_description">Project turn guidance to the car HUD when the head unit exposes one. Experimental outside BYD.</string>
 </resources>

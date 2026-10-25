@@ -905,4 +905,6 @@
     <string name="carlife_log_empty">暂无日志</string>
     <string name="carlife_help_body">有线：用数据线连接手机，在弹窗中允许 USB 权限。无线：手机安装百度 CarLife App，加入车机热点或同一 Wi-Fi，在 App 内点击连接。</string>
     <string name="dilink_generic">其他车机（通用）</string>
+    <string name="setup_feature_hud">HUD 导航投射</string>
+    <string name="setup_feature_hud_description">车机具备 HUD 时把转向诱导投射到 HUD。非 BYD 车机为实验性支持。</string>
 </resources>

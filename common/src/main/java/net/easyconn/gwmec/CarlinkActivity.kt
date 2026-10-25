@@ -3285,6 +3285,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 SetupGuide.Feature.CALL_KEYS -> toggle(card, getString(R.string.carplay_call_controls_experimental),
                     getString(R.string.carplay_call_controls_experimental_description),
                     BydOutputSettings.carPlayCallControls(this)) { applyCallKeys(it) }
+                // HUD 不是 BYD 专属：主开关对任何车机开放，BYD 通道由运行时探测决定。
+                SetupGuide.Feature.HUD_OUTPUT -> toggle(card, getString(R.string.setup_feature_hud),
+                    getString(R.string.setup_feature_hud_description),
+                    BydOutputSettings.enabled(this)) { BydOutputSettings.setEnabled(this, it) }
             }
             if (card.childCount > before) card.addView(setupBadges(entry))
         }
