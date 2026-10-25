@@ -2653,14 +2653,19 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     }
 
     private fun latestRelease(): UpdateRelease? {
-        val json = UpdateClient.fetchText(
-            UpdateClient.RELEASES_URL,
-            "application/vnd.github+json",
-            userAgent(),
-            updateToken(),
-        )
-        val release = UpdateCatalog.parse(json, genericBuild()) ?: return null
-        return release.takeIf { UpdateVersion.isNewer(it.tagName, version()) }
+        return try {
+            val json = UpdateClient.fetchText(
+                UpdateClient.RELEASES_URL,
+                "application/vnd.github+json",
+                userAgent(),
+                updateToken(),
+            )
+            UpdateCatalog.parse(json, genericBuild())
+                ?.takeIf { UpdateVersion.isNewer(it.tagName, version()) }
+        } catch (io: IOException) {
+            // api.github.com 在车机上常不可达：走 releases/latest 重定向兜底（可经镜像）。
+            UpdateReleaseLookup.latestViaRedirect(version(), userAgent(), genericBuild())
+        }
     }
 
     private fun openAvailableUpdate(release: UpdateRelease) {

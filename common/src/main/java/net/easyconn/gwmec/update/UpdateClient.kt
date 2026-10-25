@@ -19,6 +19,9 @@ internal object UpdateClient {
     internal val RELEASES_URL: String
         get() = "https://api.github.com/repos/${BuildConfig.UPDATE_REPO_OWNER}" +
             "/${BuildConfig.UPDATE_REPO_NAME}/releases?per_page=3"
+    /** The repo's github.com base, for file URLs that mirrors can carry. */
+    internal val REPO_BASE: String
+        get() = "https://github.com/${BuildConfig.UPDATE_REPO_OWNER}/${BuildConfig.UPDATE_REPO_NAME}"
     private const val CONNECT_TIMEOUT_MILLIS = 10_000
     private const val READ_TIMEOUT_MILLIS = 30_000
     private const val MAXIMUM_TEXT_BYTES = 4 * 1024 * 1024

@@ -48,6 +48,7 @@ internal class BackgroundUpdateWorker(context: Context, parameters: WorkerParame
             .getPackageInfo(applicationContext.packageName, 0).versionName
         // A dev build with no parsable version would otherwise show a permanent banner.
         if (installedVersion == null || UpdateVersion.parse(installedVersion) == null) return Result.success()
+        val genericInstall = android.os.Process.myUid() != android.os.Process.SYSTEM_UID
         return try {
             val release = UpdateReleaseLookup.latest(
                 installedVersion = installedVersion,
@@ -63,9 +64,26 @@ internal class BackgroundUpdateWorker(context: Context, parameters: WorkerParame
             UpdateAvailability.recordAttempt(applicationContext, now)
             UpdateAvailability.recordResult(applicationContext, now, if (release == null) "up to date" else "found ${release.tagName}")
             Result.success()
-        } catch (failure: Exception) {
-            Log.i(TAG, "background update check failed", failure)
-            retryOrGiveUp("fetch failed: ${failure.javaClass.simpleName}")
+        } catch (apiFailure: Exception) {
+            Log.i(TAG, "background update check failed", apiFailure)
+            // api.github.com 在车机上常不可达：走 releases/latest 重定向兜底（可经镜像）。
+            try {
+                val release = UpdateReleaseLookup.latestViaRedirect(
+                    installedVersion = installedVersion,
+                    userAgent = "CarLink/$installedVersion",
+                    generic = genericInstall,
+                    openConnection = network::openConnection,
+                )
+                if (release == null) UpdateAvailability.clear(applicationContext)
+                else UpdateAvailability.save(applicationContext, release)
+                UpdateAvailability.recordAttempt(applicationContext, now)
+                UpdateAvailability.recordResult(applicationContext, now,
+                    if (release == null) "up to date" else "found ${release.tagName}")
+                Result.success()
+            } catch (failure: Exception) {
+                Log.i(TAG, "redirect update check failed", failure)
+                retryOrGiveUp("fetch failed: ${failure.javaClass.simpleName}")
+            }
         }
     }
 
