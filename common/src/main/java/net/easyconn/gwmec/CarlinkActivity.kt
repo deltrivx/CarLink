@@ -2514,6 +2514,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     CarLifeCenter.disconnect(); render()
                 })
             }
+            card.addView(actions)
         }
         section(content, getString(R.string.carlife_section_log)) { card ->
             carLifeLogBox = column().also { card.addView(it) }
