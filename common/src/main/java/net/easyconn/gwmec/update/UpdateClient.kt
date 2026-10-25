@@ -51,6 +51,33 @@ internal object UpdateClient {
         }
     }
 
+    /**
+     * Try the routes in order and download from the first that works, so an
+     * unreachable or stalling origin falls through to its mirrors without the
+     * caller caring which one answered. The winning route is reported so the
+     * caller can remember it for next time.
+     */
+    internal fun downloadFirstSuccessful(
+        routes: List<String>,
+        destination: File,
+        onProgress: (Long, Long?) -> Unit,
+        token: String? = null,
+        onRoute: (String) -> Unit = {},
+    ): String {
+        var lastError: IOException? = null
+        for (route in routes) {
+            try {
+                download(route, destination, onProgress, token)
+                onRoute(route)
+                return route
+            } catch (io: IOException) {
+                lastError = io
+                destination.delete()
+            }
+        }
+        throw lastError ?: IOException("No download route succeeded")
+    }
+
     internal fun download(url: String, destination: File, onProgress: (Long, Long?) -> Unit, token: String? = null) {
         destination.parentFile?.mkdirs()
         val connection = URL(url).openConnection() as HttpURLConnection

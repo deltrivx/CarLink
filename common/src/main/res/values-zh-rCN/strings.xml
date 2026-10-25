@@ -792,6 +792,8 @@
 
     <string name="wireless_needs_nearby_devices">无线连接需要「附近设备」权限才能创建 Wi-Fi Direct，请在系统设置中允许。</string>
     <string name="settings_auto_download_update">有新版本时自动下载</string>
+    <string name="settings_update_mirror">镜像加速下载</string>
+    <string name="settings_update_mirror_description">下载先走 GitHub 直连，过慢或失败时自动改用公共镜像（gh-proxy.com、ghfast.top），并记住走得通的路线。</string>
     <string name="settings_auto_download_update_description">发现新版本即自动下载。只保留最新的一份：旧的会自动删除，安装后该文件也会一并清除。</string>
     <string name="setup_guide">设置向导</string>
     <string name="setup_guide_description">识别 DiLink 版本，选择连接方式，并开启适合你车辆的功能。</string>

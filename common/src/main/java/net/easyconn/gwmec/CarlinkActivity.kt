@@ -79,6 +79,7 @@ import net.easyconn.gwmec.transport.EvChargingConnectors
 import net.easyconn.gwmec.update.BackgroundUpdateScheduler
 import net.easyconn.gwmec.update.UpdateApkExport
 import net.easyconn.gwmec.update.UpdateAvailability
+import net.easyconn.gwmec.update.UpdateMirror
 import net.easyconn.gwmec.update.UpdateCatalog
 import net.easyconn.gwmec.update.UpdateChecksums
 import net.easyconn.gwmec.update.UpdateClient
@@ -2501,6 +2502,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     getString(R.string.settings_auto_download_update_description),
                     UpdateAvailability.autoDownload(this)) { UpdateAvailability.saveAutoDownload(this, it) }
             }
+            toggle(card, getString(R.string.settings_update_mirror),
+                getString(R.string.settings_update_mirror_description),
+                UpdateMirror.enabled(this)) { UpdateMirror.saveEnabled(this, it) }
         }
         section(content, getString(R.string.made_possible_by_open_source)) { card ->
             card.addView(label(getString(R.string.receiver_based_on_xcertplay_licensed_under_gpl_3_0_diplay), 16, MUTED))
@@ -2702,15 +2706,21 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 // The cached release can be a day old. Download the newest one.
                 release = latestRelease() ?: throw IOException(getString(R.string.update_up_to_date))
                 val checksumsFile = File(directory, UpdateCatalog.CHECKSUMS_FILE)
-                UpdateClient.download(release.checksumsUrl, checksumsFile, { _, _ -> }, updateToken())
+                UpdateClient.downloadFirstSuccessful(
+                    UpdateMirror.routes(applicationContext, release.checksumsUrl),
+                    checksumsFile, { _, _ -> }, updateToken(),
+                ) { route -> UpdateMirror.rememberWorking(applicationContext, route) }
                 val apkFile = File(directory, release.apkName)
-                UpdateClient.download(release.apkUrl, apkFile, { written, total ->
-                    val percent = total?.takeIf { it > 0 }?.let { (written * 100 / it).toInt() } ?: return@download
-                    if (percent != updateProgress) {
-                        updateProgress = percent
-                        refreshUpdateUi(generation)
-                    }
-                }, updateToken())
+                UpdateClient.downloadFirstSuccessful(
+                    UpdateMirror.routes(applicationContext, release.apkUrl),
+                    apkFile, { written, total ->
+                        val percent = total?.takeIf { it > 0 }?.let { (written * 100 / it).toInt() } ?: return@downloadFirstSuccessful
+                        if (percent != updateProgress) {
+                            updateProgress = percent
+                            refreshUpdateUi(generation)
+                        }
+                    }, updateToken(),
+                ) { route -> UpdateMirror.rememberWorking(applicationContext, route) }
                 updateStage = UpdateStage.VERIFYING
                 refreshUpdateUi(generation)
                 val expected = UpdateChecksums.parse(checksumsFile.readText())

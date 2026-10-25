@@ -833,6 +833,8 @@
 
     <string name="wireless_needs_nearby_devices">Wireless needs the nearby-devices permission to create Wi-Fi Direct. Allow it in the system settings.</string>
     <string name="settings_auto_download_update">Download new versions automatically</string>
+    <string name="settings_update_mirror">Mirror download acceleration</string>
+    <string name="settings_update_mirror_description">Downloads try GitHub directly first, then public mirrors (gh-proxy.com, ghfast.top) when it is slow or unreachable. The route that worked is remembered.</string>
     <string name="settings_auto_download_update_description">Fetches a new build as soon as one is seen. Only the newest download is kept: an older one is dropped, and the file goes once it is installed.</string>
     <string name="setup_guide">Setup guide</string>
     <string name="setup_guide_description">Find your DiLink version, choose a connection and turn on the features that suit your car.</string>
