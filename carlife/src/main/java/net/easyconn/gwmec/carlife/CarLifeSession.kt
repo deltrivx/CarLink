@@ -68,7 +68,9 @@ class CarLifeSession(
         thread(name = "CarLife-Handshake") {
             var retries = 0
             while (running && !versionMatched) {
-                if (!sendCmd(CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 0))) return@thread
+                // 传输未就绪（WiFi 通道尚在建立）时发送会失败：退避重试而不是退出，
+                // 版本协商信令本就按 1.5s 周期重发直到手机应答。
+                sendCmd(CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 0))
                 retries++
                 if (retries % 4 == 0) listener.onLog("等待手机响应版本协商…（请确认手机 CarLife 在前台）")
                 Thread.sleep(1500)
