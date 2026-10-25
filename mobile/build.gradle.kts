@@ -198,8 +198,11 @@ android {
     // the private repository at all.
     buildTypes {
         debug {
+            // Debug builds read the same public repo as release: deltrivx/EasyConnect
+            // does not exist, and a debug build that can never see an update is one
+            // that can never be update-tested.
             buildConfigField("String", "UPDATE_REPO_OWNER", "\"deltrivx\"")
-            buildConfigField("String", "UPDATE_REPO_NAME", "\"EasyConnect\"")
+            buildConfigField("String", "UPDATE_REPO_NAME", "\"CarLink\"")
         }
         release {
             buildConfigField("String", "UPDATE_REPO_OWNER",
