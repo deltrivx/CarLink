@@ -888,4 +888,21 @@
     <string name="settings_hotspot_interface_description">仅用于把热点放在 Android 不认为是 Wi-Fi 热点的网络接口上的车机，例如部分吉利、领克及其它高通车机上的 eth0.3。留空则自动查找。</string>
     <string name="iphone_not_in_the_car">所选 iPhone 不在车内。请打开它的蓝牙，或等它在身边时手动连接。</string>
 
+    <string name="carlife_page_title">安卓手机</string>
+    <string name="carlife_page_subtitle">通过百度 CarLife 连接安卓手机</string>
+    <string name="carlife_section_connection">连接</string>
+    <string name="carlife_section_log">日志</string>
+    <string name="carlife_section_help">连接方法</string>
+    <string name="carlife_connect_usb">USB 有线连接</string>
+    <string name="carlife_connect_wireless">无线连接</string>
+    <string name="carlife_open_projection">进入投屏</string>
+    <string name="carlife_disconnect">断开</string>
+    <string name="carlife_state_idle">未连接</string>
+    <string name="carlife_state_connecting">连接中…</string>
+    <string name="carlife_mode_usb">方式：USB 有线（AOA）</string>
+    <string name="carlife_mode_wifi">方式：无线（车机热点 / 同一网络）</string>
+    <string name="carlife_mode_none">请选择连接方式</string>
+    <string name="carlife_log_empty">暂无日志</string>
+    <string name="carlife_help_body">有线：用数据线连接手机，在弹窗中允许 USB 权限。无线：手机安装百度 CarLife App，加入车机热点或同一 Wi-Fi，在 App 内点击连接。</string>
+    <string name="dilink_generic">其他车机（通用）</string>
 </resources>

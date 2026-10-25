@@ -940,4 +940,21 @@
     <string name="settings_ambient_swatch">Color %1$d</string>
     <string name="settings_ambient_swatch_selected">Color %1$d, selected</string>
     <string name="settings_cluster_music_unknown">Unknown artist</string>
+    <string name="carlife_page_title">Android phone</string>
+    <string name="carlife_page_subtitle">Connect an Android phone over Baidu CarLife</string>
+    <string name="carlife_section_connection">Connection</string>
+    <string name="carlife_section_log">Log</string>
+    <string name="carlife_section_help">How to connect</string>
+    <string name="carlife_connect_usb">USB cable</string>
+    <string name="carlife_connect_wireless">Wireless</string>
+    <string name="carlife_open_projection">Open projection</string>
+    <string name="carlife_disconnect">Disconnect</string>
+    <string name="carlife_state_idle">Not connected</string>
+    <string name="carlife_state_connecting">Connecting…</string>
+    <string name="carlife_mode_usb">Mode: USB (AOA)</string>
+    <string name="carlife_mode_wifi">Mode: wireless (hotspot / same network)</string>
+    <string name="carlife_mode_none">Pick a connection mode</string>
+    <string name="carlife_log_empty">Nothing yet.</string>
+    <string name="carlife_help_body">Wired: connect the phone with a data cable and allow the USB prompt. Wireless: install Baidu CarLife on the phone, join the car hotspot or the same Wi-Fi, then tap Connect in the app.</string>
+    <string name="dilink_generic">Other head unit (generic)</string>
 </resources>

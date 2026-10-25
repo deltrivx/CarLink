@@ -47,6 +47,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import net.easyconn.gwmec.adb.LocalAdb
 import net.easyconn.gwmec.airplay.CarPlayClusterDisplay
+import net.easyconn.gwmec.carlife.CarLifeCenter
 import net.easyconn.gwmec.carlife.CarLifeDiscovery
 import net.easyconn.gwmec.carlife.CarLifeVideoActivity
 import net.easyconn.gwmec.airplay.CarPlayDisplayScale
@@ -779,6 +780,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 "connection" -> connectionSetup(content)
                 "setup" -> setupGuide(content)
                 "settings" -> settingsCategoryContent(content)
+                "carlife" -> carlife(content)
                 "about" -> about(content)
                 else -> home(content)
             }
@@ -1151,10 +1153,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
     }
 
-    /** 进入 CarLife 投屏（安卓手机经百度 CarLife 协议连接）。 */
+    /** CarLife 连接页：模式选择、状态与日志都在应用自己的页面系统里。 */
     private fun startCarLife() {
         stopCarLifeDiscovery()
-        startActivity(Intent(this, CarLifeVideoActivity::class.java))
+        page = "carlife"
+        render()
     }
 
     /**
@@ -2480,6 +2483,93 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         languageSettings(content)
     }
 
+    /** CarLife 连接页：信息架构对齐原 APK（状态行/连接方式/滚动日志），视觉沿用本仓库。 */
+    private var carLifeStatus: TextView? = null
+    private var carLifeLogBox: LinearLayout? = null
+    private var carLifeConnectedOnce = false
+
+    private fun carlife(content: LinearLayout) {
+        content.addView(label(getString(R.string.carlife_page_title), 40, TEXT, true))
+        content.addView(label(getString(R.string.carlife_page_subtitle), 20, MUTED).apply { setPadding(0, dp(8), 0, dp(24)) })
+        section(content, getString(R.string.carlife_section_connection)) { card ->
+            carLifeStatus = label(carLifeStatusText(), 17, TEXT).also { card.addView(it) }
+            card.addView(label(carLifeModeText(), 13, MUTED).apply { setPadding(0, dp(6), 0, dp(12)) })
+            val actions = row().apply { gravity = Gravity.CENTER }
+            fun add(view: View, first: Boolean = false) {
+                if (!first) actions.addView(ghostDivider(), LinearLayout.LayoutParams(dp(1), dp(18)).apply { gravity = Gravity.CENTER })
+                actions.addView(view, LinearLayout.LayoutParams(-2, dp(if (isCompactLayout) 44 else 52)).apply { gravity = Gravity.CENTER })
+            }
+            if (CarLifeCenter.session == null) {
+                add(ghostAction(getString(R.string.carlife_connect_usb), primary = false) {
+                    CarLifeCenter.connect(this, usb = true); render()
+                }, first = true)
+                add(ghostAction(getString(R.string.carlife_connect_wireless), primary = true) {
+                    CarLifeCenter.connect(this, usb = false); render()
+                })
+            } else {
+                add(ghostAction(getString(R.string.carlife_open_projection), primary = true) {
+                    startActivity(Intent(this, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
+                }, first = true)
+                add(ghostAction(getString(R.string.carlife_disconnect), primary = false, danger = true) {
+                    CarLifeCenter.disconnect(); render()
+                })
+            }
+        }
+        section(content, getString(R.string.carlife_section_log)) { card ->
+            carLifeLogBox = column().also { card.addView(it) }
+            repaintCarLifeLog()
+        }
+        section(content, getString(R.string.carlife_section_help)) { card ->
+            card.addView(label(getString(R.string.carlife_help_body), 15, MUTED))
+        }
+        // 会话事件驱动页面刷新；连接成功一次后直接进投屏。
+        CarLifeCenter.onLogLine = { _ -> runOnUiThread { if (page == "carlife") render() } }
+        CarLifeCenter.listener = object : net.easyconn.gwmec.carlife.CarLifeSession.Listener {
+            override fun onState(state: String) {
+                runOnUiThread {
+                    if (page == "carlife") render()
+                    if (state.contains("已连接") && !carLifeConnectedOnce) {
+                        carLifeConnectedOnce = true
+                        startActivity(Intent(this@CarlinkActivity, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
+                    }
+                }
+            }
+            override fun onLog(line: String) {}
+            override fun onPhoneInfo(info: String) {}
+            override fun onVideoFrame(data: ByteArray, tsMs: Long) {}
+            override fun onDisconnected() {
+                runOnUiThread { carLifeConnectedOnce = false; if (page == "carlife") render() }
+            }
+        }
+    }
+
+    private fun carLifeStatusText(): String {
+        val s = CarLifeCenter.session ?: return getString(R.string.carlife_state_idle)
+        return if (s.running) getString(R.string.carlife_state_connecting) else getString(R.string.carlife_state_idle)
+    }
+
+    private fun carLifeModeText(): String = when (CarLifeCenter.mode) {
+        "usb" -> getString(R.string.carlife_mode_usb)
+        "wifi" -> getString(R.string.carlife_mode_wifi)
+        else -> getString(R.string.carlife_mode_none)
+    }
+
+    private fun repaintCarLifeLog() {
+        val box = carLifeLogBox ?: return
+        box.removeAllViews()
+        val lines = CarLifeCenter.recentLog().takeLast(12)
+        if (lines.isEmpty()) {
+            box.addView(label(getString(R.string.carlife_log_empty), 13, MUTED))
+            return
+        }
+        lines.forEach { line ->
+            box.addView(label("·  $line", 13, MUTED).apply {
+                setLineSpacing(dp(3).toFloat(), 1f)
+                setPadding(0, dp(3), 0, 0)
+            })
+        }
+    }
+
     private fun about(content: LinearLayout) {
         content.addView(label(getString(R.string.diplay), 40, TEXT, true))
         content.addView(label(getString(R.string.carplay_at_home_in_your_car), 20, MUTED).apply { setPadding(0, dp(8), 0, dp(24)) })
@@ -3085,6 +3175,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         DiLinkGeneration.DILINK_3 -> R.string.dilink_3
         DiLinkGeneration.DILINK_4 -> R.string.dilink_4
         DiLinkGeneration.DILINK_5 -> R.string.dilink_5
+        DiLinkGeneration.GENERIC -> R.string.dilink_generic
         DiLinkGeneration.UNKNOWN -> R.string.dilink_not_sure
     })
 
