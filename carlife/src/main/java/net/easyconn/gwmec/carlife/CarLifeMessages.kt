@@ -44,13 +44,16 @@ object CarLifeMessages {
     fun videoEncoderInfo(w: Int, h: Int, fps: Int): ByteArray =
         Pb.int32(1, w) + Pb.int32(2, h) + Pb.int32(3, fps)
 
-    /** 特征配置：CONNECT_TYPE 决定手机端走 WiFi 还是 AOA 路径。 */
+    /** 特征配置：CONNECT_TYPE 决定手机端走 WiFi 还是 AOA 路径；AOA 需申报 USB_MTU。 */
     fun featureConfigList(connectType: Int): ByteArray {
         val item1 = Pb.str(1, "I_FRAME_INTERVAL") + Pb.int32(2, 300)
         val item2 = Pb.str(1, "CONNECT_TYPE") + Pb.int32(2, connectType)
-        return Pb.int32(1, 2) +
+        val usbMtu = if (connectType == CarLifeProtocol.CONNECT_TYPE_AOA)
+            listOf(Pb.msg(2, Pb.str(1, "USB_MTU") + Pb.int32(2, 16384))) else emptyList()
+        return Pb.int32(1, 2 + usbMtu.size) +
             Pb.msg(2, item1) +
             Pb.msg(2, item2) +
+            usbMtu.joinToString("") { it } +
             Pb.bool(3, false) +
             Pb.str(4, "CarLink") +
             Pb.str(5, "00:11:22:33:44:55")
