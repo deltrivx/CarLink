@@ -70,7 +70,8 @@ internal object UpdateReleaseLookup {
             }.onFailure { Log.i("UpdateReleaseLookup", "check via $prefix failed", it) }.getOrNull()
         } ?: throw IOException("Could not read the latest tag from $latest")
         // 资产名与 build-release.yml 实际上传的两个包一致；泛型构建取通用包。
-        val apkName = if (generic) "CarLink.apk" else "EasyConnect.apk"
+        // 与 UpdateCatalog 的通用分支一致：通用构建取 *-generic.apk 资产。
+        val apkName = if (generic) "CarLink-generic.apk" else "EasyConnect.apk"
         val base = UpdateClient.REPO_BASE + "/releases/download/$tag"
         return UpdateRelease(tag, apkName, "$base/$apkName", "$base/${UpdateCatalog.CHECKSUMS_FILE}", "")
             .takeIf { UpdateVersion.isNewer(it.tagName, installedVersion) }

@@ -167,6 +167,11 @@ jobs:
           apksigner verify --verbose "EasyConnect.apk"
           sha256sum CarLink.apk EasyConnect.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
+          # 通用构建的 OTA 按上游约定挑选 *-generic.apk 资产：
+          # 没有它，通用版在 API 检查里永远解析不出更新。
+          cp CarLink.apk CarLink-generic.apk
+          sha256sum CarLink-generic.apk > SHA256SUMS-generic.txt
+          cat SHA256SUMS-generic.txt
 
       - name: Publish GitHub Release
         env:
@@ -176,4 +181,4 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
             --title "Release $TAG" \
             --notes "CarLink & EasyConnect $TAG release. Both signed with Freescale platform key. CarLink is generic; EasyConnect includes sharedUserId=android.uid.system."
-          gh release upload "$TAG" dist/CarLink.apk dist/EasyConnect.apk dist/SHA256SUMS.txt --clobber
+          gh release upload "$TAG" dist/CarLink.apk dist/EasyConnect.apk dist/CarLink-generic.apk dist/SHA256SUMS.txt dist/SHA256SUMS-generic.txt --clobber
