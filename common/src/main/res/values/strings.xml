@@ -928,4 +928,15 @@
     <string name="connection_help_existing_wifi">Make sure the head unit and the iPhone are on the same Wi-Fi network and its name and password match settings, then retry.</string>
     <string name="iphone_not_in_the_car">The chosen iPhone is not in the car. Turn on its Bluetooth, or connect by hand when it is here.</string>
 
+    <string name="settings_ambient_behavior_fixed">Music playing · %1$s: the lamps stay on one fixed color at level %2$d.</string>
+    <string name="settings_ambient_behavior_follow">Music playing · %1$s: the lamps follow the music, up to level %2$d.</string>
+    <string name="settings_ambient_behavior_idle">Paused, stopped or disconnected: every zone drops to the lowest level, which can switch the lamps off.</string>
+    <string name="settings_ambient_behavior_idle_car">No music for 15 seconds: the lamps go back to the car’s own settings, and DiPlay takes over again when music starts.</string>
+    <string name="settings_ambient_behavior_idle_steady">Paused, stopped or disconnected · %1$s: the lamps stay on the chosen color at level %2$d.</string>
+    <string name="settings_ambient_behavior_lowest">Level 0: every zone stays at the lowest level, which can switch the lamps off.</string>
+    <string name="settings_ambient_behavior_off">Control is off. The car keeps its own lamp colors, brightness and area.</string>
+    <string name="settings_ambient_behavior_other_zone">The other zone is not changed while music plays.</string>
+    <string name="settings_ambient_behavior_restore">Turn control off to hand the lamps back to the car’s own settings.</string>
+    <string name="settings_ambient_swatch">Color %1$d</string>
+    <string name="settings_ambient_swatch_selected">Color %1$d, selected</string>
 </resources>
