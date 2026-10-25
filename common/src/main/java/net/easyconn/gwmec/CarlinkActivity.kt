@@ -2708,8 +2708,16 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 ?.filter { it.isDirectory && it != directory }
                 ?.forEach { stale -> runCatching { stale.deleteRecursively() } }
             val outcome = runCatching {
-                // The cached release can be a day old. Download the newest one.
-                release = latestRelease() ?: throw IOException(getString(R.string.update_up_to_date))
+                // The cached release can be a day old, so download the newest one when
+                // the check answers. When the check itself cannot reach GitHub - the
+                // usual case on a car network - fall back to the release the driver was
+                // actually shown: refusing to download what is on screen would make the
+                // hint a dead end.
+                release = try {
+                    latestRelease() ?: updateRelease ?: throw IOException(getString(R.string.update_up_to_date))
+                } catch (io: IOException) {
+                    updateRelease ?: throw io
+                }
                 val checksumsFile = File(directory, UpdateCatalog.CHECKSUMS_FILE)
                 UpdateClient.downloadFirstSuccessful(
                     UpdateMirror.routes(applicationContext, release.checksumsUrl),
