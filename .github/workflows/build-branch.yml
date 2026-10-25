@@ -26,6 +26,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      - name: Add Android Build Tools to PATH
+        run: echo "$ANDROID_HOME/build-tools/36.0.0" >> "$GITHUB_PATH"
+
       - name: Assemble debug (host app + auto engine)
         run: ./gradlew :mobile:assembleDebug :auto:assembleDebug --stacktrace
 
