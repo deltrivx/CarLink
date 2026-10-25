@@ -40,6 +40,7 @@ android {
 }
 
 dependencies {
+    implementation("com.google.zxing:core:3.5.3")
     implementation(project(":carlife"))
     api(project(":shared"))
     implementation(platform(libs.androidx.compose.bom))

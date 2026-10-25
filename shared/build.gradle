@@ -2,6 +2,11 @@ plugins {
     id 'com.android.library'
 }
 android {
+    buildFeatures {
+        // Geely 车机方向盘按键走 AIDL（上游 v0.2.21 新增）。
+        aidl = true
+    }
+
     namespace = 'net.easyconn.gwmec.shared'
 
     compileSdk = 37

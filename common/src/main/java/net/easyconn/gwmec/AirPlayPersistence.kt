@@ -1,5 +1,6 @@
 package net.easyconn.gwmec
 
+import net.easyconn.gwmec.airplay.ClusterSpeedometerOverlay
 import android.content.Context
 import android.os.Build
 import net.easyconn.gwmec.airplay.AirPlayDisplaySettings
