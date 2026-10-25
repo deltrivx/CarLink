@@ -8,6 +8,7 @@ enum class DiLinkGeneration(val key: String) {
     DILINK_3("dilink3"),
     DILINK_4("dilink4"),
     DILINK_5("dilink5"),
+    GENERIC("generic"),
     UNKNOWN("unknown");
 
     /** How the guess was made, so the guide can say how sure it is. */

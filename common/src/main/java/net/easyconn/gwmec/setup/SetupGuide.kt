@@ -11,7 +11,7 @@ object SetupGuide {
     const val STEP_DONE = 4
     const val STEP_COUNT = 5
 
-    enum class Feature { AUTO_CONNECT, LOCATION, CALLS_ON_DASHBOARD, CALL_KEYS }
+    enum class Feature { AUTO_CONNECT, LOCATION, CALLS_ON_DASHBOARD, CALL_KEYS, HUD_OUTPUT }
 
     /** TESTED: confirmed on at least one car of this generation. HIDDEN: not offered in the guide. */
     enum class Status { TESTED, EXPERIMENTAL, HIDDEN }
@@ -21,12 +21,14 @@ object SetupGuide {
     /** Claims follow docs/COMPATIBILITY.md: community reports, not a certified support list. */
     fun features(generation: DiLinkGeneration): List<Entry> {
         fun entry(feature: Feature, status: Status, needsAdb: Boolean = false) = Entry(feature, status, needsAdb)
-        val dilink3 = generation == DiLinkGeneration.DILINK_3
-            return listOf(
+        // HUD 与仪表能力并非 BYD 独有：任何车机都可尝试（实验级），BYD 各代标注为已验证。
+        val byd = generation != DiLinkGeneration.GENERIC && generation != DiLinkGeneration.UNKNOWN
+        return listOf(
             entry(Feature.AUTO_CONNECT, Status.TESTED),
             entry(Feature.LOCATION, Status.TESTED),
-            entry(Feature.CALLS_ON_DASHBOARD, if (dilink3) Status.EXPERIMENTAL else Status.HIDDEN, needsAdb = true),
-            entry(Feature.CALL_KEYS, if (dilink3) Status.EXPERIMENTAL else Status.HIDDEN, needsAdb = true),
+            entry(Feature.HUD_OUTPUT, if (byd) Status.EXPERIMENTAL else Status.EXPERIMENTAL, needsAdb = true),
+            entry(Feature.CALLS_ON_DASHBOARD, if (byd) Status.TESTED else Status.EXPERIMENTAL, needsAdb = true),
+            entry(Feature.CALL_KEYS, if (byd) Status.TESTED else Status.EXPERIMENTAL, needsAdb = true),
         ).filter { it.status != Status.HIDDEN }
     }
 

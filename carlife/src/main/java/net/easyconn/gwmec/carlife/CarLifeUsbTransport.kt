@@ -38,11 +38,11 @@ class CarLifeUsbTransport(
     override fun start(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         dispatch = onMessage
         val manager = context.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return fail("无 USB 服务")
-        val device = findAccessory(manager) ?: return fail("未发现安卓手机（AOA）。请插好数据线后重试")
+        val device = findAccessory(manager) ?: return fail("未发现USB设备，请插入安卓手机")
         if (!manager.hasPermission(device)) {
             // 车机通常预授权系统 USB；未授权时请求一次，用户确认后由调用方重试。
             manager.requestPermission(device, permissionPendingIntent())
-            return fail("等待 USB 授权（请在手机上允许）")
+            return fail("USB设备需要授权，请在弹窗中允许")
         }
         return open(manager, device)
     }
@@ -58,7 +58,7 @@ class CarLifeUsbTransport(
 
     /** 真正打开设备并启动读线程；AOA 切换指令发出后设备会重新枚举，需要等重新插入。 */
     fun open(manager: UsbManager, device: UsbDevice): Boolean {
-        val conn = manager.openDevice(device) ?: return fail("USB 设备打开失败，请重新插拔")
+        val conn = manager.openDevice(device) ?: return fail("USB设备打开失败，请重新插拔USB线")
         val iface = device.getInterface(0)
         if (!conn.claimInterface(iface, true)) {
             conn.close(); return fail("USB 接口声明失败")
@@ -77,14 +77,14 @@ class CarLifeUsbTransport(
                 AoaResult.ALREADY -> Unit
                 AoaResult.SWITCHED -> {
                     release()
-                    return fail("已发送 AOA 切换指令，手机重新识别后自动继续（若未继续请重插数据线）")
+                    return fail("已发送AOA切换指令，手机重新识别后自动继续")
                 }
-                AoaResult.UNSUPPORTED -> { release(); return fail("该手机不支持 AOA 配件模式") }
+                AoaResult.UNSUPPORTED -> { release(); return fail("该手机不支持AOA配件模式，请改用无线连接") }
             }
         }
         running = true
         readerThread = Thread({ readLoop() }, "CarLife-UsbRead").apply { start() }
-        onLog("USB 通道已建立")
+        onLog("USB设备连接成功")
         return true
     }
 
