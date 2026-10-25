@@ -29,8 +29,29 @@ jobs:
       - name: Assemble debug (host app + auto engine)
         run: ./gradlew :mobile:assembleDebug :auto:assembleDebug --stacktrace
 
+      - name: Sign debug APK with the platform key
+        env:
+          PLATFORM_PK8_BASE64: ${{ secrets.PLATFORM_PK8_BASE64 }}
+          PLATFORM_PEM_BASE64: ${{ secrets.PLATFORM_PEM_BASE64 }}
+        run: |
+          # 与 build-release 的正式包同一把飞思平台密钥：测试包与发布包签名统一，
+          # 测试设备可以直接被 Release 覆盖升级，不必卸载重装。
+          mkdir -p secrets
+          echo "$PLATFORM_PK8_BASE64" | base64 -d > secrets/platform.pk8
+          echo "$PLATFORM_PEM_BASE64" | base64 -d > secrets/platform.x509.pem
+          apksigner sign \
+            --key secrets/platform.pk8 \
+            --cert secrets/platform.x509.pem \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --min-sdk-version 21 \
+            --out dist/CarLink-debug.apk \
+            mobile/build/outputs/apk/debug/mobile-debug.apk
+          apksigner verify --verbose dist/CarLink-debug.apk
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: CarLink-debug
-          path: mobile/build/outputs/apk/debug/*.apk
+          path: dist/CarLink-debug.apk
