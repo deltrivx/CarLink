@@ -59,6 +59,15 @@ internal object CarPlayMediaKeys {
     private var initialAlbumRecovery = InitialAlbumRecovery()
     private var initialAlbumRetry: Runnable? = null
     private var controller: CarPlayController? = null
+
+    /** A steering-wheel media key captured outside the Android key stream (Geely/Lynk). */
+    internal fun onExternalMediaKey(index: Int) = send(index, "geely-wheel")
+
+    /** The steering-wheel microphone key captured outside the Android key stream (Geely/Lynk). */
+    internal fun onExternalSiriKey(): Boolean {
+        val active = synchronized(this) { controller } ?: return false
+        return runCatching { active.requestSiri() }.getOrDefault(false)
+    }
     private var session: MediaSession? = null
     private var focusRequest: AudioFocusRequestCompat? = null
     private var focusOwner: Any? = null
