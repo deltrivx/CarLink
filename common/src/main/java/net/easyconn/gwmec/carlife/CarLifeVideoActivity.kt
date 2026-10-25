@@ -64,8 +64,13 @@ class CarLifeVideoActivity : Activity() {
         frame.addView(buildConnectPanel(), FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setContentView(frame)
-        registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED))
-        registerReceiver(usbReceiver, IntentFilter(CarLifeUsbTransport.ACTION_USB_PERMISSION))
+        // Android 13+ 要求非系统广播的动态接收器显式声明可见性；
+        // 自定义 USB 授权广播只接收本应用发出的 PendingIntent。
+        val usbFilter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+        usbFilter.addAction(CarLifeUsbTransport.ACTION_USB_PERMISSION)
+        androidx.core.content.ContextCompat.registerReceiver(
+            this, usbReceiver, usbFilter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         // 已插着安卓手机（AOA 配件或常见手机 VID）时直接走有线
         val usb = getSystemService(Context.USB_SERVICE) as? UsbManager
         if (usb?.deviceList?.isNotEmpty() == true) startConnection(usb = true)
