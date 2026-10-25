@@ -41,13 +41,13 @@ class CarLifeUsbTransport(
         val device = findAccessory(manager) ?: return fail("未发现安卓手机（AOA）。请插好数据线后重试")
         if (!manager.hasPermission(device)) {
             // 车机通常预授权系统 USB；未授权时请求一次，用户确认后由调用方重试。
-            manager.requestPermission(device, android.contentPendingIntent(context, device, manager))
-            return fail("等待 USB 授权")
+            manager.requestPermission(device, permissionPendingIntent())
+            return fail("等待 USB 授权（请在手机上允许）")
         }
         return open(manager, device)
     }
 
-    private fun android.contentPendingIntent(context: Context, device: UsbDevice, manager: UsbManager): android.app.PendingIntent {
+    private fun permissionPendingIntent(): android.app.PendingIntent {
         val flags = if (android.os.Build.VERSION.SDK_INT >= 31) android.app.PendingIntent.FLAG_MUTABLE else 0
         return android.app.PendingIntent.getBroadcast(
             context, 0,

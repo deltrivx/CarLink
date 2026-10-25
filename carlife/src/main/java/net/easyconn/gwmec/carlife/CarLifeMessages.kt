@@ -49,11 +49,11 @@ object CarLifeMessages {
         val item1 = Pb.str(1, "I_FRAME_INTERVAL") + Pb.int32(2, 300)
         val item2 = Pb.str(1, "CONNECT_TYPE") + Pb.int32(2, connectType)
         val usbMtu = if (connectType == CarLifeProtocol.CONNECT_TYPE_AOA)
-            listOf(Pb.msg(2, Pb.str(1, "USB_MTU") + Pb.int32(2, 16384))) else emptyList()
-        return Pb.int32(1, 2 + usbMtu.size) +
+            Pb.msg(2, Pb.str(1, "USB_MTU") + Pb.int32(2, 16384)) else ByteArray(0)
+        return Pb.int32(1, if (usbMtu.isEmpty()) 2 else 3) +
             Pb.msg(2, item1) +
             Pb.msg(2, item2) +
-            usbMtu.joinToString("") { it } +
+            usbMtu +
             Pb.bool(3, false) +
             Pb.str(4, "CarLink") +
             Pb.str(5, "00:11:22:33:44:55")
