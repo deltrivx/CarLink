@@ -939,4 +939,5 @@
     <string name="settings_ambient_behavior_restore">Turn control off to hand the lamps back to the car’s own settings.</string>
     <string name="settings_ambient_swatch">Color %1$d</string>
     <string name="settings_ambient_swatch_selected">Color %1$d, selected</string>
+    <string name="settings_cluster_music_unknown">Unknown artist</string>
 </resources>
