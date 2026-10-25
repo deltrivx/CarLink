@@ -21,8 +21,8 @@ internal object UpdateMirror {
     /** 顺序即回退顺序，来自 2026-10-24 的实测下载测速。 */
     private val CANDIDATES = listOf("https://gh-proxy.com/", "https://ghfast.top/")
 
-    /** 检查兜底专用：会跟随重定向并在最终 URL 里回显 tag 的镜像。 */
-    internal const val CHECK_MIRROR = "https://ghfast.top/"
+    /** 检查兜底专用：会跟随重定向并在最终 URL 里回显 tag 的镜像，按序尝试。 */
+    internal val CHECK_MIRRORS = listOf("https://ghfast.top/", "https://ghproxy.net/")
 
     private fun preferences(context: Context) =
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)

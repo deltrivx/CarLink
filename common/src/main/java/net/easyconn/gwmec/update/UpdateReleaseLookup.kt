@@ -1,5 +1,6 @@
 package net.easyconn.gwmec.update
 
+import android.util.Log
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -51,20 +52,22 @@ internal object UpdateReleaseLookup {
                 connection.disconnect()
             }
         }.getOrNull()
-        val tag = directTag ?: run {
-            val connection = openConnection(URL(UpdateMirror.CHECK_MIRROR + latest)) as? HttpURLConnection
-                ?: throw IOException("Mirror request to $latest did not open an HTTP connection")
-            try {
-                connection.connectTimeout = 10_000
-                connection.readTimeout = 15_000
-                connection.setRequestProperty("User-Agent", userAgent)
-                if (connection.responseCode !in 200..299) {
-                    throw IOException("Mirror check request failed: ${connection.responseCode}")
+        val tag = directTag ?: UpdateMirror.CHECK_MIRRORS.firstNotNullOfOrNull { prefix ->
+            runCatching {
+                val connection = openConnection(URL(prefix + latest)) as? HttpURLConnection
+                    ?: throw IOException("Mirror request to $latest did not open an HTTP connection")
+                try {
+                    connection.connectTimeout = 10_000
+                    connection.readTimeout = 15_000
+                    connection.setRequestProperty("User-Agent", userAgent)
+                    if (connection.responseCode !in 200..299) {
+                        throw IOException("Mirror check request failed: ${connection.responseCode}")
+                    }
+                    tagFromUrl(connection.url.toString())
+                } finally {
+                    connection.disconnect()
                 }
-                tagFromUrl(connection.url.toString())
-            } finally {
-                connection.disconnect()
-            }
+            }.onFailure { Log.i("UpdateReleaseLookup", "check via $prefix failed", it) }.getOrNull()
         } ?: throw IOException("Could not read the latest tag from $latest")
         // 资产名与 build-release.yml 实际上传的两个包一致；泛型构建取通用包。
         val apkName = if (generic) "CarLink.apk" else "EasyConnect.apk"
