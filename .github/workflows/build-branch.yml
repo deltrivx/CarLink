@@ -39,7 +39,7 @@ jobs:
         run: |
           # 与 build-release 的正式包同一把飞思平台密钥：测试包与发布包签名统一，
           # 测试设备可以直接被 Release 覆盖升级，不必卸载重装。
-          mkdir -p secrets
+          mkdir -p secrets dist
           echo "$PLATFORM_PK8_BASE64" | base64 -d > secrets/platform.pk8
           echo "$PLATFORM_PEM_BASE64" | base64 -d > secrets/platform.x509.pem
           apksigner sign \
