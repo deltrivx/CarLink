@@ -2744,7 +2744,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 apkFile
             }.onFailure { directory.deleteRecursively() }
             val saved = outcome.getOrNull()?.let { UpdateApkExport.copy(applicationContext, it) }
-            val savedPath = saved?.file
+            val savedPath = saved?.path
             updateDownloading = false
             runOnUiThread {
                 if (generation != updateGeneration || isFinishing || isDestroyed) {
