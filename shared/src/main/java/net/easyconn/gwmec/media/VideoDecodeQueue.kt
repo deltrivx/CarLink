@@ -89,6 +89,9 @@ internal class VideoDecodeQueue(
 }
 
 /** Drain output while waiting for input: full output buffers can otherwise starve input forever. Video and audio decoders share it. */
+/** CarLink 定制的 AndroidMediaSink 仍按 v0.2.17 的名字调用；别名保持两侧同步。 */
+internal typealias VideoInputPump = DecoderInputPump
+
 internal object DecoderInputPump {
     fun acquire(
         running: () -> Boolean,

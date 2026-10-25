@@ -76,6 +76,7 @@ data class AirPlayConfig(
      * version or absent MediaCodec encoder alone must not remove the wireless Opus formats.
      */
     val microphoneOpus: Boolean = true,
+    val speechWithout8And16Khz: Boolean = false,
     val manufacturer: String = "xcertplay",
     val model: String = "xcertplay",
     val oemLabel: String = "xcertplay",
