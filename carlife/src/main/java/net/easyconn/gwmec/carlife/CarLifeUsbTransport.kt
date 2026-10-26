@@ -83,7 +83,7 @@ class CarLifeUsbTransport(
             }
         }
         running = true
-        readerThread = Thread({ readLoop() }, "CarLife-UsbRead").apply { start() }
+        readerThread = Thread({ rawProbe(onMessage) }, "CarLife-UsbRead").apply { start() }
         onLog("USB设备连接成功")
         return true
     }
@@ -209,6 +209,38 @@ class CarLifeUsbTransport(
     }
 
     private fun fail(msg: String): Boolean { onLog(msg); return false }
+
+
+    /** 原始捕获：纯监听盒子主动发出的字节，hex 打印用于确认线上帧格式。 */
+    private fun rawProbe(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit) {
+        val conn = connection ?: return
+        val ep = endpointIn ?: return
+        val buf = ByteArray(2048)
+        var silent = 0
+        try {
+            while (running && silent < 8) {
+                val n = conn.bulkTransfer(ep, buf, buf.size, 1000)
+                if (n > 0) {
+                    val hex = buf.take(n).joinToString(" ") { "%02X".format(it) }
+                    onLog("RX ${n}B: " + hex.take(160))
+                    silent = 0
+                } else silent++
+            }
+            // 静默期结束：按 v0.2.17 反编译的 USB 帧（u32LE ch + u32LE size + body）发版本协商
+            val payload = CarLifeMessages.protocolVersion(4, 0)
+            val frame = leBytes(CarLifeProtocol.CHANNEL_CMD) + leBytes(payload.size) + payload
+            conn.bulkTransfer(endpointOut ?: return, frame, frame.size, 3000)
+            onLog("TX(C) ${frame.size}B: " + frame.take(24).joinToString(" ") { "%02X".format(it) })
+            while (running) {
+                val n = conn.bulkTransfer(ep, buf, buf.size, 1000)
+                if (n > 0) {
+                    onLog("RX ${n}B: " + buf.take(n).joinToString(" ") { "%02X".format(it) }.take(200))
+                }
+            }
+        } catch (e: Exception) {
+            if (running) onLog("probe 异常: ${e.message}")
+        }
+    }
 
     companion object {
         const val ACTION_USB_PERMISSION = "net.easyconn.gwmec.carlife.USB_PERMISSION"
