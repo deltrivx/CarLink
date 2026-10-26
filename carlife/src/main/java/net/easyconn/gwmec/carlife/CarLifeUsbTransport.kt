@@ -226,22 +226,26 @@ class CarLifeUsbTransport(
                     silent = 0
                 } else silent++
             }
-            // 探测两种帧格式：先 D（USB 头 + BE 协议头带 serviceType），无应答再试 C
+            // 变体 E：原 SDK CarLifeMessage.D(true) 的精确字节序
+            // 帧 = [u32BE channel][u32BE (innerSize+len)] [innerSize 字节内头] [protobuf]
+            // 内头：ch1/6 = u16BE len + 6B 零；其他 = u32BE len + 8B 零
             val payload = CarLifeMessages.protocolVersion(4, 0)
             val beHeader = byteArrayOf(
                 0x01, 0x00, 0x00, 0x00,  // u16BE channel=1, u16BE rsv
                 0x00, 0x80.toByte(), 0x01, 0x00,  // u32BE serviceType = 98305 (0x18001)
             )
-            val frameD = leBytes(CarLifeProtocol.CHANNEL_CMD) + leBytes(beHeader.size + payload.size) + beHeader + payload
-            conn.bulkTransfer(endpointOut ?: return, frameD, frameD.size, 3000)
-            onLog("TX(D) ${frameD.size}B: " + frameD.take(28).joinToString(" ") { "%02X".format(it) })
-            for (k in 1..6) {
+            val inner = byteArrayOf(0x00, 0x04) + ByteArray(6)  // ch1/6: u16BE len=4 + 6B 零
+            val innerTotal = inner.size + payload.size          // 8 + 4 = 12
+            val be = ByteArray(8)
+            be[3] = 0x01                                        // channel=1 u32BE
+            be[7] = innerTotal.toByte()                         // total=12 u32BE
+            val frameE = be + inner + payload
+            conn.bulkTransfer(endpointOut ?: return, frameE, frameE.size, 3000)
+            onLog("TX(E) ${frameE.size}B: " + frameE.joinToString(" ") { "%02X".format(it) })
+            for (k in 1..8) {
                 val n = conn.bulkTransfer(ep, buf, buf.size, 1000)
-                if (n > 0) { onLog("RX(D响应) ${n}B: " + buf.take(n).joinToString(" ") { "%02X".format(it) }.take(200)); return }
+                if (n > 0) { onLog("RX(E响应) ${n}B: " + buf.take(n).joinToString(" ") { "%02X".format(it) }.take(220)); return }
             }
-            val frameC = leBytes(CarLifeProtocol.CHANNEL_CMD) + leBytes(payload.size) + payload
-            conn.bulkTransfer(endpointOut ?: return, frameC, frameC.size, 3000)
-            onLog("TX(C) ${frameC.size}B: " + frameC.take(24).joinToString(" ") { "%02X".format(it) })
             while (running) {
                 val n = conn.bulkTransfer(ep, buf, buf.size, 1000)
                 if (n > 0) {
