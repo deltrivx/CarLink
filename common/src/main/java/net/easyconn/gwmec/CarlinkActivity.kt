@@ -2582,7 +2582,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private fun showCarLifeIpDialog() {
         val input = android.widget.EditText(this).apply {
             hint = getString(R.string.carlife_ip_hint)
-            singleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
         }
         val frame = android.widget.FrameLayout(this).apply {
             setPadding(dp(24), dp(8), dp(24), 0)
