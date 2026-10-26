@@ -37,7 +37,7 @@ object CarLifeCenter {
         if (session != null) return
         attach(context)
         mode = "wifi"
-        val transport = CarLifeWifiTransport { line -> log(line) }
+        val transport = CarLifeWifiTransport(::log, fixedPhoneIp = ip)
         session = CarLifeSession(transport, CarLifeProtocol.CONNECT_TYPE_WIFI, listener = CenterListener)
         session?.let { Thread({ it.start() }, "CarLife-Center-Connect").start() }
     }
