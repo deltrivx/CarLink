@@ -148,10 +148,12 @@ class CarLifeVideoActivity : ComponentActivity() {
         if (viewAspect > videoAspect) {
             val renderedW = viewH * videoAspect
             offsetX = (viewW - renderedW) / 2f
+            offsetY = 0f
             scaleX = videoWidth / renderedW
             scaleY = videoHeight / viewH
         } else {
             val renderedH = viewW / videoAspect
+            offsetX = 0f
             offsetY = (viewH - renderedH) / 2f
             scaleX = videoWidth / viewW
             scaleY = videoHeight / renderedH
