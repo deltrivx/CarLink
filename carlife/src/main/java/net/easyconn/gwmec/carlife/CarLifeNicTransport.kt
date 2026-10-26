@@ -9,10 +9,7 @@ import kotlin.concurrent.thread
 /**
  * CarLife USB 网卡传输（AutoBox 类盒子）：
  * 盒子向车机枚举为 USB hub + RTL8153 网卡，CarLife 手机端服务在盒子的 IP 上
- * 监听 7240 等通道端口。本传输：
- * 1. 等待 USB 网卡（eth*）出现并拿到载波/IPv4（root 下可强制 link up）；
- * 2. 扫描所在 /24 网段找 7240 端口（先试网关，再扫全网段）；
- * 3. 找到后按标准 7 通道 TCP 会话连接（与 WiFi 相同的收发帧）。
+ * 监听 7240 等通道端口。本传输：等网卡载波/IPv4 → 扫 /24 找 7240 → 标准会话。
  */
 class CarLifeNicTransport(
     private val context: Context,
@@ -22,7 +19,6 @@ class CarLifeNicTransport(
     private val sockets = HashMap<Int, Socket>()
     private val outputs = HashMap<Int, java.io.BufferedOutputStream>()
     private var videoSeq = 0
-    private var boundInterface: NetworkInterface? = null
 
     override fun start(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         if (running) return true
@@ -30,13 +26,11 @@ class CarLifeNicTransport(
         thread(name = "CarLife-NicWait") {
             val nic = waitNic()
             if (nic == null) { onLog("未检测到盒子的USB网卡（eth*）"); return@thread }
-            onLog("USB网卡已就绪：${nic.name} ${nic.inetAddresses.toList().firstOrNull() ?: ""}")
+            onLog("USB网卡已就绪：${nic.name}")
             val boxIp = findBox(nic)
             if (boxIp == null) { onLog("未在网段内发现盒子的 CarLife 服务（7240）"); return@thread }
             onLog("发现盒子服务：$boxIp")
-            if (connectChannels(boxIp, onMessage)) {
-                onLog("盒子连接成功")
-            }
+            connectChannels(boxIp, onMessage)
         }
         return true
     }
@@ -50,7 +44,6 @@ class CarLifeNicTransport(
                 val hasV4 = nif.inetAddresses.toList().any { it.address.size == 4 && !it.isLoopbackAddress }
                 if (hasV4) return nif
             }
-            // root 强制拉起（有 root 时框架未自动 DHCP 也能手动补）
             runCatching {
                 val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "ip link set eth0 up"))
                 p.waitFor()
@@ -60,25 +53,30 @@ class CarLifeNicTransport(
         return null
     }
 
-    /** 在网卡的 IPv4 网段内找监听 7240 的盒子：先扫常见网关地址再扫全网段。 */
+    /** 在网卡的 IPv4 网段内找监听 7240 的盒子。 */
     private fun findBox(nic: NetworkInterface): String? {
         val self = nic.inetAddresses.toList().firstOrNull { it.address.size == 4 } ?: return null
-        val bytes = self.address
-        val subnet = "${bytes[0].toInt() and 0xFF}.${bytes[1].toInt() and 0xFF}.${bytes[2].toInt() and 0xFF}."
-        val selfIp = subnet + (bytes[3].toInt() and 0xFF)
-        val candidates = mutableListOf("$subnet.1", "$subnet.2")
-        for (i in 1..254) { val ip = "$subnet.$i"; if (ip != selfIp && ip !in candidates) candidates.add(ip) }
-        onLog("扫描盒子网段 $subnet.0/24（7240 端口）…")
+        val b = self.address
+        val subnet = (b[0].toInt() and 0xFF).toString() + "." + (b[1].toInt() and 0xFF) + "." + (b[2].toInt() and 0xFF) + "."
+        val selfIp = subnet + (b[3].toInt() and 0xFF)
+        val candidates = mutableListOf(subnet + "1", subnet + "2")
+        for (i in 1..254) {
+            val ip = subnet + i
+            if (ip != selfIp && ip !in candidates) candidates.add(ip)
+        }
+        onLog("扫描盒子网段 " + subnet + "0/24（7240 端口）…")
         val found = java.util.Collections.synchronizedList(mutableListOf<String>())
         val pool = java.util.concurrent.Executors.newFixedThreadPool(48)
-        val futures = candidates.map { ip ->
-            pool.submit(java.lang.Runnable {
-                val s = Socket(); s.setSoTimeout(1500)
+        val tasks = candidates.map { ip ->
+            java.lang.Runnable {
+                val s = Socket()
+                s.setSoTimeout(1500)
                 try { s.connect(InetSocketAddress(ip, 7240), 1500); found.add(ip) } catch (_: Exception) {} finally { runCatching { s.close() } }
-            } })
+            }
         }
-        futures.forEach { runCatching { it.get() } }
+        tasks.forEach { pool.submit(it) }
         pool.shutdown()
+        while (!pool.isTerminated) Thread.sleep(100)
         return found.firstOrNull()
     }
 
@@ -93,11 +91,11 @@ class CarLifeNicTransport(
                     outputs[ch] = java.io.BufferedOutputStream(s.getOutputStream(), 1 shl 16)
                 }
             } catch (e: Exception) {
-                onLog("通道 $ch 连接失败: ${e.message}"); stop(); return false
+                onLog("通道 " + ch + " 连接失败: " + e.message); stop(); return false
             }
         }
         CarLifeProtocol.ALL_CHANNELS.forEach { (ch, _) ->
-            thread(name = "CarLife-NicRead-$ch") { readLoop(ch, onMessage) }
+            thread(name = "CarLife-NicRead-" + ch) { readLoop(ch, onMessage) }
         }
         return true
     }
@@ -115,8 +113,10 @@ class CarLifeNicTransport(
                 val payload = if (len > 0) ByteArray(len).also { if (!readFully(input, it)) return } else ByteArray(0)
                 onMessage(channel, serviceType, payload)
             }
-        } catch (e: Exception) { if (running) onLog("通道 $channel 读取异常: ${e.message}") }
-        if (running) { onLog("通道 $channel 断开"); stop() }
+        } catch (e: Exception) {
+            if (running) onLog("通道 " + channel + " 读取异常: " + e.message)
+        }
+        if (running) { onLog("通道 " + channel + " 断开"); stop() }
     }
 
     private fun readFully(input: java.io.InputStream, buf: ByteArray): Boolean {
@@ -136,7 +136,11 @@ class CarLifeNicTransport(
             out.write(CarLifeProtocol.pack(channel, serviceType, payload, seq))
             out.flush()
             true
-        } catch (e: Exception) { onLog("发送失败(通道$channel): ${e.message}"); stop(); false }
+        } catch (e: Exception) {
+            onLog("发送失败(通道" + channel + "): " + e.message)
+            stop()
+            false
+        }
     }
 
     override fun stop() {
