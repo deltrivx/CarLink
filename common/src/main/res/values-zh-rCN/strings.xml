@@ -899,6 +899,7 @@
     <string name="carlife_disconnect">断开</string>
     <string name="carlife_state_idle">未连接</string>
     <string name="carlife_state_connecting">连接中…</string>
+    <string name="carlife_state_connected">已连接</string>
     <string name="carlife_mode_usb">方式：USB 有线（AOA）</string>
     <string name="carlife_mode_wifi">方式：无线（车机热点 / 同一网络）</string>
     <string name="carlife_mode_none">请选择连接方式</string>
