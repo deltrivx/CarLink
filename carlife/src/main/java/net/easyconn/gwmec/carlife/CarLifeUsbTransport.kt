@@ -44,7 +44,7 @@ class CarLifeUsbTransport(
             manager.requestPermission(device, permissionPendingIntent())
             return fail("USB设备需要授权，请在弹窗中允许")
         }
-        return open(manager, device)
+        return open(manager, device, onMessage)
     }
 
     private fun permissionPendingIntent(): android.app.PendingIntent {
@@ -57,7 +57,7 @@ class CarLifeUsbTransport(
     }
 
     /** 真正打开设备并启动读线程；AOA 切换指令发出后设备会重新枚举，需要等重新插入。 */
-    fun open(manager: UsbManager, device: UsbDevice): Boolean {
+    fun open(manager: UsbManager, device: UsbDevice, onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         val conn = manager.openDevice(device) ?: return fail("USB设备打开失败，请重新插拔USB线")
         val iface = device.getInterface(0)
         if (!conn.claimInterface(iface, true)) {
