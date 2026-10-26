@@ -3,6 +3,7 @@ package net.easyconn.gwmec.carlife
 import android.content.Context
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.net.Socket
 import kotlin.concurrent.thread
 
 /**
@@ -63,7 +64,7 @@ class CarLifeNicTransport(
     private fun findBox(nic: NetworkInterface): String? {
         val self = nic.inetAddresses.toList().firstOrNull { it.address.size == 4 } ?: return null
         val bytes = self.address
-        val subnet = "${bytes[0] and 0xFF}.${bytes[1] and 0xFF}.${bytes[2] and 0xFF}."
+        val subnet = "${bytes[0].toInt() and 0xFF}.${bytes[1].toInt() and 0xFF}.${bytes[2].toInt() and 0xFF}."
         val selfIp = subnet + (bytes[3].toInt() and 0xFF)
         val candidates = mutableListOf("$subnet.1", "$subnet.2")
         for (i in 1..254) { val ip = "$subnet.$i"; if (ip != selfIp && ip !in candidates) candidates.add(ip) }
@@ -71,10 +72,10 @@ class CarLifeNicTransport(
         val found = java.util.Collections.synchronizedList(mutableListOf<String>())
         val pool = java.util.concurrent.Executors.newFixedThreadPool(48)
         val futures = candidates.map { ip ->
-            pool.submit {
+            pool.submit(java.lang.Runnable {
                 val s = Socket(); s.setSoTimeout(1500)
                 try { s.connect(InetSocketAddress(ip, 7240), 1500); found.add(ip) } catch (_: Exception) {} finally { runCatching { s.close() } }
-            }
+            } })
         }
         futures.forEach { runCatching { it.get() } }
         pool.shutdown()
@@ -106,7 +107,7 @@ class CarLifeNicTransport(
         val headerSize = CarLifeProtocol.headerSize(channel)
         val header = ByteArray(headerSize)
         try {
-            val input = s.getInputStream()
+            val input: java.io.InputStream = s.getInputStream()
             while (running) {
                 if (!readFully(input, header)) break
                 val (len, ts, serviceType) = CarLifeProtocol.parseHeader(channel, header)
