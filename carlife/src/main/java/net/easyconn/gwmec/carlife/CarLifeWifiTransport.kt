@@ -24,7 +24,7 @@ class CarLifeWifiTransport(
         running = true
         if (fixedPhoneIp != null) {
             thread(name = "CarLife-DirectIp") { connectChannels(fixedPhoneIp, onMessage) }
-            return
+            return true
         }
         thread(name = "CarLife-UdpListen") {
             val sock = java.net.DatagramSocket(CarLifeProtocol.UDP_DISCOVERY_PORT)

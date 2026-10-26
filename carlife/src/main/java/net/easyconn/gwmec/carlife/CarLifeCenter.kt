@@ -47,9 +47,9 @@ object CarLifeCenter {
         attach(context)
         mode = if (usb) "usb" else "wifi"
         val transport: CarLifeTransport = if (usb) {
-            CarLifeUsbTransport(context.applicationContext) { line -> log(line) }
+            CarLifeUsbTransport(context.applicationContext, ::log)
         } else {
-            CarLifeWifiTransport { line -> log(line) }
+            CarLifeWifiTransport(::log)
         }
         val connectType = if (usb) CarLifeProtocol.CONNECT_TYPE_AOA else CarLifeProtocol.CONNECT_TYPE_WIFI
         val s = CarLifeSession(transport, connectType, listener = CenterListener)
