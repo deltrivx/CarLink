@@ -2488,32 +2488,54 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private var carLifeLogBox: LinearLayout? = null
     private var carLifeConnectedOnce = false
 
+    private var carLifeProgress: android.widget.ProgressBar? = null
+
     private fun carlife(content: LinearLayout) {
         content.addView(label(getString(R.string.carlife_page_title), 40, TEXT, true))
         content.addView(label(getString(R.string.carlife_page_subtitle), 20, MUTED).apply { setPadding(0, dp(8), 0, dp(24)) })
         section(content, getString(R.string.carlife_section_connection)) { card ->
-            carLifeStatus = label(carLifeStatusText(), 17, TEXT).also { card.addView(it) }
-            card.addView(label(carLifeModeText(), 13, MUTED).apply { setPadding(0, dp(6), 0, dp(12)) })
+            // 与主页同款的帧：状态行 / 进度条 / 动作行，随连接状态切换。
+            carLifeStatus = label(carLifeStatusText(), 15, TEXT, true).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, dp(3), 0, 0)
+            }.also { card.addView(it) }
+            carLifeProgress = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 100; progress = 0; isIndeterminate = false; visibility = View.GONE
+            }.also { bar -> card.addView(bar, LinearLayout.LayoutParams(dp(200), dp(3)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(11) }) }
             val actions = row().apply { gravity = Gravity.CENTER }
             fun add(view: View, first: Boolean = false) {
                 if (!first) actions.addView(ghostDivider(), LinearLayout.LayoutParams(dp(1), dp(18)).apply { gravity = Gravity.CENTER })
                 actions.addView(view, LinearLayout.LayoutParams(-2, dp(if (isCompactLayout) 44 else 52)).apply { gravity = Gravity.CENTER })
             }
-            if (CarLifeCenter.session == null) {
-                add(ghostAction(getString(R.string.carlife_connect_usb), primary = false) {
-                    CarLifeCenter.connect(this, usb = true, nic = true); render()
-                }, first = true)
-                add(ghostAction(getString(R.string.carlife_connect_wireless), primary = true) {
-                    CarLifeCenter.connect(this, usb = false); render()
-                })
-                add(ghostAction(getString(R.string.carlife_connect_ip), primary = false) { showCarLifeIpDialog() })
-            } else {
-                add(ghostAction(getString(R.string.carlife_open_projection), primary = true) {
-                    startActivity(Intent(this, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
-                }, first = true)
-                add(ghostAction(getString(R.string.carlife_disconnect), primary = false, danger = true) {
-                    CarLifeCenter.disconnect(); render()
-                })
+            when {
+                CarLifeCenter.session == null -> {
+                    add(ghostAction(getString(R.string.carlife_connect_usb), primary = true) {
+                        CarLifeCenter.connect(this, usb = true, nic = true); render()
+                    }, first = true)
+                    add(ghostAction(getString(R.string.carlife_connect_wireless), primary = false) {
+                        CarLifeCenter.connect(this, usb = false); render()
+                    })
+                    add(ghostAction(getString(R.string.carlife_connect_ip), primary = false) { showCarLifeIpDialog() })
+                    add(ghostAction(getString(R.string.settings)) { page = "settings"; render() })
+                }
+                CarLifeCenter.session?.running == true -> {
+                    carLifeProgress?.visibility = View.VISIBLE
+                    carLifeProgress?.isIndeterminate = true
+                    statusLine?.let { }
+                    if (carLifeStatus?.parent == null) { /* 状态行已在卡首 */ }
+                    add(ghostAction(getString(R.string.carlife_open_projection), primary = true) {
+                        startActivity(Intent(this, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
+                    }, first = true)
+                    add(ghostAction(getString(R.string.carlife_disconnect), primary = false, danger = true) {
+                        CarLifeCenter.disconnect(); render()
+                    })
+                }
+                else -> {
+                    add(ghostAction(getString(R.string.carlife_connect_usb), primary = true) {
+                        CarLifeCenter.connect(this, usb = true, nic = true); render()
+                    }, first = true)
+                }
             }
             card.addView(actions)
         }
@@ -2532,6 +2554,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             override fun onState(state: String) {
                 runOnUiThread {
                     carLifeStatus?.text = carLifeStatusText()
+                    carLifeProgress?.visibility = if (state.contains("已连接")) View.GONE else View.VISIBLE
+                    if (state.contains("已连接")) carLifeProgress?.isIndeterminate = false
                     if (state.contains("已连接") && !carLifeConnectedOnce) {
                         carLifeConnectedOnce = true
                         startActivity(Intent(this@CarlinkActivity, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
