@@ -226,11 +226,22 @@ class CarLifeUsbTransport(
                     silent = 0
                 } else silent++
             }
-            // 静默期结束：按 v0.2.17 反编译的 USB 帧（u32LE ch + u32LE size + body）发版本协商
+            // 探测两种帧格式：先 D（USB 头 + BE 协议头带 serviceType），无应答再试 C
             val payload = CarLifeMessages.protocolVersion(4, 0)
-            val frame = leBytes(CarLifeProtocol.CHANNEL_CMD) + leBytes(payload.size) + payload
-            conn.bulkTransfer(endpointOut ?: return, frame, frame.size, 3000)
-            onLog("TX(C) ${frame.size}B: " + frame.take(24).joinToString(" ") { "%02X".format(it) })
+            val beHeader = byteArrayOf(
+                0x01, 0x00, 0x00, 0x00,  // u16BE channel=1, u16BE rsv
+                0x00, 0x80, 0x01, 0x00,  // u32BE serviceType = 98305 (0x18001)
+            )
+            val frameD = leBytes(CarLifeProtocol.CHANNEL_CMD) + leBytes(beHeader.size + payload.size) + beHeader + payload
+            conn.bulkTransfer(endpointOut ?: return, frameD, frameD.size, 3000)
+            onLog("TX(D) ${frameD.size}B: " + frameD.take(28).joinToString(" ") { "%02X".format(it) })
+            for (k in 1..6) {
+                val n = conn.bulkTransfer(ep, buf, buf.size, 1000)
+                if (n > 0) { onLog("RX(D响应) ${n}B: " + buf.take(n).joinToString(" ") { "%02X".format(it) }.take(200)); return }
+            }
+            val frameC = leBytes(CarLifeProtocol.CHANNEL_CMD) + leBytes(payload.size) + payload
+            conn.bulkTransfer(endpointOut ?: return, frameC, frameC.size, 3000)
+            onLog("TX(C) ${frameC.size}B: " + frameC.take(24).joinToString(" ") { "%02X".format(it) })
             while (running) {
                 val n = conn.bulkTransfer(ep, buf, buf.size, 1000)
                 if (n > 0) {
