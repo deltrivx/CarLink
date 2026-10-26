@@ -56,8 +56,49 @@ class CarLifeUsbTransport(
         )
     }
 
+    /** 记录用于自动重连的上下文（盒子/手机在 AOA 建立初期会多次重置）。 */
+    private var reconnectManager: UsbManager? = null
+    private var reconnectDevice: UsbDevice? = null
+    private var reconnectAttempts = 0
+
+    /**
+     * 读取结束后的韧性重连：原版对盒子的实际行为是读取失败 → resetDevice →
+     * 重新 open，若干轮后数据通路才稳定。这里复刻同样的循环。
+     */
+    private fun scheduleReconnect() {
+        if (!running) return
+        val manager = reconnectManager ?: return
+        if (reconnectAttempts >= MAX_RECONNECT) { onLog("USB 重连次数用尽"); stop(); return }
+        reconnectAttempts++
+        val attempt = reconnectAttempts
+        onLog("USB 断开，重连第 $attempt/$MAX_RECONNECT 次…")
+        thread(name = "CarLife-UsbReconnect") {
+            Thread.sleep(1200L)
+            if (!running) return@thread
+            release()
+            val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
+                ?: manager.deviceList.values.firstOrNull { it == reconnectDevice }
+                ?: manager.deviceList.values.firstOrNull()
+            if (fresh == null) { onLog("USB 设备已拔出"); stop(); return@thread }
+            reconnectDevice = fresh
+            if (open(manager, fresh, onMessageSink ?: return@thread)) {
+                reconnectAttempts = 0
+                onLog("USB 已重连，继续握手")
+                // 重连成功后重新发起版本协商
+                dispatch?.let { d -> d(CarLifeProtocol.CHANNEL_CMD, CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 0)) }
+            } else {
+                scheduleReconnect()
+            }
+        }
+    }
+
+    @Volatile private var onMessageSink: ((Int, Int, ByteArray) -> Unit)? = null
+
     /** 真正打开设备并启动读线程；AOA 切换指令发出后设备会重新枚举，需要等重新插入。 */
-    fun open(manager: UsbManager, device: UsbDevice): Boolean {
+    fun open(manager: UsbManager, device: UsbDevice, onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit = { _, _, _ -> }): Boolean {
+        reconnectManager = manager
+        reconnectDevice = device
+        onMessageSink = onMessage
         val conn = manager.openDevice(device) ?: return fail("USB设备打开失败，请重新插拔USB线")
         val iface = device.getInterface(0)
         if (!conn.claimInterface(iface, true)) {
@@ -135,7 +176,7 @@ class CarLifeUsbTransport(
         } catch (e: Exception) {
             if (running) onLog("USB 读取异常: ${e.message}")
         }
-        if (running) { onLog("USB 读取结束"); stop() }
+        if (running) { onLog("USB 读取结束"); scheduleReconnect() }
     }
 
     /**
@@ -220,6 +261,7 @@ class CarLifeUsbTransport(
         val PHONE_VID_HINTS = setOf(0x04E8, 0x2717, 0x12D1, 0x22D9, 0x2A70, 0x18D1, 0x0BB4, 0x054C)
         private const val MAX_MESSAGE = 64 * 1024 * 1024
         private const val TOTAL_TIMEOUT_NS = 30_000_000_000L
+        private const val MAX_RECONNECT = 12
 
         fun leBytes(v: Int) = byteArrayOf(
             v.toByte(), (v ushr 8).toByte(), (v ushr 16).toByte(), (v ushr 24).toByte())
