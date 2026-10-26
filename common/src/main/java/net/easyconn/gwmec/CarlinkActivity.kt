@@ -2517,13 +2517,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                         CarLifeCenter.connect(this, usb = false); render()
                     })
                     add(ghostAction(getString(R.string.carlife_connect_ip), primary = false) { showCarLifeIpDialog() })
-                    add(ghostAction(getString(R.string.settings)) { page = "settings"; render() })
+                    add(ghostAction(getString(R.string.settings), primary = false) { page = "settings"; render() })
                 }
                 CarLifeCenter.session?.running == true -> {
                     carLifeProgress?.visibility = View.VISIBLE
                     carLifeProgress?.isIndeterminate = true
-                    statusLine?.let { }
-                    if (carLifeStatus?.parent == null) { /* 状态行已在卡首 */ }
                     add(ghostAction(getString(R.string.carlife_open_projection), primary = true) {
                         startActivity(Intent(this, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
                     }, first = true)
