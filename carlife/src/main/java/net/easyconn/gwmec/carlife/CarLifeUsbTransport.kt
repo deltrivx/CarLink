@@ -212,7 +212,7 @@ class CarLifeUsbTransport(
 
 
     /** 原始捕获：纯监听盒子主动发出的字节，hex 打印用于确认线上帧格式。 */
-    private fun rawProbe(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit) {
+    private fun rawProbe(@Suppress("UNUSED_PARAMETER") onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit) {
         val conn = connection ?: return
         val ep = endpointIn ?: return
         val buf = ByteArray(2048)
