@@ -230,7 +230,7 @@ class CarLifeUsbTransport(
             val payload = CarLifeMessages.protocolVersion(4, 0)
             val beHeader = byteArrayOf(
                 0x01, 0x00, 0x00, 0x00,  // u16BE channel=1, u16BE rsv
-                0x00, 0x80, 0x01, 0x00,  // u32BE serviceType = 98305 (0x18001)
+                0x00, 0x80.toByte(), 0x01, 0x00,  // u32BE serviceType = 98305 (0x18001)
             )
             val frameD = leBytes(CarLifeProtocol.CHANNEL_CMD) + leBytes(beHeader.size + payload.size) + beHeader + payload
             conn.bulkTransfer(endpointOut ?: return, frameD, frameD.size, 3000)
