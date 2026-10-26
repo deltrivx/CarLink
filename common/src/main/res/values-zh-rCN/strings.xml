@@ -893,7 +893,7 @@
     <string name="carlife_section_connection">连接</string>
     <string name="carlife_section_log">日志</string>
     <string name="carlife_section_help">连接方法</string>
-    <string name="carlife_connect_usb">USB 有线连接</string>
+    <string name="carlife_connect_usb">USB 连接（手机 / 盒子）</string>
     <string name="carlife_connect_wireless">无线连接</string>
     <string name="carlife_open_projection">进入投屏</string>
     <string name="carlife_disconnect">断开</string>
@@ -909,4 +909,6 @@
     <string name="setup_feature_hud_description">车机具备 HUD 时把转向诱导投射到 HUD。非 BYD 车机为实验性支持。</string>
     <string name="carlife_connect_ip">指定 IP 直连</string>
     <string name="carlife_ip_hint">手机或盒子 IP，如 192.168.31.50</string>
+    <string name="carlife_mode_nic">方式：盒子（USB 网络）</string>
+    <string name="carlife_connect_box">盒子（USB 网络）</string>
 </resources>

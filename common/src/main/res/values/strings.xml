@@ -945,7 +945,7 @@
     <string name="carlife_section_connection">Connection</string>
     <string name="carlife_section_log">Log</string>
     <string name="carlife_section_help">How to connect</string>
-    <string name="carlife_connect_usb">USB cable</string>
+    <string name="carlife_connect_usb">USB (phone / box)</string>
     <string name="carlife_connect_wireless">Wireless</string>
     <string name="carlife_open_projection">Open projection</string>
     <string name="carlife_disconnect">Disconnect</string>
@@ -961,4 +961,6 @@
     <string name="setup_feature_hud_description">Project turn guidance to the car HUD when the head unit exposes one. Experimental outside BYD.</string>
     <string name="carlife_connect_ip">Connect by IP</string>
     <string name="carlife_ip_hint">Phone or box IP, e.g. 192.168.31.50</string>
+    <string name="carlife_mode_nic">Mode: box (USB network)</string>
+    <string name="carlife_connect_box">Box (USB network)</string>
 </resources>

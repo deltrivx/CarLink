@@ -42,16 +42,20 @@ object CarLifeCenter {
         session?.let { Thread({ it.start() }, "CarLife-Center-Connect").start() }
     }
 
-    fun connect(context: Context, usb: Boolean) {
+    fun connect(context: Context, usb: Boolean, nic: Boolean = false) {
         if (session != null) return
         attach(context)
-        mode = if (usb) "usb" else "wifi"
-        val transport: CarLifeTransport = if (usb) {
-            CarLifeUsbTransport(context.applicationContext, ::log)
-        } else {
-            CarLifeWifiTransport(::log)
+        mode = if (usb) "usb" else if (nic) "nic" else "wifi"
+        val transport: CarLifeTransport = when {
+            usb -> CarLifeUsbTransport(context.applicationContext, ::log)
+            nic -> CarLifeNicTransport(context.applicationContext, ::log)
+            else -> CarLifeWifiTransport(::log)
         }
-        val connectType = if (usb) CarLifeProtocol.CONNECT_TYPE_AOA else CarLifeProtocol.CONNECT_TYPE_WIFI
+        val connectType = when {
+            usb -> CarLifeProtocol.CONNECT_TYPE_AOA
+            nic -> CarLifeProtocol.CONNECT_TYPE_AOA  // 盒子对手机角色仍为配件语义
+            else -> CarLifeProtocol.CONNECT_TYPE_WIFI
+        }
         val s = CarLifeSession(transport, connectType, listener = CenterListener)
         session = s
         if (usb) watchUsbPermission(context.applicationContext)

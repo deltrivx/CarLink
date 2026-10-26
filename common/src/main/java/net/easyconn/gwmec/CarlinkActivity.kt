@@ -2501,7 +2501,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             }
             if (CarLifeCenter.session == null) {
                 add(ghostAction(getString(R.string.carlife_connect_usb), primary = false) {
-                    CarLifeCenter.connect(this, usb = true); render()
+                    CarLifeCenter.connect(this, usb = true, nic = true); render()
                 }, first = true)
                 add(ghostAction(getString(R.string.carlife_connect_wireless), primary = true) {
                     CarLifeCenter.connect(this, usb = false); render()
@@ -2552,12 +2552,17 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     }
 
     private fun carLifeStatusText(): String {
+        // 与 CarPlay 主界面同款三态帧：一切就绪 / 连接中 / 已连接
         val s = CarLifeCenter.session ?: return getString(R.string.carlife_state_idle)
-        return if (s.running) getString(R.string.carlife_state_connecting) else getString(R.string.carlife_state_idle)
+        return when {
+            !s.running -> getString(R.string.carlife_state_idle)
+            else -> getString(R.string.carlife_state_connecting)
+        }
     }
 
     private fun carLifeModeText(): String = when (CarLifeCenter.mode) {
         "usb" -> getString(R.string.carlife_mode_usb)
+        "nic" -> getString(R.string.carlife_mode_nic)
         "wifi" -> getString(R.string.carlife_mode_wifi)
         else -> getString(R.string.carlife_mode_none)
     }
