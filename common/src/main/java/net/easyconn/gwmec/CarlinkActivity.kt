@@ -2506,6 +2506,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 add(ghostAction(getString(R.string.carlife_connect_wireless), primary = true) {
                     CarLifeCenter.connect(this, usb = false); render()
                 })
+                add(ghostAction(getString(R.string.carlife_connect_ip), primary = false) { showCarLifeIpDialog() })
             } else {
                 add(ghostAction(getString(R.string.carlife_open_projection), primary = true) {
                     startActivity(Intent(this, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
@@ -2523,12 +2524,14 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         section(content, getString(R.string.carlife_section_help)) { card ->
             card.addView(label(getString(R.string.carlife_help_body), 15, MUTED))
         }
-        // 会话事件驱动页面刷新；连接成功一次后直接进投屏。
-        CarLifeCenter.onLogLine = { _ -> runOnUiThread { if (page == "carlife") render() } }
+        // 会话事件驱动局部刷新：每条日志只重绘日志卡与状态行（全页 render 会抖）。
+        CarLifeCenter.onLogLine = { _ ->
+            runOnUiThread { if (page == "carlife") repaintCarLifeLog() }
+        }
         CarLifeCenter.listener = object : net.easyconn.gwmec.carlife.CarLifeSession.Listener {
             override fun onState(state: String) {
                 runOnUiThread {
-                    if (page == "carlife") render()
+                    carLifeStatus?.text = carLifeStatusText()
                     if (state.contains("已连接") && !carLifeConnectedOnce) {
                         carLifeConnectedOnce = true
                         startActivity(Intent(this@CarlinkActivity, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
@@ -2539,7 +2542,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             override fun onPhoneInfo(info: String) {}
             override fun onVideoFrame(data: ByteArray, tsMs: Long) {}
             override fun onDisconnected() {
-                runOnUiThread { carLifeConnectedOnce = false; if (page == "carlife") render() }
+                runOnUiThread {
+                    carLifeConnectedOnce = false
+                    carLifeStatus?.text = carLifeStatusText()
+                    if (page == "carlife") render()
+                }
             }
         }
     }
@@ -2569,6 +2576,30 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 setPadding(0, dp(3), 0, 0)
             })
         }
+    }
+
+    /** 指定 IP 直连（盒子/已知手机 IP）：原 APK 的「指定IP」获取方式。 */
+    private fun showCarLifeIpDialog() {
+        val input = android.widget.EditText(this).apply {
+            hint = getString(R.string.carlife_ip_hint)
+            singleLine = true
+        }
+        val frame = android.widget.FrameLayout(this).apply {
+            setPadding(dp(24), dp(8), dp(24), 0)
+            addView(input, LinearLayout.LayoutParams(-1, -2))
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.carlife_connect_ip))
+            .setView(frame)
+            .setPositiveButton(getString(R.string.connect_phone)) { _, _ ->
+                val ip = input.text.toString().trim()
+                if (ip.isNotEmpty()) {
+                    CarLifeCenter.connectToIp(this, ip)
+                    page = "carlife"; render()
+                }
+            }
+            .setNegativeButton(getString(R.string.later), null)
+            .show()
     }
 
     private fun about(content: LinearLayout) {

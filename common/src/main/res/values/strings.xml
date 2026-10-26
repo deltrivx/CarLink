@@ -959,4 +959,6 @@
     <string name="dilink_generic">Other head unit (generic)</string>
     <string name="setup_feature_hud">HUD navigation projection</string>
     <string name="setup_feature_hud_description">Project turn guidance to the car HUD when the head unit exposes one. Experimental outside BYD.</string>
+    <string name="carlife_connect_ip">Connect by IP</string>
+    <string name="carlife_ip_hint">Phone or box IP, e.g. 192.168.31.50</string>
 </resources>

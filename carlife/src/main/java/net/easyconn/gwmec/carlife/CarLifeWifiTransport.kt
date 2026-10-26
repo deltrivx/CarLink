@@ -9,7 +9,10 @@ import kotlin.concurrent.thread
  * CarLife WiFi 传输：监听 UDP 7999 手机广播，主动连手机 7 个 TCP 通道。
  * 每通道一条连接，通道 1/6 帧头 8 字节、其余 12 字节（大端）。
  */
-class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTransport {
+class CarLifeWifiTransport(
+    private val onLog: (String) -> Unit,
+    private val fixedPhoneIp: String? = null,
+) : CarLifeTransport {
     private val sockets = HashMap<Int, Socket>()
     private val outputs = HashMap<Int, BufferedOutputStream>()
     private var udpSocket: java.net.DatagramSocket? = null
@@ -19,6 +22,10 @@ class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTranspo
     override fun start(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         if (running) return true
         running = true
+        if (fixedPhoneIp != null) {
+            thread(name = "CarLife-DirectIp") { connectChannels(fixedPhoneIp, onMessage) }
+            return
+        }
         thread(name = "CarLife-UdpListen") {
             val sock = java.net.DatagramSocket(CarLifeProtocol.UDP_DISCOVERY_PORT)
             udpSocket = sock

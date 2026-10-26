@@ -32,6 +32,16 @@ object CarLifeCenter {
         appContext = context.applicationContext
     }
 
+    /** 直连已知 IP（盒子/指定IP模式），不经过广播发现。 */
+    fun connectToIp(context: Context, ip: String) {
+        if (session != null) return
+        attach(context)
+        mode = "wifi"
+        val transport = CarLifeWifiTransport { line -> log(line) }
+        session = CarLifeSession(transport, CarLifeProtocol.CONNECT_TYPE_WIFI, listener = CenterListener)
+        session?.let { Thread({ it.start() }, "CarLife-Center-Connect").start() }
+    }
+
     fun connect(context: Context, usb: Boolean) {
         if (session != null) return
         attach(context)

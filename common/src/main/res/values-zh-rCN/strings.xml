@@ -907,4 +907,6 @@
     <string name="dilink_generic">其他车机（通用）</string>
     <string name="setup_feature_hud">HUD 导航投射</string>
     <string name="setup_feature_hud_description">车机具备 HUD 时把转向诱导投射到 HUD。非 BYD 车机为实验性支持。</string>
+    <string name="carlife_connect_ip">指定 IP 直连</string>
+    <string name="carlife_ip_hint">手机或盒子 IP，如 192.168.31.50</string>
 </resources>
