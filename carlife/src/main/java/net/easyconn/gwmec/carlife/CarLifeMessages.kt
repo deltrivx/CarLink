@@ -64,6 +64,21 @@ object CarLifeMessages {
 
     fun hardKeyCode(code: Int): ByteArray = Pb.int32(1, code)
 
+    /** 蓝牙音频信息：车端告知手机端是否支持蓝牙音频及蓝牙地址。 */
+    fun btAudioInfo(support: Boolean, btName: String = "", btMac: String = ""): ByteArray =
+        Pb.bool(1, support) + Pb.str(2, btName) + Pb.str(3, btMac)
+
+    /** 蓝牙 HFP 请求：车端向手机端发送 HFP 指令（接听/挂断/拨号等）。 */
+    fun btHfpRequest(command: Int, phoneNum: String = "", dtmfCode: Int = 0): ByteArray =
+        Pb.int32(1, command) + Pb.str(2, phoneNum) + Pb.int32(3, dtmfCode)
+
+    /** 蓝牙 HFP 状态响应：车端回复手机端的状态查询。 */
+    fun btHfpStatusResponse(status: Int): ByteArray = Pb.int32(1, status)
+
+    /** 车辆信息上报：车端向手机端声明支持的车辆模块。 */
+    fun vehicleInfo(moduleId: Int, supportFlag: Int, frequency: Int = 0): ByteArray =
+        Pb.int32(1, moduleId) + Pb.int32(2, supportFlag) + Pb.int32(3, frequency)
+
     data class EncoderInfo(val width: Int, val height: Int, val frameRate: Int)
 
     fun parseEncoderInfo(payload: ByteArray): EncoderInfo {
@@ -76,6 +91,75 @@ object CarLifeMessages {
             }
         }
         return EncoderInfo(w, h, fps)
+    }
+
+    data class NaviNextTurnInfo(
+        val action: Int,
+        val nextTurn: String,
+        val roadName: String,
+        val totalDistance: Int,
+        val remainDistance: Int,
+        val turnIconData: ByteArray?
+    )
+
+    fun parseNaviNextTurn(payload: ByteArray): NaviNextTurnInfo {
+        var action = 0; var nextTurn = ""; var roadName = ""
+        var totalDist = 0; var remainDist = 0; var iconData: ByteArray? = null
+        Pb.forEachField(payload) { field, wt, v ->
+            when {
+                wt == 0 -> when (field) {
+                    1 -> action = Pb.asVarint(v).toInt()
+                    4 -> totalDist = Pb.asVarint(v).toInt()
+                    5 -> remainDist = Pb.asVarint(v).toInt()
+                }
+                wt == 2 -> when (field) {
+                    2 -> nextTurn = Pb.asString(v)
+                    3 -> roadName = Pb.asString(v)
+                    6 -> iconData = v
+                }
+            }
+        }
+        return NaviNextTurnInfo(action, nextTurn, roadName, totalDist, remainDist, iconData)
+    }
+
+    data class MediaInfoData(
+        val source: String,
+        val song: String,
+        val artist: String,
+        val album: String,
+        val albumArt: ByteArray?,
+        val duration: Int
+    )
+
+    fun parseMediaInfo(payload: ByteArray): MediaInfoData {
+        var source = ""; var song = ""; var artist = ""; var album = ""
+        var art: ByteArray? = null; var duration = 0
+        Pb.forEachField(payload) { field, wt, v ->
+            when {
+                wt == 2 -> when (field) {
+                    1 -> source = Pb.asString(v)
+                    2 -> song = Pb.asString(v)
+                    3 -> artist = Pb.asString(v)
+                    4 -> album = Pb.asString(v)
+                    5 -> art = v
+                }
+                wt == 0 -> when (field) {
+                    6 -> duration = Pb.asVarint(v).toInt()
+                }
+            }
+        }
+        return MediaInfoData(source, song, artist, album, art, duration)
+    }
+
+    fun parseBtHfpIndication(payload: ByteArray): Pair<Int, String> {
+        var command = 0; var phoneNum = ""
+        Pb.forEachField(payload) { field, wt, v ->
+            when {
+                wt == 0 && field == 1 -> command = Pb.asVarint(v).toInt()
+                wt == 2 && field == 2 -> phoneNum = Pb.asString(v)
+            }
+        }
+        return command to phoneNum
     }
 
     /** 从 CarlifeDeviceInfo 里摘 brand / model / release 做一行摘要。 */

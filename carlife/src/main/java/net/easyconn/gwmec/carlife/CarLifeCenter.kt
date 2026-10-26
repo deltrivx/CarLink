@@ -18,7 +18,17 @@ object CarLifeCenter {
     @Volatile var mode: String? = null
         private set
 
-    /** 页面/投屏界面的回调；会话事件转发给当前注册者。 */
+    private val listeners = mutableListOf<CarLifeSession.Listener>()
+
+    fun addListener(l: CarLifeSession.Listener) {
+        synchronized(listeners) { listeners.add(l) }
+    }
+
+    fun removeListener(l: CarLifeSession.Listener) {
+        synchronized(listeners) { listeners.remove(l) }
+    }
+
+    @Deprecated("Use addListener/removeListener to avoid clobbering other subscribers")
     @Volatile var listener: CarLifeSession.Listener? = null
 
     private val logLines = ArrayDeque<String>()
@@ -113,15 +123,37 @@ object CarLifeCenter {
     }
 
     private object CenterListener : CarLifeSession.Listener {
-        override fun onState(state: String) { listener?.onState(state) }
+        override fun onState(state: String) {
+            listener?.onState(state)
+            synchronized(listeners) { listeners.forEach { it.onState(state) } }
+        }
         override fun onLog(line: String) { log(line) }
-        override fun onVideoFrame(data: ByteArray, tsMs: Long) { listener?.onVideoFrame(data, tsMs) }
-        override fun onPhoneInfo(info: String) { listener?.onPhoneInfo(info) }
+        override fun onVideoFrame(data: ByteArray, tsMs: Long) {
+            listener?.onVideoFrame(data, tsMs)
+            synchronized(listeners) { listeners.forEach { it.onVideoFrame(data, tsMs) } }
+        }
+        override fun onPhoneInfo(info: String) {
+            listener?.onPhoneInfo(info)
+            synchronized(listeners) { listeners.forEach { it.onPhoneInfo(info) } }
+        }
+        override fun onNaviInfo(info: CarLifeMessages.NaviNextTurnInfo) {
+            listener?.onNaviInfo(info)
+            synchronized(listeners) { listeners.forEach { it.onNaviInfo(info) } }
+        }
+        override fun onMediaInfo(info: CarLifeMessages.MediaInfoData) {
+            listener?.onMediaInfo(info)
+            synchronized(listeners) { listeners.forEach { it.onMediaInfo(info) } }
+        }
+        override fun onBtHfpIndication(command: Int, phoneNum: String) {
+            listener?.onBtHfpIndication(command, phoneNum)
+            synchronized(listeners) { listeners.forEach { it.onBtHfpIndication(command, phoneNum) } }
+        }
         override fun onDisconnected() {
             session = null
             mode = null
             unwatchUsbPermission()
             listener?.onDisconnected()
+            synchronized(listeners) { listeners.forEach { it.onDisconnected() } }
         }
     }
 }

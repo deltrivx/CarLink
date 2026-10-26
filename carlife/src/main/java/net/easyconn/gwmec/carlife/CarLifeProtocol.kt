@@ -56,6 +56,35 @@ object CarLifeProtocol {
     const val MSG_MD_GO_TO_DESKTOP = 65569             // 0x10021 手机请求回桌面
     const val MSG_MD_MODULE_STATUS = 65574             // 0x10026 手机模块状态
 
+    // ---- 音频通道消息 ID ----
+    const val MSG_HU_MUSIC_INIT = 98315                // 0x1800B 车端媒体音频初始化确认
+    const val MSG_MD_MUSIC_INIT = 65548                // 0x1000C 手机端媒体音频参数
+    const val MSG_HU_TTS_INIT = 98316                  // 0x1800C 车端 TTS 初始化确认
+    const val MSG_MD_TTS_INIT = 65549                  // 0x1000D 手机端 TTS 音频参数
+    const val MSG_HU_BT_AUDIO_INFO = 98317             // 0x1800D 车端蓝牙音频信息
+    const val MSG_MD_BT_AUDIO_INFO = 65550             // 0x1000E 手机端蓝牙音频信息
+
+    // ---- 蓝牙 HFP 消息 ID ----
+    const val MSG_HU_BT_HFP_REQUEST = 98387            // 0x18053 车端 HFP 请求
+    const val MSG_MD_BT_HFP_INDICATION = 65618         // 0x10052 手机端 HFP 指示
+    const val MSG_MD_BT_HFP_RESPONSE = 65619           // 0x10053 手机端 HFP 响应
+    const val MSG_MD_BT_HFP_STATUS_REQUEST = 65620     // 0x10054 手机端 HFP 状态请求
+    const val MSG_HU_BT_HFP_STATUS_RESPONSE = 98389    // 0x18055 车端 HFP 状态响应
+    const val MSG_MD_BT_HFP_CONNECTION = 65621         // 0x10055 手机端 HFP 连接状态
+    const val MSG_MD_BT_HFP_CALL_STATUS = 65622        // 0x10056 手机端通话状态
+
+    // ---- 导航信息消息 ID ----
+    const val MSG_MD_NAVI_NEXT_TURN = 65600            // 0x10040 导航下一转向
+    const val MSG_MD_NAVI_ASSISTANT_GUIDE = 65601      // 0x10041 导航辅助引导
+
+    // ---- 媒体信息消息 ID ----
+    const val MSG_MD_MEDIA_INFO = 65584                // 0x10030 当前媒体信息
+    const val MSG_MD_MEDIA_PROGRESS = 65585            // 0x10031 媒体播放进度
+
+    // ---- 车辆信息消息 ID ----
+    const val MSG_HU_VEHICLE_INFO = 98336              // 0x18020 车端车辆信息
+    const val MSG_MD_VEHICLE_INFO = 65568              // 0x10020 手机端车辆信息
+
     // ---- 触控动作（CarlifeTouchAction.action，对照手机端 RemoteDisplayGLView）----
     const val TOUCH_DOWN = 0
     const val TOUCH_UP = 1

@@ -1409,7 +1409,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         // whole story (iPhone projecting to the car display), so the page needs no cards.
         val hero = ImageView(this).apply {
             setImageResource(R.drawable.hero_carlife)
-            contentDescription = getString(R.string.carplay)
+            contentDescription = getString(R.string.carlife_connect)
             scaleType = ImageView.ScaleType.FIT_CENTER
             adjustViewBounds = true
         }
@@ -2487,6 +2487,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private var carLifeStatus: TextView? = null
     private var carLifeLogBox: LinearLayout? = null
     private var carLifeConnectedOnce = false
+    private var carLifePageListener: net.easyconn.gwmec.carlife.CarLifeSession.Listener? = null
 
     private fun carlife(content: LinearLayout) {
         content.addView(label(getString(R.string.carlife_page_title), 40, TEXT, true))
@@ -2525,7 +2526,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         }
         // 会话事件驱动页面刷新；连接成功一次后直接进投屏。
         CarLifeCenter.onLogLine = { _ -> runOnUiThread { if (page == "carlife") render() } }
-        CarLifeCenter.listener = object : net.easyconn.gwmec.carlife.CarLifeSession.Listener {
+        carLifePageListener?.let { CarLifeCenter.removeListener(it) }
+        val l = object : net.easyconn.gwmec.carlife.CarLifeSession.Listener {
             override fun onState(state: String) {
                 runOnUiThread {
                     if (page == "carlife") render()
@@ -2542,6 +2544,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 runOnUiThread { carLifeConnectedOnce = false; if (page == "carlife") render() }
             }
         }
+        carLifePageListener = l
+        CarLifeCenter.addListener(l)
     }
 
     private fun carLifeStatusText(): String {

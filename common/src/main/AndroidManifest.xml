@@ -86,15 +86,13 @@
             android:icon="@drawable/ic_carplay"
             android:roundIcon="@drawable/ic_carplay"
             android:exported="true" android:launchMode="singleTask"
+            android:resizeableActivity="true"
             android:configChanges="density|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:theme="@style/Theme.Xcertplay">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            android:resizeableActivity="true"
-            android:configChanges="density|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
-            android:theme="@style/Theme.Xcertplay">
         </activity>
         <activity android:name="net.easyconn.gwmec.carlife.CarLifeVideoActivity"
             android:exported="false" android:launchMode="singleTask"

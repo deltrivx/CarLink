@@ -19,9 +19,11 @@ class CarLifeSession(
     interface Listener {
         fun onState(state: String)
         fun onLog(line: String)
-        /** 视频通道送来的 H.264 码流块（Annex-B），ts 为毫秒时间戳 */
         fun onVideoFrame(data: ByteArray, tsMs: Long)
         fun onPhoneInfo(info: String)
+        fun onNaviInfo(info: CarLifeMessages.NaviNextTurnInfo) {}
+        fun onMediaInfo(info: CarLifeMessages.MediaInfoData) {}
+        fun onBtHfpIndication(command: Int, phoneNum: String) {}
         fun onDisconnected()
     }
 
@@ -31,6 +33,7 @@ class CarLifeSession(
     @Volatile private var videoStarted = false
     @Volatile private var versionMatched = false
     private var lastTs = 0L
+    val audio = CarLifeAudio { line -> listener.onLog(line) }
 
     fun start() {
         if (running) return
@@ -43,6 +46,9 @@ class CarLifeSession(
                     lastTs += 33
                     listener.onVideoFrame(payload, lastTs)
                 }
+                CarLifeProtocol.CHANNEL_AUDIO -> audio.feedMusic(payload)
+                CarLifeProtocol.CHANNEL_TTS -> audio.feedTts(payload)
+                CarLifeProtocol.CHANNEL_VR -> handleVrData(payload)
             }
         }
         if (!ok) { listener.onState("连接失败"); stop(); return }
@@ -54,6 +60,7 @@ class CarLifeSession(
         running = false
         videoStarted = false
         versionMatched = false
+        audio.stopAll()
         transport.stop()
         listener.onState("已断开")
         listener.onDisconnected()
@@ -62,14 +69,17 @@ class CarLifeSession(
     private fun sendCmd(serviceType: Int, payload: ByteArray = ByteArray(0)): Boolean =
         transport.send(CarLifeProtocol.CHANNEL_CMD, serviceType, payload)
 
+    private fun handleVrData(payload: ByteArray) {
+        // VR 通道双向：手机端发来的语音识别数据，车端也可回传麦克风数据
+        // 此处先处理手机端发来的 VR 数据（如语音识别结果），麦克风数据由 startMic 驱动
+    }
+
     // ---- 握手状态机 ----
     private fun startHandshake() {
         listener.onState("版本协商")
         thread(name = "CarLife-Handshake") {
             var retries = 0
             while (running && !versionMatched) {
-                // 传输未就绪（WiFi 通道尚在建立）时发送会失败：退避重试而不是退出，
-                // 版本协商信令本就按 1.5s 周期重发直到手机应答。
                 sendCmd(CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 0))
                 retries++
                 if (retries % 4 == 0) listener.onLog("等待手机响应版本协商…（请确认手机 CarLife 在前台）")
@@ -100,6 +110,12 @@ class CarLifeSession(
             CarLifeProtocol.MSG_MD_FEATURE_CONFIG_REQUEST -> {
                 sendCmd(CarLifeProtocol.MSG_HU_FEATURE_CONFIG_RESPONSE,
                     CarLifeMessages.featureConfigList(connectType))
+                // 发送蓝牙音频信息（对齐 APK）
+                sendCmd(CarLifeProtocol.MSG_HU_BT_AUDIO_INFO,
+                    CarLifeMessages.btAudioInfo(true))
+                // 发送车辆信息（对齐 APK）
+                sendCmd(CarLifeProtocol.MSG_HU_VEHICLE_INFO,
+                    CarLifeMessages.vehicleInfo(0, 1))
                 listener.onState("视频准备中")
             }
             CarLifeProtocol.MSG_MD_VIDEO_ENCODER_INIT -> {
@@ -115,6 +131,33 @@ class CarLifeSession(
                     sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_INIT,
                         CarLifeMessages.videoEncoderInfo(videoWidth, videoHeight, frameRate))
                 }
+            }
+            CarLifeProtocol.MSG_MD_MUSIC_INIT -> {
+                val params = CarLifeAudio.parseAudioInit(payload)
+                audio.startMusic(params.sampleRate, params.channelConfig, params.sampleFormat)
+                sendCmd(CarLifeProtocol.MSG_HU_MUSIC_INIT)
+                listener.onLog("媒体音频初始化 ${params.sampleRate}Hz ch=${params.channelConfig}")
+            }
+            CarLifeProtocol.MSG_MD_TTS_INIT -> {
+                val params = CarLifeAudio.parseAudioInit(payload)
+                audio.startTts(params.sampleRate, params.channelConfig, params.sampleFormat)
+                sendCmd(CarLifeProtocol.MSG_HU_TTS_INIT)
+                listener.onLog("TTS 音频初始化 ${params.sampleRate}Hz ch=${params.channelConfig}")
+            }
+            CarLifeProtocol.MSG_MD_BT_AUDIO_INFO -> {
+                listener.onLog("收到蓝牙音频信息")
+            }
+            CarLifeProtocol.MSG_MD_BT_HFP_INDICATION -> {
+                val (cmd, phone) = CarLifeMessages.parseBtHfpIndication(payload)
+                listener.onBtHfpIndication(cmd, phone)
+            }
+            CarLifeProtocol.MSG_MD_NAVI_NEXT_TURN -> {
+                val navi = CarLifeMessages.parseNaviNextTurn(payload)
+                listener.onNaviInfo(navi)
+            }
+            CarLifeProtocol.MSG_MD_MEDIA_INFO -> {
+                val media = CarLifeMessages.parseMediaInfo(payload)
+                listener.onMediaInfo(media)
             }
             CarLifeProtocol.MSG_VIDEO_HEARTBEAT -> { /* 心跳应答保活 */ }
             CarLifeProtocol.MSG_MD_GO_TO_DESKTOP -> listener.onState("手机回桌面")
@@ -138,5 +181,10 @@ class CarLifeSession(
     fun sendHardKey(code: Int) {
         transport.send(CarLifeProtocol.CHANNEL_TOUCH, CarLifeProtocol.MSG_HARD_KEY_CODE,
             CarLifeMessages.hardKeyCode(code))
+    }
+
+    fun sendBtHfpRequest(command: Int, phoneNum: String = "") {
+        transport.send(CarLifeProtocol.CHANNEL_CMD, CarLifeProtocol.MSG_HU_BT_HFP_REQUEST,
+            CarLifeMessages.btHfpRequest(command, phoneNum))
     }
 }

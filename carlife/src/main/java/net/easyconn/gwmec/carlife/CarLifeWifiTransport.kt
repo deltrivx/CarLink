@@ -70,7 +70,6 @@ class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTranspo
                 if (len < 0 || len > (1 shl 24)) { onLog("通道 $channel 流失步 len=$len"); break }
                 val payload = if (len > 0) ByteArray(len).also { if (!readFully(input, it)) return } else ByteArray(0)
                 onMessage(channel, serviceType, payload)
-                if (ts < 0 && false) Unit
             }
         } catch (e: Exception) {
             if (running) onLog("通道 $channel 读取异常: ${e.message}")
