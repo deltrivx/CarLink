@@ -1018,6 +1018,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     // CarLife page fields - follows the same pattern as CarPlay home
     private var carLifeStatusBox: LinearLayout? = null
     private var carLifeActionBox: LinearLayout? = null
+    private var carLifeHero: ImageView? = null
     private var carLifeProgressBar: android.widget.ProgressBar? = null
     private var carLifeProgressDetail: TextView? = null
 
@@ -1414,6 +1415,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         // The hero: the head unit and the phone, from one shipped image. It carries the
         // whole story (iPhone projecting to the car display), so the page needs no cards.
         val hero = ImageView(this).apply {
+            carLifeHero = this
             setImageResource(R.drawable.hero_carlife)
             contentDescription = getString(R.string.carlife_connect)
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -2505,6 +2507,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
         // Hero image - reuse the existing CarLife hero
         val hero = ImageView(this).apply {
+            carLifeHero = this
             setImageResource(R.drawable.hero_carlife)
             contentDescription = getString(R.string.carlife_connect)
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -2540,15 +2543,22 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             override fun onState(state: String) {
                 runOnUiThread {
                     if (page == "carlife") refreshCarLifeStatus()
+                    // 状态刷新
                     if (state.contains("已连接") && !carLifeConnectedOnce) {
-                        carLifeConnectedOnce = true
-                        startActivity(Intent(this@CarlinkActivity, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
+                        // 握手成功，保留在连接页等待视频流，也可以手动点“进入投屏”
                     }
                 }
             }
             override fun onLog(line: String) {}
             override fun onPhoneInfo(info: String) {}
-            override fun onVideoFrame(data: ByteArray, tsMs: Long) {}
+            override fun onVideoFrame(data: ByteArray, tsMs: Long) {
+                runOnUiThread {
+                    if (!carLifeConnectedOnce) {
+                        carLifeConnectedOnce = true
+                        startActivity(Intent(this@CarlinkActivity, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
+                    }
+                }
+            }
             override fun onDisconnected() {
                 runOnUiThread { carLifeConnectedOnce = false; if (page == "carlife") refreshCarLifeStatus() }
             }
@@ -2580,6 +2590,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         when {
             // ============ 帧2：已连接 ============
             isConnected -> {
+                carLifeHero?.setImageResource(R.drawable.cover_success)
                 val statusLabel = label(getString(R.string.carlife_status_connected), 19, TEXT, true).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(3), 0, 0)
@@ -2606,6 +2617,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
             // ============ 帧3：连接中 ============
             state == CarLifeCenter.State.CONNECTING -> {
+                carLifeHero?.setImageResource(R.drawable.cover_wait)
                 val statusLabel = label(getString(R.string.carlife_status_connecting), 19, TEXT, true).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(3), 0, 0)
@@ -2643,6 +2655,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
             // ============ 帧4：连接遇到问题 / 异常 ============
             state == CarLifeCenter.State.ERROR -> {
+                carLifeHero?.setImageResource(R.drawable.cover_fail)
                 val statusLabel = label(getString(R.string.carlife_status_error), 19, WARNING, true).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(3), 0, 0)
@@ -2671,6 +2684,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
             // ============ 帧1：未连接 / 一切就绪 ============
             else -> {
+                carLifeHero?.setImageResource(R.drawable.cover_wait)
                 val statusLabel = label(getString(R.string.carlife_status_ready), 19, TEXT, true).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(3), 0, 0)

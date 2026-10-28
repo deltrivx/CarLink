@@ -163,78 +163,94 @@ class CarLifeUsbTransport(
         val ep = endpointIn ?: return
         try {
             while (running) {
-                if (!readExact(conn, ep, header, 8, "帧头")) break
-                val channel = leInt(header, 0)
-                val size = leInt(header, 4)
-                if (channel !in 1..7 || size < 0 || size > MAX_MESSAGE) {
-                    onLog("USB 帧头非法 channel=$channel size=$size"); break
+                // 原版 UsbAccessoryCommunicator: 循环 bulkTransfer 读 8 字节 headerBuffer (timeout=0 阻塞)
+                var nHeader = 0
+                while (running && nHeader == 0) {
+                    nHeader = conn.bulkTransfer(ep, header, 0, 8, 1000)
                 }
-                // WiFi 帧头语义复用：把 [channel][size] 后的负载按通道帧解析
-                val payload = if (size > 0) ByteArray(size).also { if (!readExact(conn, ep, it, size, "消息体")) return } else ByteArray(0)
-                val (serviceType, inner) = splitChannelFrame(channel, payload)
+                if (nHeader < 0) {
+                    if (running) onLog("USB 帧头读取中断 (ret=$nHeader)")
+                    break
+                }
+                val channel = beInt(header, 0)
+                val size = beInt(header, 4)
+                if (channel !in 1..7 || size < 0 || size > MAX_MESSAGE) {
+                    onLog("USB 帧头非法 channel=$channel size=$size")
+                    break
+                }
+
+                // 读取 body：原版是 while (remaining > 0) bulkTransfer(ep, body, offset, Math.min(remaining, maxPacketSize), 1000)
+                val body = ByteArray(size)
+                var remaining = size
+                var bodyReadFailed = false
+                while (running && remaining > 0) {
+                    val chunk = Math.min(remaining, ep.maxPacketSize)
+                    val nBody = conn.bulkTransfer(ep, body, size - remaining, chunk, 1000)
+                    if (nBody > 0) {
+                        remaining -= nBody
+                    } else if (nBody < 0) {
+                        onLog("USB 消息体读取失败 (ret=$nBody, want=$size, remain=$remaining)")
+                        bodyReadFailed = true
+                        break
+                    }
+                }
+                if (bodyReadFailed || !running) break
+
+                val (serviceType, inner) = splitChannelFrame(channel, body)
                 dispatch?.invoke(channel, serviceType, inner)
             }
         } catch (e: Exception) {
             if (running) onLog("USB 读取异常: ${e.message}")
         }
-        if (running) { onLog("USB 读取结束"); scheduleReconnect() }
+        if (running) {
+            onLog("USB 读取结束")
+            scheduleReconnect()
+        }
     }
 
     /**
-     * USB 单管道上每条 CarLife 消息就是通道帧本体：负载即该通道的标准帧。
-     * 通道 1/6 是 [u16 len][u16 rsv][u32 BE serviceType]+body；
-     * 其余通道是 [u32 len][u32 seq][u32 BE serviceType]+body。
-     * 拆出 serviceType 与纯 body 交给会话层，与 WiFi 路径统一。
+     * USB 单管道消息体解析：
+     * 通道 1/6 是 [u16 len][u16 rsv][u32 BE serviceType] + body；
+     * 其余通道是 [u32 len][u32 seq][u32 BE serviceType] + body。
      */
     private fun splitChannelFrame(channel: Int, payload: ByteArray): Pair<Int, ByteArray> {
         return try {
             val (len, _, serviceType) = CarLifeProtocol.parseHeader(channel, payload)
-            val body = if (len in 1..payload.size) payload.copyOfRange(CarLifeProtocol.headerSize(channel), CarLifeProtocol.headerSize(channel) + len) else ByteArray(0)
+            val headerLen = CarLifeProtocol.headerSize(channel)
+            val body = if (len in 1..payload.size) payload.copyOfRange(headerLen, Math.min(payload.size, headerLen + len)) else ByteArray(0)
             serviceType to body
         } catch (e: Exception) {
             0 to payload
         }
     }
 
-    private val ioChunk = ByteArray(64 * 1024)
-
-    private fun readExact(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, total: Int, what: String): Boolean {
-        var off = 0
-        val deadline = System.nanoTime() + TOTAL_TIMEOUT_NS
-        while (off < total) {
-            if (!running) return false
-            val want = Math.min(total - off, Math.min(ioChunk.size, Math.max(ep.maxPacketSize, 512)))
-            val n = conn.bulkTransfer(ep, ioChunk, want, 3000)
-            if (n > 0) { System.arraycopy(ioChunk, 0, buf, off, n); off += n }
-            else if (n < 0) { onLog("USB $what 读取失败"); return false }
-            else if (System.nanoTime() >= deadline) { onLog("USB $what 读取超时"); return false }
-            else Thread.sleep(50)
-        }
-        return true
-    }
-
     override fun send(channel: Int, serviceType: Int, payload: ByteArray, seqOrTs: Int): Boolean {
         val conn = connection ?: return false
         val ep = endpointOut ?: return false
         val frame = CarLifeProtocol.pack(channel, serviceType, payload, seqOrTs)
-        val muxHeader = leBytes(channel) + leBytes(frame.size)
-        if (!writeExact(conn, ep, muxHeader, "多路复用头")) return false
-        if (frame.isNotEmpty() && !writeExact(conn, ep, frame, "消息体")) return false
-        return true
-    }
+        val muxHeader = beBytes(channel) + beBytes(frame.size)
 
-    private fun writeExact(conn: UsbDeviceConnection, ep: UsbEndpoint, data: ByteArray, what: String): Boolean {
-        var off = 0
-        val deadline = System.nanoTime() + TOTAL_TIMEOUT_NS
-        while (off < data.size) {
-            if (!running) return false
-            val want = Math.min(data.size - off, ioChunk.size)
-            System.arraycopy(data, off, ioChunk, 0, want)
-            val n = conn.bulkTransfer(ep, ioChunk, want, 3000)
-            if (n > 0) off += n
-            else if (n < 0) { onLog("USB $what 发送失败"); return false }
-            else if (System.nanoTime() >= deadline) { onLog("USB $what 发送超时"); return false }
-            else Thread.sleep(50)
+        // 原版 UsbAccessoryCommunicator:
+        // bulkTransfer(endpointOut, header, 0, 8, 0)
+        // bulkTransfer(endpointOut, body, 0, size, 0)
+        var nHead = 0
+        while (running && nHead == 0) {
+            nHead = conn.bulkTransfer(ep, muxHeader, 0, 8, 1000)
+        }
+        if (nHead < 0) {
+            onLog("USB 多路复用头发送失败 (ret=$nHead)")
+            return false
+        }
+
+        if (frame.isNotEmpty()) {
+            var nBody = 0
+            while (running && nBody == 0) {
+                nBody = conn.bulkTransfer(ep, frame, 0, frame.size, 1000)
+            }
+            if (nBody < 0) {
+                onLog("USB 消息体发送失败 (ret=$nBody)")
+                return false
+            }
         }
         return true
     }
@@ -264,10 +280,10 @@ class CarLifeUsbTransport(
         private const val TOTAL_TIMEOUT_NS = 30_000_000_000L
         private const val MAX_RECONNECT = 12
 
-        fun leBytes(v: Int) = byteArrayOf(
-            v.toByte(), (v ushr 8).toByte(), (v ushr 16).toByte(), (v ushr 24).toByte())
-        fun leInt(b: ByteArray, off: Int) =
-            (b[off].toInt() and 0xFF) or ((b[off + 1].toInt() and 0xFF) shl 8) or
-                ((b[off + 2].toInt() and 0xFF) shl 16) or ((b[off + 3].toInt() and 0xFF) shl 24)
+        fun beBytes(v: Int) = byteArrayOf(
+            (v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())
+        fun beInt(b: ByteArray, off: Int) =
+            ((b[off].toInt() and 0xFF) shl 24) or ((b[off + 1].toInt() and 0xFF) shl 16) or
+                ((b[off + 2].toInt() and 0xFF) shl 8) or (b[off + 3].toInt() and 0xFF)
     }
 }
