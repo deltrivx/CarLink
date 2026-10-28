@@ -1,0 +1,15 @@
+package s9;
+
+import java.lang.reflect.Field;
+
+/* JADX INFO: compiled from: r8-map-id-23e26df0efaa9d89388e95288a59e5b70285fd87fbcf7c2259fd838f43f3aa6d */
+/* JADX INFO: loaded from: classes.dex */
+public final class o extends q implements f {
+    @Override // s9.q, s9.g
+    public final Object t(Object[] objArr) throws IllegalAccessException {
+        i9.l.e(objArr, "args");
+        a(objArr);
+        ((Field) this.f12692a).set(null, u8.l.G0(objArr));
+        return t8.z.f12851a;
+    }
+}

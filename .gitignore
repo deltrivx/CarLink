@@ -1,0 +1,25 @@
+# Build outputs
+build/
+*.apk
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+
+# Gradle
+.gradle/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Signing
+*.keystore
+*.jks
+*.p12
+*.pk8

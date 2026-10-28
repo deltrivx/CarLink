@@ -1,0 +1,56 @@
+package com.baidu.carlife.sdk;
+
+/* JADX INFO: compiled from: r8-map-id-23e26df0efaa9d89388e95288a59e5b70285fd87fbcf7c2259fd838f43f3aa6d */
+/* JADX INFO: loaded from: classes.dex */
+public class Configs {
+    public static final int CONFIG_CARLIFE_DATA_ASSISTANTGUIDE = 1;
+    public static final int CONFIG_CARLIFE_DATA_TURNBYTURN = 0;
+    public static final String CONFIG_CARLIFE_VERSION = "CARLIFE_PROTOCOL_VERSION";
+    public static final String CONFIG_CONNECT_TIMEOUT = "CONFIG_CONNECT_TIMEOUT";
+    public static final String CONFIG_CONTENT_ENCRYPTION = "CONFIG_CONTENT_ENCRYPTION";
+    public static final String CONFIG_DEFAULT_DISPLAY = "CONFIG_DEFAULT_DISPLAY";
+    public static final String CONFIG_DISPLAY_FACTORY_CREATOR = "CONFIG_DISPLAY_FACTORY_CREATOR";
+    public static final String CONFIG_ENABLE_SYSTEM_SCREEN_CAPTURE = "CONFIG_ENABLE_SYSTEM_SCREEN_CAPTURE";
+    public static final String CONFIG_HU_BT_MAC = "CONFIG_HU_BT_MAC";
+    public static final String CONFIG_HU_BT_NAME = "CONFIG_HU_BT_NAME";
+    public static final String CONFIG_LOCK_ORIENTATION = "ScreenCaptureDisplay_LOCK_ORIENTATION";
+    public static final String CONFIG_LOG_LEVEL = "CONFIG_LOG_LEVEL";
+    public static final String CONFIG_MAX_LOG_FILE_COUNT = "CONFIG_MAX_LOG_FILE_COUNT";
+    public static final String CONFIG_MAX_LOG_FILE_SIZE = "CONFIG_MAX_LOG_FILE_SIZE";
+    public static final String CONFIG_PRESET_CHANNELS = "CONFIG_PRESET_CHANNELS";
+    public static final String CONFIG_PROTOCOL_VERSION = "VEHICLE_PROTOCOL_VERSION";
+    public static final String CONFIG_SAVE_AUDIO_FILE = "CONFIG_SAVE_AUDIO_FILE";
+    public static final String CONFIG_SAVE_VIDEO_FILE = "CONFIG_SAVE_VIDEO_FILE";
+    public static final String CONFIG_STATISTICS_INFO = "CONFIG_STATISTICS_INFO";
+    public static final String CONFIG_TARGET_BLUETOOTH_NAME = "CONFIG_TARGET_BLUETOOTH_NAME";
+    public static final String CONFIG_TARGET_IP_ADDRESS = "CONFIG_TARGET_IP_ADDRESS";
+    public static final String CONFIG_TARGET_IP_GET = "CONFIG_TARGET_IP_GET";
+    public static final String CONFIG_TEST_DISPLAY_SPEC = "CONFIG_TEST_DISPLAY_SPEC";
+    public static final String CONFIG_USE_ASYNC_USB_MODE = "CONFIG_USE_ASYNC_USB_MODE";
+    public static final String CONFIG_USE_IMAGE_READER = "EncoderFactory_USE_IMAGE_READER";
+    public static final String CONFIG_USE_SANDBOX = "CONFIG_USE_SANDBOX";
+    public static final String CONFIG_VENDOR_DEVICE_ID = "CONFIG_VENDOR_DEVICE_ID";
+    public static final String CONFIG_VENDOR_ID = "CONFIG_VENDOR_ID";
+    public static final String CONFIG_WIFI_DIRECT_BLE = "CONFIG_WIFI_DIRECT_BLE";
+    public static final String CONFIG_WIFI_DIRECT_GROUP = "CONFIG_WIFI_DIRECT_GROUP";
+    public static final String CONFIG_WIFI_DIRECT_NAME = "CONFIG_WIFI_DIRECT_NAME";
+    public static final String CONFIG_WIRLESS_FREQUENCY = "CONFIG_WIRLESS_FREQUENCY";
+    public static final String CONFIG_WIRLESS_TYPE = "CONFIG_WIRLESS_TYPE";
+    public static final String FEATURE_CONFIG_AAC_SUPPORT = "AAC_SUPPORT";
+    public static final String FEATURE_CONFIG_AUDIO_TRANSMISSION_MODE = "AUDIO_TRANSMISSION_MODE";
+    public static final String FEATURE_CONFIG_BLUETOOTH_AUTO_PAIR = "BLUETOOTH_AUTO_PAIR";
+    public static final String FEATURE_CONFIG_BLUETOOTH_INTERNAL_UI = "BLUETOOTH_INTERNAL_UI";
+    public static final String FEATURE_CONFIG_CONNECT_TYPE = "CONNECT_TYPE";
+    public static final String FEATURE_CONFIG_CONTENT_ENCRYPTION = "CONTENT_ENCRYPTION";
+    public static final String FEATURE_CONFIG_ENGINE_TYPE = "ENGINE_TYPE";
+    public static final String FEATURE_CONFIG_FOCUS_AREA_AUTO_SET = "FOCUS_AREA_AUTO_SET";
+    public static final String FEATURE_CONFIG_FOCUS_UI = "FOCUS_UI";
+    public static final String FEATURE_CONFIG_INPUT_DISABLE = "INPUT_DISABLE";
+    public static final String FEATURE_CONFIG_I_FRAME_INTERVAL = "I_FRAME_INTERVAL";
+    public static final String FEATURE_CONFIG_MEDIA_SAMPLE_RATE = "MEDIA_SAMPLE_RATE";
+    public static final String FEATURE_CONFIG_MULTI_TOUCH = "MULTI_TOUCH";
+    public static final String FEATURE_CONFIG_MUSIC_HUD = "MUSIC_HUD";
+    public static final String FEATURE_CONFIG_USB_MTU = "USB_MTU";
+    public static final String FEATURE_CONFIG_VOICE_MIC = "VOICE_MIC";
+    public static final String FEATURE_CONFIG_VOICE_WAKEUP = "VOICE_WAKEUP";
+}

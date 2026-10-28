@@ -1,0 +1,13 @@
+package z8;
+
+import a9.g;
+
+/* JADX INFO: compiled from: r8-map-id-23e26df0efaa9d89388e95288a59e5b70285fd87fbcf7c2259fd838f43f3aa6d */
+/* JADX INFO: loaded from: classes.dex */
+public final class d extends g {
+    @Override // a9.a
+    public final Object invokeSuspend(Object obj) {
+        t8.a.e(obj);
+        return obj;
+    }
+}

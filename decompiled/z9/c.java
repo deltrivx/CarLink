@@ -1,0 +1,13 @@
+package z9;
+
+import java.util.Collection;
+
+/* JADX INFO: compiled from: r8-map-id-23e26df0efaa9d89388e95288a59e5b70285fd87fbcf7c2259fd838f43f3aa6d */
+/* JADX INFO: loaded from: classes.dex */
+public interface c {
+    Collection a(wa.c cVar);
+
+    boolean b(wa.c cVar, wa.e eVar);
+
+    x9.e c(wa.b bVar);
+}

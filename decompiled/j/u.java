@@ -1,0 +1,16 @@
+package j;
+
+import android.os.PowerManager;
+import java.util.Locale;
+
+/* JADX INFO: compiled from: r8-map-id-23e26df0efaa9d89388e95288a59e5b70285fd87fbcf7c2259fd838f43f3aa6d */
+/* JADX INFO: loaded from: classes.dex */
+public abstract class u {
+    public static boolean a(PowerManager powerManager) {
+        return powerManager.isPowerSaveMode();
+    }
+
+    public static String b(Locale locale) {
+        return locale.toLanguageTag();
+    }
+}
