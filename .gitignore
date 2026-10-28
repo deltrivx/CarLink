@@ -5,6 +5,7 @@
 
 # Gradle and local tooling
 .gradle/
+.kradle/
 .kotlin/
 .android-sdk/
 build/
@@ -39,3 +40,11 @@ release-signing.properties
 *.key
 *.apk
 *.aab
+
+# Java build outputs
+bin/
+gen/
+out/
+release/
+*.dex
+*.class

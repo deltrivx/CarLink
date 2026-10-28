@@ -1,0 +1,20 @@
+package cc;
+
+/* JADX INFO: compiled from: r8-map-id-23e26df0efaa9d89388e95288a59e5b70285fd87fbcf7c2259fd838f43f3aa6d */
+/* JADX INFO: loaded from: classes.dex */
+public abstract class s1 {
+
+    /* JADX INFO: renamed from: a, reason: collision with root package name */
+    public static final ThreadLocal f2667a = new ThreadLocal();
+
+    public static t0 a() {
+        ThreadLocal threadLocal = f2667a;
+        t0 t0Var = (t0) threadLocal.get();
+        if (t0Var != null) {
+            return t0Var;
+        }
+        g gVar = new g(Thread.currentThread());
+        threadLocal.set(gVar);
+        return gVar;
+    }
+}
