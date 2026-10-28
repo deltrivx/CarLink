@@ -13,6 +13,12 @@ import android.util.Log
  * 「等待连接: IP」「连接成功: IP」「USB设备已插入 VID=…, PID=…」等。
  */
 object CarLifeCenter {
+    enum class State { IDLE, CONNECTING, CONNECTED, ERROR }
+    @Volatile var connectionState: State = State.IDLE
+        private set
+    @Volatile var lastError: String? = null
+        private set
+
     @Volatile var session: CarLifeSession? = null
         private set
     @Volatile var mode: String? = null
@@ -53,6 +59,8 @@ object CarLifeCenter {
         }
         val connectType = if (usb) CarLifeProtocol.CONNECT_TYPE_AOA else CarLifeProtocol.CONNECT_TYPE_WIFI
         val s = CarLifeSession(transport, connectType, listener = CenterListener)
+        connectionState = State.CONNECTING
+        lastError = null
         session = s
         if (usb) watchUsbPermission(context.applicationContext)
         Thread({ s.start() }, "CarLife-Center-Connect").start()
@@ -62,6 +70,7 @@ object CarLifeCenter {
         session?.stop()
         session = null
         mode = null
+        connectionState = State.IDLE
         unwatchUsbPermission()
     }
 
@@ -124,6 +133,16 @@ object CarLifeCenter {
 
     private object CenterListener : CarLifeSession.Listener {
         override fun onState(state: String) {
+            if (state.contains("已连接")) {
+                connectionState = State.CONNECTED
+            } else if (state.contains("失败") || state.contains("错误")) {
+                connectionState = State.ERROR
+                lastError = state
+            } else if (state.contains("已断开")) {
+                connectionState = State.IDLE
+            } else {
+                connectionState = State.CONNECTING
+            }
             listener?.onState(state)
             synchronized(listeners) { listeners.forEach { it.onState(state) } }
         }
@@ -151,6 +170,7 @@ object CarLifeCenter {
         override fun onDisconnected() {
             session = null
             mode = null
+            connectionState = State.IDLE
             unwatchUsbPermission()
             listener?.onDisconnected()
             synchronized(listeners) { listeners.forEach { it.onDisconnected() } }

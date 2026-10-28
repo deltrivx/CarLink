@@ -2564,11 +2564,12 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         actionBox.removeAllViews()
 
         val compact = isCompactLayout
+        val state = CarLifeCenter.connectionState
         val session = CarLifeCenter.session
-        val isConnected = session != null && session.running
+        val isConnected = state == CarLifeCenter.State.CONNECTED || (session != null && session.running)
 
-        fun carLifeButton(title: String, primary: Boolean, danger: Boolean = false, click: () -> Unit) =
-            ghostAction(title, primary, danger = danger) { click() }
+        fun carLifeButton(title: String, primary: Boolean, danger: Boolean = false, warn: Boolean = false, click: () -> Unit) =
+            ghostAction(title, primary, danger = danger, warn = warn) { click() }
 
         val actions = row().apply { gravity = Gravity.CENTER }
         fun addAction(view: View, first: Boolean = false) {
@@ -2576,46 +2577,124 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             actions.addView(view, LinearLayout.LayoutParams(-2, dp(if (compact) 44 else 52)).apply { gravity = Gravity.CENTER })
         }
 
-        if (isConnected) {
-            // CONNECTED state
-            val statusLabel = label(getString(R.string.carlife_state_connected), 19, TEXT, true).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, dp(3), 0, 0)
-            }
-            statusBox.addView(statusLabel)
+        when {
+            // ============ 帧2：已连接 ============
+            isConnected -> {
+                val statusLabel = label(getString(R.string.carlife_status_connected), 19, TEXT, true).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(3), 0, 0)
+                }
+                statusBox.addView(statusLabel)
 
-            val modeLabel = label(carLifeModeText(), 12, MUTED).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, dp(3), 0, 0)
-            }
-            statusBox.addView(modeLabel)
+                val subhint = label(getString(R.string.carlife_hint_connected), 13, MUTED).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(5), 0, 0)
+                }
+                statusBox.addView(subhint)
 
-            addAction(carLifeButton(getString(R.string.carlife_open_projection), primary = true) {
-                startActivity(Intent(this, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
-            }, first = true)
-            addAction(carLifeButton(getString(R.string.carlife_disconnect), primary = false, danger = true) {
-                CarLifeCenter.disconnect()
-            })
-        } else {
-            // IDLE state
-            val statusLabel = label(getString(R.string.carlife_state_idle), 19, TEXT, true).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, dp(3), 0, 0)
+                addAction(carLifeButton(getString(R.string.carlife_open_projection), primary = true) {
+                    startActivity(Intent(this, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
+                }, first = true)
+                addAction(carLifeButton(getString(R.string.carlife_disconnect), primary = false, danger = true) {
+                    CarLifeCenter.disconnect()
+                    refreshCarLifeStatus()
+                })
+                addAction(carLifeButton(getString(R.string.settings), primary = false) {
+                    page = "settings"; render()
+                })
             }
-            statusBox.addView(statusLabel)
 
-            val modeLabel = label(getString(R.string.carlife_mode_none), 12, MUTED).apply {
-                gravity = Gravity.CENTER
-                setPadding(0, dp(3), 0, 0)
+            // ============ 帧3：连接中 ============
+            state == CarLifeCenter.State.CONNECTING -> {
+                val statusLabel = label(getString(R.string.carlife_status_connecting), 19, TEXT, true).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(3), 0, 0)
+                }
+                statusBox.addView(statusLabel)
+
+                val progress = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    max = 100
+                    isIndeterminate = true
+                }
+                statusBox.addView(progress, LinearLayout.LayoutParams(dp(200), dp(3)).apply {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    topMargin = dp(11)
+                })
+
+                val subhint = label(getString(R.string.carlife_hint_connecting), 12, MUTED).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(6), 0, 0)
+                }
+                statusBox.addView(subhint)
+
+                addAction(carLifeButton(getString(R.string.carlife_action_reconnect), primary = false) {
+                    CarLifeCenter.disconnect()
+                    CarLifeCenter.connect(this, usb = CarLifeCenter.mode != "wifi")
+                    refreshCarLifeStatus()
+                }, first = true)
+                addAction(carLifeButton(getString(R.string.carlife_action_stop_connecting), primary = false, danger = true) {
+                    CarLifeCenter.disconnect()
+                    refreshCarLifeStatus()
+                })
+                addAction(carLifeButton(getString(R.string.settings), primary = false) {
+                    page = "settings"; render()
+                })
             }
-            statusBox.addView(modeLabel)
 
-            addAction(carLifeButton(getString(R.string.carlife_connect_usb), primary = false) {
-                CarLifeCenter.connect(this, usb = true)
-            }, first = true)
-            addAction(carLifeButton(getString(R.string.carlife_connect_wireless), primary = true) {
-                CarLifeCenter.connect(this, usb = false)
-            })
+            // ============ 帧4：连接遇到问题 / 异常 ============
+            state == CarLifeCenter.State.ERROR -> {
+                val statusLabel = label(getString(R.string.carlife_status_error), 19, WARNING, true).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(3), 0, 0)
+                }
+                statusBox.addView(statusLabel)
+
+                val errText = CarLifeCenter.lastError ?: getString(R.string.carlife_hint_idle)
+                val warnLabel = label(errText, 13, WARNING).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(5), 0, 0)
+                }
+                statusBox.addView(warnLabel)
+
+                addAction(carLifeButton(getString(R.string.carlife_action_reconnect), primary = true) {
+                    CarLifeCenter.connect(this, usb = true)
+                    refreshCarLifeStatus()
+                }, first = true)
+                addAction(carLifeButton(getString(R.string.carlife_connect_wireless), primary = false) {
+                    CarLifeCenter.connect(this, usb = false)
+                    refreshCarLifeStatus()
+                })
+                addAction(carLifeButton(getString(R.string.settings), primary = false) {
+                    page = "settings"; render()
+                })
+            }
+
+            // ============ 帧1：未连接 / 一切就绪 ============
+            else -> {
+                val statusLabel = label(getString(R.string.carlife_status_ready), 19, TEXT, true).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(3), 0, 0)
+                }
+                statusBox.addView(statusLabel)
+
+                val subhint = label(getString(R.string.carlife_hint_idle), 13, MUTED).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(5), 0, 0)
+                }
+                statusBox.addView(subhint)
+
+                addAction(carLifeButton(getString(R.string.carlife_connect_usb), primary = true) {
+                    CarLifeCenter.connect(this, usb = true)
+                    refreshCarLifeStatus()
+                }, first = true)
+                addAction(carLifeButton(getString(R.string.carlife_connect_wireless), primary = false) {
+                    CarLifeCenter.connect(this, usb = false)
+                    refreshCarLifeStatus()
+                })
+                addAction(carLifeButton(getString(R.string.settings), primary = false) {
+                    page = "settings"; render()
+                })
+            }
         }
 
         actionBox.addView(actions, LinearLayout.LayoutParams(-1, -2))

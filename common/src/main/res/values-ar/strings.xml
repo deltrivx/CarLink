@@ -786,4 +786,13 @@
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
 
+    <string name="carlife_status_ready">كل شيء جاهز</string>
+    <string name="carlife_hint_idle">Wi-Fi Direct / USB · حافظ على اتصال الهاتف وافتح تطبيق CarLife</string>
+    <string name="carlife_status_connecting">جارٍ الاتصال بهاتف أندرويد…</string>
+    <string name="carlife_hint_connecting">جارٍ إعداد جلسة CarLife…</string>
+    <string name="carlife_status_connected">تم اتصال CarLife</string>
+    <string name="carlife_hint_connected">يقوم هاتف أندرويد بعرض الشاشة على شاشة السيارة</string>
+    <string name="carlife_status_error">مشكلة في الاتصال</string>
+    <string name="carlife_action_reconnect">إعادة الاتصال</string>
+    <string name="carlife_action_stop_connecting">إيقاف الاتصال</string>
 </resources>

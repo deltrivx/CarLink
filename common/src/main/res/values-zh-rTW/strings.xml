@@ -849,4 +849,13 @@
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
 
+    <string name="carlife_status_ready">一切就緒</string>
+    <string name="carlife_hint_idle">Wi-Fi Direct / USB · 保持車機與手機連接，打開手機 CarLife App</string>
+    <string name="carlife_status_connecting">正在連接安卓手機…</string>
+    <string name="carlife_hint_connecting">正在準備 CarLife 會話…</string>
+    <string name="carlife_status_connected">CarLife 已連接</string>
+    <string name="carlife_hint_connected">安卓手機正在將畫面投射到車機螢幕</string>
+    <string name="carlife_status_error">連接遇到問題</string>
+    <string name="carlife_action_reconnect">重新連接</string>
+    <string name="carlife_action_stop_connecting">停止連接</string>
 </resources>

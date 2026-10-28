@@ -786,4 +786,13 @@
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
 
+    <string name="carlife_status_ready">Todo listo</string>
+    <string name="carlife_hint_idle">Wi-Fi Direct / USB · Mantén el teléfono conectado y abre CarLife</string>
+    <string name="carlife_status_connecting">Conectando al teléfono Android…</string>
+    <string name="carlife_hint_connecting">Preparando sesión CarLife…</string>
+    <string name="carlife_status_connected">CarLife conectado</string>
+    <string name="carlife_hint_connected">El teléfono Android está proyectando a la pantalla del coche</string>
+    <string name="carlife_status_error">Problema de conexión</string>
+    <string name="carlife_action_reconnect">Reconectar</string>
+    <string name="carlife_action_stop_connecting">Detener conexión</string>
 </resources>

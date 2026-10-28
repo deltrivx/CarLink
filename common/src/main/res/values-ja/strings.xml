@@ -938,4 +938,13 @@
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
 
     <string name="home_version_new_available">新しいバージョン %1$s</string>
+    <string name="carlife_status_ready">準備完了</string>
+    <string name="carlife_hint_idle">Wi-Fi Direct / USB · 接続を維持しCarLifeアプリを開いてください</string>
+    <string name="carlife_status_connecting">Androidスマートフォンに接続中…</string>
+    <string name="carlife_hint_connecting">CarLifeセッションを準備中…</string>
+    <string name="carlife_status_connected">CarLife接続済み</string>
+    <string name="carlife_hint_connected">Androidスマートフォンが車載画面に投影中</string>
+    <string name="carlife_status_error">接続エラー</string>
+    <string name="carlife_action_reconnect">再接続</string>
+    <string name="carlife_action_stop_connecting">接続停止</string>
 </resources>

@@ -786,4 +786,13 @@
     <string name="settings_launcher_bubble_size">Bubble size</string>
     <string name="settings_launcher_bubble_unlocked">Place unlocked</string>
 
+    <string name="carlife_status_ready">Все готово</string>
+    <string name="carlife_hint_idle">Wi-Fi Direct / USB · Держите телефон подключенным и откройте CarLife</string>
+    <string name="carlife_status_connecting">Подключение к Android…</string>
+    <string name="carlife_hint_connecting">Подготовка сеанса CarLife…</string>
+    <string name="carlife_status_connected">CarLife подключен</string>
+    <string name="carlife_hint_connected">Телефон Android передает изображение на экран автомобиля</string>
+    <string name="carlife_status_error">Ошибка подключения</string>
+    <string name="carlife_action_reconnect">Переподключить</string>
+    <string name="carlife_action_stop_connecting">Остановить подключение</string>
 </resources>

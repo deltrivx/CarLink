@@ -29,19 +29,33 @@ jobs:
       - name: Add Android Build Tools to PATH
         run: echo "$ANDROID_HOME/build-tools/36.0.0" >> "$GITHUB_PATH"
 
-      - name: Assemble debug (host app + auto engine)
-        run: ./gradlew :mobile:assembleDebug :auto:assembleDebug --stacktrace
-
-      - name: Sign debug APK with the platform key
+      - name: Prepare Signing Keys and MFi Assets
         env:
           PLATFORM_PK8_BASE64: ${{ secrets.PLATFORM_PK8_BASE64 }}
           PLATFORM_PEM_BASE64: ${{ secrets.PLATFORM_PEM_BASE64 }}
+          AUTH_ASSETS_BASE64: ${{ secrets.DEPLAY_AUTH_ASSETS_BASE64 }}
         run: |
-          # 与 build-release 的正式包同一把飞思平台密钥：测试包与发布包签名统一，
-          # 测试设备可以直接被 Release 覆盖升级，不必卸载重装。
-          mkdir -p secrets dist
+          mkdir -p secrets auth-assets/offline-mfi
           echo "$PLATFORM_PK8_BASE64" | base64 -d > secrets/platform.pk8
           echo "$PLATFORM_PEM_BASE64" | base64 -d > secrets/platform.x509.pem
+          if [ -n "$AUTH_ASSETS_BASE64" ]; then
+            echo "$AUTH_ASSETS_BASE64" | base64 -d | tar -xz -C auth-assets 2>/dev/null || true
+            if [ -f auth-assets/identity.pk8 ] && [ ! -f auth-assets/offline-mfi/identity.pk8 ]; then
+              cp auth-assets/identity.pk8 auth-assets/certificate.p7b auth-assets/offline-mfi/ 2>/dev/null || true
+            fi
+          fi
+          echo "Listing auth-assets/offline-mfi:"
+          ls -la auth-assets/offline-mfi/
+          chmod +x gradlew
+
+      - name: Assemble debug (host app + auto engine)
+        env:
+          DIPLAY_AUTH_ASSETS_DIR: ${{ github.workspace }}/auth-assets
+        run: ./gradlew :mobile:assembleDebug :auto:assembleDebug --stacktrace
+
+      - name: Sign debug APK with the platform key
+        run: |
+          mkdir -p dist
           apksigner sign \
             --key secrets/platform.pk8 \
             --cert secrets/platform.x509.pem \

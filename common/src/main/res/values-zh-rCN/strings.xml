@@ -908,4 +908,13 @@
     <string name="dilink_generic">其他车机（通用）</string>
     <string name="setup_feature_hud">HUD 导航投射</string>
     <string name="setup_feature_hud_description">车机具备 HUD 时把转向诱导投射到 HUD。非 BYD 车机为实验性支持。</string>
+    <string name="carlife_status_ready">一切就绪</string>
+    <string name="carlife_hint_idle">Wi-Fi Direct / USB · 保持车机与手机连接，打开手机 CarLife App</string>
+    <string name="carlife_status_connecting">正在连接安卓手机…</string>
+    <string name="carlife_hint_connecting">正在准备 CarLife 会话…</string>
+    <string name="carlife_status_connected">CarLife 已连接</string>
+    <string name="carlife_hint_connected">安卓手机正在将画面投射到车机屏幕</string>
+    <string name="carlife_status_error">连接遇到问题</string>
+    <string name="carlife_action_reconnect">重新连接</string>
+    <string name="carlife_action_stop_connecting">停止连接</string>
 </resources>

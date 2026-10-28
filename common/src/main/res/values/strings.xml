@@ -960,4 +960,13 @@
     <string name="dilink_generic">Other head unit (generic)</string>
     <string name="setup_feature_hud">HUD navigation projection</string>
     <string name="setup_feature_hud_description">Project turn guidance to the car HUD when the head unit exposes one. Experimental outside BYD.</string>
+    <string name="carlife_status_ready">All set</string>
+    <string name="carlife_hint_idle">Wi-Fi Direct / USB · Keep phone connected and open CarLife app</string>
+    <string name="carlife_status_connecting">Connecting to Android phone…</string>
+    <string name="carlife_hint_connecting">Setting up CarLife session…</string>
+    <string name="carlife_status_connected">CarLife Connected</string>
+    <string name="carlife_hint_connected">Android phone is projecting to the car screen</string>
+    <string name="carlife_status_error">Connection problem</string>
+    <string name="carlife_action_reconnect">Reconnect</string>
+    <string name="carlife_action_stop_connecting">Stop connecting</string>
 </resources>
