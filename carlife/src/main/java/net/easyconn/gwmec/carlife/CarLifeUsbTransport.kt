@@ -8,6 +8,7 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.util.Log
+import kotlin.concurrent.thread
 
 /**
  * CarLife USB 有线传输：AOA 配件模式切换 + 单 bulk 管道上的通道多路复用。
