@@ -2678,11 +2678,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 statusBox.addView(warnLabel)
 
                 addAction(carLifeButton(getString(R.string.carlife_action_reconnect), primary = true) {
-                    CarLifeCenter.connect(this, usb = true)
+                    CarLifeCenter.connect(this, usb = true, canvasWidth = canvasW(), canvasHeight = canvasH())
                     refreshCarLifeStatus()
                 }, first = true)
                 addAction(carLifeButton(getString(R.string.carlife_connect_wireless), primary = false) {
-                    CarLifeCenter.connect(this, usb = false)
+                    CarLifeCenter.connect(this, usb = false, canvasWidth = canvasW(), canvasHeight = canvasH())
                     refreshCarLifeStatus()
                 })
                 addAction(carLifeButton(getString(R.string.settings), primary = false) {
@@ -2706,11 +2706,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 statusBox.addView(subhint)
 
                 addAction(carLifeButton(getString(R.string.carlife_connect_usb), primary = true) {
-                    CarLifeCenter.connect(this, usb = true)
+                    CarLifeCenter.connect(this, usb = true, canvasWidth = canvasW(), canvasHeight = canvasH())
                     refreshCarLifeStatus()
                 }, first = true)
                 addAction(carLifeButton(getString(R.string.carlife_connect_wireless), primary = false) {
-                    CarLifeCenter.connect(this, usb = false)
+                    CarLifeCenter.connect(this, usb = false, canvasWidth = canvasW(), canvasHeight = canvasH())
                     refreshCarLifeStatus()
                 })
                 addAction(carLifeButton(getString(R.string.settings), primary = false) {
@@ -2721,6 +2721,13 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
         actionBox.addView(actions, LinearLayout.LayoutParams(-1, -2))
     }
+
+    /**
+     * 投屏画布尺寸：取屏幕物理像素，对齐原版 mSurfaceView.getWidth()/getHeight()。
+     * 连接时就要传给会话，不能等投屏页建好再补——那时握手已经谈完参数了。
+     */
+    private fun canvasW(): Int = resources.displayMetrics.widthPixels
+    private fun canvasH(): Int = resources.displayMetrics.heightPixels
 
     private fun carLifeModeText(): String = when (CarLifeCenter.mode) {
         "usb" -> getString(R.string.carlife_mode_usb)

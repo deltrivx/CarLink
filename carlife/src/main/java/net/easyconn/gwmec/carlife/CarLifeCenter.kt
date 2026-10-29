@@ -48,7 +48,16 @@ object CarLifeCenter {
         appContext = context.applicationContext
     }
 
-    fun connect(context: Context, usb: Boolean) {
+    /**
+     * @param canvasWidth/@param canvasHeight 车机投屏画布尺寸。连接时就要带上，
+     * 否则握手用的是默认 1280x720，等投屏页拿到真实尺寸时协商已经结束了。
+     */
+    fun connect(
+        context: Context,
+        usb: Boolean,
+        canvasWidth: Int = 0,
+        canvasHeight: Int = 0,
+    ) {
         // 只有链路真的活着才复用：running 只说明线程没停，不代表链路还在。
         // 之前只看 session != null 就 return，死会话把界面永远钉在「连接中」。
         val live = session?.let { it.running && it.isLinkAlive() } ?: false
@@ -65,7 +74,13 @@ object CarLifeCenter {
             CarLifeWifiTransport { line -> log(line) }
         }
         val connectType = if (usb) CarLifeProtocol.CONNECT_TYPE_AOA else CarLifeProtocol.CONNECT_TYPE_WIFI
-        val s = CarLifeSession(transport, connectType, listener = CenterListener)
+        val s = CarLifeSession(
+            transport = transport,
+            connectType = connectType,
+            videoWidth = if (canvasWidth > 0) canvasWidth else 1280,
+            videoHeight = if (canvasHeight > 0) canvasHeight else 720,
+            listener = CenterListener,
+        )
         connectionState = State.CONNECTING
         lastError = null
         session = s

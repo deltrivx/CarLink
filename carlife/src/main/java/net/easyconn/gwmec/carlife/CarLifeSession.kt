@@ -201,13 +201,17 @@ class CarLifeSession(
      * 解码器；这里让投屏页把 Surface 尺寸交给会话，会话按新尺寸重发编码参数。
      */
     fun requestVideoResize(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
         if (width == videoWidth && height == videoHeight) return
         videoWidth = width
         videoHeight = height
-        // 握手没完成时只记住画布，不发帧：此时发视频参数手机端还没准备好接收。
-        if (!versionMatched) return
-        if (!videoStarted) return
-        listener.onLog("画布更新为 ${width}x$height，重发视频参数")
+        // 只有握手完成了才有意义：那时手机已经在推流，必须按新画布重新协商。
+        // 握手还没完成就先只记住尺寸，等 MSG_MD_INFO 一类的时机自然带上。
+        if (!versionMatched) {
+            listener.onLog("画布记为 ${width}x$height（握手未完成，稍后生效）")
+            return
+        }
+        listener.onLog("画布更新为 ${width}x$height，重新协商视频参数")
         sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_INIT,
             CarLifeMessages.videoEncoderInfo(width, height, frameRate))
     }
