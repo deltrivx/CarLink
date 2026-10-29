@@ -190,7 +190,7 @@ class CarLifeUsbTransport(
         try {
             while (running) {
                 // 原版：bulkTransferIn(msgHead, 8)，TIME_OUT = 0，读到才返回
-                val nHead = bulkTransferIn(conn, ep, msgHead, 0, LEN_OF_MSG_HEAD)
+                val nHead = bulkTransferIn(conn, ep, msgHead, LEN_OF_MSG_HEAD)
                 if (nHead < 0) { onLog("bulkTransferIn fail 1 (ret=$nHead)"); break }
                 if (nHead == 0) continue
 
@@ -202,7 +202,7 @@ class CarLifeUsbTransport(
                 }
 
                 if (payload.size < lenMsg) payload = ByteArray(lenMsg)
-                val nBody = bulkTransferIn(conn, ep, payload, 0, lenMsg)
+                val nBody = bulkTransferIn(conn, ep, payload, lenMsg)
                 if (nBody < 0) { onLog("bulkTransferIn fail 2 (ret=$nBody)"); break }
 
                 // 原版按通道把整段（内头+载荷）交给上层
@@ -260,27 +260,60 @@ class CarLifeUsbTransport(
     }
 
     /** 原版 bulkTransferIn：0 表示无限等待，负数才是断链。 */
-    private fun bulkTransferIn(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, off: Int, len: Int): Int {
+    /**
+     * 原版 AOAHostSetup.bulkTransferIn：整段读，timeout 0。
+     *
+     * 注意不要用 bulkTransfer(ep, buf, offset, length, timeout)：offset 非 0 时
+     * 部分内核/设备组合会直接返回 -1。原版永远从缓冲区起点收发。
+     */
+    private fun bulkTransferIn(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, len: Int): Int {
         var total = 0
+        val deadline = System.nanoTime() + 3_000_000_000L
         while (total < len) {
             if (!running) return -1
-            val n = conn.bulkTransfer(ep, buf, off + total, len - total, 0)
-            if (n < 0) return if (total > 0) total else -1
+            val n = conn.bulkTransfer(ep, buf, total, len - total, 0)
+            if (n < 0) {
+                // 真正断链才返回负值；超时在 usbfs 里同样表现为 -1，
+                // 所以给一个总时长兜底，别无限重试。
+                if (System.nanoTime() >= deadline) return if (total > 0) total else -1
+                Thread.sleep(20)
+                continue
+            }
+            if (n == 0) { Thread.sleep(10); continue }
             total += n
         }
         return total
     }
 
-    /** 原版 bulkTransferOut 单段写。 */
+    /**
+     * 原版 AOAHostSetup.bulkTransferOut：分段直到发完。
+     *
+     * 同样只用「从缓冲区起点」的形态：需要偏移时先拷到 mDataBuffer，
+     * 和原版 System.arraycopy(data, dataLen, mDataBuffer, 0, readLen) 一致。
+     */
     private fun bulkTransferOut(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, off: Int, len: Int): Int {
-        var total = 0
-        while (total < len) {
+        if (off == 0 && len == buf.size) return writeAll(conn, ep, buf)
+        val chunk = buf.copyOfRange(off, off + len)
+        return writeAll(conn, ep, chunk)
+    }
+
+    /** 从缓冲区起点整段写，必要时按 16KB 分段（原版 AOA_MAX_BUFFER_BYTES）。 */
+    private fun writeAll(conn: UsbDeviceConnection, ep: UsbEndpoint, data: ByteArray): Int {
+        var sent = 0
+        val deadline = System.nanoTime() + 3_000_000_000L
+        while (sent < data.size) {
             if (!running) return -1
-            val n = conn.bulkTransfer(ep, buf, off + total, len - total, 0)
-            if (n < 0) return -1
-            total += n
+            val seg = Math.min(data.size - sent, AOA_WRITE_CHUNK)
+            val slice = if (sent == 0 && seg == data.size) data else data.copyOfRange(sent, sent + seg)
+            val n = conn.bulkTransfer(ep, slice, seg, 0)
+            if (n <= 0) {
+                if (System.nanoTime() >= deadline) return if (sent > 0) sent else -1
+                Thread.sleep(20)
+                continue
+            }
+            sent += n
         }
-        return total
+        return sent
     }
 
     /**
@@ -347,6 +380,8 @@ class CarLifeUsbTransport(
         private const val LEN_OF_MSG_HEAD = 8
         /** 原版 AOA_MAX_BYTES。 */
         private const val AOA_MAX_BYTES = 64 * 1024 * 1024
+        /** 原版 AOA_MAX_BUFFER_BYTES：单次 bulkTransfer 上限 16KB。 */
+        private const val AOA_WRITE_CHUNK = 16 * 1024
         private const val MAX_MESSAGE = 64 * 1024 * 1024
         private const val TOTAL_TIMEOUT_NS = 30_000_000_000L
         private const val MAX_RECONNECT = 12
