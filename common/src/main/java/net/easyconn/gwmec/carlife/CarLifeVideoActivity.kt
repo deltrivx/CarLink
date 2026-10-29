@@ -210,30 +210,18 @@ class CarLifeVideoActivity : ComponentActivity() {
             MotionEvent.ACTION_MOVE -> 2
             else -> return
         }
+        // 原版 TouchListenerManager 的坐标换算：纯线性映射，没有等比缩放也没有居中偏移。
+        //   int x1 = (int) (x0 * mPhoneContainerWidth  / mContainerWidth);
+        //   int y1 = (int) (y0 * mPhoneContainerHeight / mContainerHeight);
+        // 之前自己加的「等比缩放 + 居中留黑边」会让手机 16:9 的画面在 16:10 的车机屏上下留边，
+        // y 坐标整体偏下，底部按钮就点不准——这就是底部焦点错位。
         val viewW = sv.width.toFloat()
         val viewH = sv.height.toFloat()
         if (viewW <= 0 || viewH <= 0) return
-        val videoAspect = videoWidth.toFloat() / videoHeight.toFloat()
-        val viewAspect = viewW / viewH
-        val scaleX: Float
-        val scaleY: Float
-        val offsetX: Float
-        val offsetY: Float
-        if (viewAspect > videoAspect) {
-            val renderedW = viewH * videoAspect
-            offsetX = (viewW - renderedW) / 2f
-            offsetY = 0f
-            scaleX = videoWidth / renderedW
-            scaleY = videoHeight / viewH
-        } else {
-            val renderedH = viewW / videoAspect
-            offsetX = 0f
-            offsetY = (viewH - renderedH) / 2f
-            scaleX = videoWidth / viewW
-            scaleY = videoHeight / renderedH
-        }
-        val x = ((event.x - offsetX) * scaleX).toInt().coerceIn(0, videoWidth)
-        val y = ((event.y - offsetY) * scaleY).toInt().coerceIn(0, videoHeight)
+        val phoneW = videoWidth.toFloat().takeIf { it > 0 } ?: viewW
+        val phoneH = videoHeight.toFloat().takeIf { it > 0 } ?: viewH
+        val x = (event.x * phoneW / viewW).toInt().coerceIn(0, phoneW.toInt())
+        val y = (event.y * phoneH / viewH).toInt().coerceIn(0, phoneH.toInt())
         s.sendTouch(action, x, y)
     }
 

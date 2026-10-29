@@ -960,6 +960,14 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             page == "settings" && !isExpandedSettingsLayout && settingsCategory != SettingsCategory.OVERVIEW -> {
                 settingsCategory = SettingsCategory.OVERVIEW
             }
+            page == "carlife" -> {
+                // CarLife 页的返回就是断开：先停掉会话，否则状态还是 CONNECTED，
+                // 页面被会话状态拉回连接中，USB 入口再也点不进去。
+                CarLifeCenter.disconnect()
+                carLifeConnectedOnce = false
+                page = "home"
+                connectionSettingsReturnCategory = null
+            }
             else -> {
                 page = "home"
                 connectionSettingsReturnCategory = null
