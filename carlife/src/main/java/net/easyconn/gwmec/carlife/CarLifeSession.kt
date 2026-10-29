@@ -69,6 +69,11 @@ class CarLifeSession(
         listener.onDisconnected()
     }
 
+    private companion object {
+        /** 1.5s 一次，约 20 秒无回应即判超时（原版连接超时同为 20s 量级）。 */
+        const val HANDSHAKE_TIMEOUT_TRIES = 14
+    }
+
     private fun sendCmd(serviceType: Int, payload: ByteArray = ByteArray(0)): Boolean =
         transport.send(CarLifeProtocol.CHANNEL_CMD, serviceType, payload)
 
@@ -83,6 +88,13 @@ class CarLifeSession(
         thread(name = "CarLife-Handshake") {
             var retries = 0
             while (running && !versionMatched) {
+                // 握手超过 20 秒没有任何回应，就当这条链路废了：主动收尾回 IDLE，
+                // 不要让界面永远停在「连接中请稍候」。原版有 20 秒连接超时，同理。
+                if (retries >= HANDSHAKE_TIMEOUT_TRIES) {
+                    listener.onLog("等待手机响应超时，结束本次连接")
+                    stop()
+                    return@thread
+                }
                 sendCmd(CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 0))
                 retries++
                 if (retries % 4 == 0) listener.onLog("等待手机响应版本协商…（请确认手机 CarLife 在前台）")
@@ -199,6 +211,15 @@ class CarLifeSession(
         sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_INIT,
             CarLifeMessages.videoEncoderInfo(width, height, frameRate))
     }
+
+    /**
+     * 链路是否真的活着。
+     *
+     * running 只表示线程没被要求停，不代表 USB/WiFi 通道还在。中心层决定
+     * 「复用还是重建」必须看这个，否则死会话会被当成活会话复用，
+     * 界面就永远停在「连接中请稍候」。
+     */
+    fun isLinkAlive(): Boolean = running && transport.isAlive()
 
     fun sendTouch(action: Int, x: Int, y: Int) {
         transport.send(CarLifeProtocol.CHANNEL_TOUCH, CarLifeProtocol.MSG_TOUCH_ACTION,

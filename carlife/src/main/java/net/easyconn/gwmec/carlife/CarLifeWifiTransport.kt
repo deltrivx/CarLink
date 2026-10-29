@@ -101,6 +101,14 @@ class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTranspo
         }
     }
 
+    /** 运行中且有至少一条通道连着，才算链路还活着。 */
+    override fun isAlive(): Boolean {
+        if (!running) return false
+        synchronized(sockets) {
+            return sockets.values.any { it.isConnected && !it.isClosed }
+        }
+    }
+
     override fun stop() {
         if (!running) return
         running = false

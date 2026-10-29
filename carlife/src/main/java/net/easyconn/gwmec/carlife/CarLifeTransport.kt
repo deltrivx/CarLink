@@ -11,4 +11,6 @@ interface CarLifeTransport {
     /** 按通道帧发送一条消息。seqOrTs 仅 12 字节头通道有意义。 */
     fun send(channel: Int, serviceType: Int, payload: ByteArray, seqOrTs: Int = 0): Boolean
     fun stop()
+    /** 通道是否仍然可用；中心层据此判断该复用还是重建会话。 */
+    fun isAlive(): Boolean
 }

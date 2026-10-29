@@ -346,6 +346,11 @@ class CarLifeUsbTransport(
         return txQueue.offer(queued)
     }
 
+    /** 连接对象在、运行标志在、读写线程都还没死，才算活着。 */
+    override fun isAlive(): Boolean =
+        running && connection != null &&
+            readerThread?.isAlive == true && writerThread?.isAlive == true
+
     override fun stop() {
         running = false
         stopIoThreads()

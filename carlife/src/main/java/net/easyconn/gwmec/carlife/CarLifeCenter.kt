@@ -49,10 +49,14 @@ object CarLifeCenter {
     }
 
     fun connect(context: Context, usb: Boolean) {
-        // 会话还活着就复用：从投屏页返回再进入时，重建会把正在跑的链路拆掉，
-        // 新界面拿不到流就卡在「连接中请稍候」。
-        session?.let { if (it.running) return }
-        session = null
+        // 只有链路真的活着才复用：running 只说明线程没停，不代表链路还在。
+        // 之前只看 session != null 就 return，死会话把界面永远钉在「连接中」。
+        val live = session?.let { it.running && it.isLinkAlive() } ?: false
+        if (live) return
+        if (session != null) {
+            log("上一个会话已失效，重建连接")
+            teardown()
+        }
         attach(context)
         mode = if (usb) "usb" else "wifi"
         val transport: CarLifeTransport = if (usb) {
@@ -70,9 +74,21 @@ object CarLifeCenter {
     }
 
     fun disconnect() {
-        session?.stop()
+        teardown()
+    }
+
+    /**
+     * 销毁会话：停线程、关掉传输、清干净单例状态。
+     *
+     * 原版 AOAConnectManager.uninit() 会停掉读线程、停掉 socket 线程、释放
+     * UsbDeviceConnection，再连时从零开始。这里照同样口径，漏一步就会留下
+     * "session 还在但链路已死"的僵死状态。
+     */
+    private fun teardown() {
+        val s = session
         session = null
         mode = null
+        try { s?.stop() } catch (e: Exception) { log("stop 异常: ${e.message}") }
         connectionState = State.IDLE
         unwatchUsbPermission()
     }
