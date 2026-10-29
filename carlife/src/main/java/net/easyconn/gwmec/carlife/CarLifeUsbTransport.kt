@@ -266,20 +266,23 @@ class CarLifeUsbTransport(
      * 注意不要用 bulkTransfer(ep, buf, offset, length, timeout)：offset 非 0 时
      * 部分内核/设备组合会直接返回 -1。原版永远从缓冲区起点收发。
      */
+    /**
+     * 照抄 AOAHostSetup.bulkTransferIn：TIME_OUT = 0，无限阻塞。
+     *
+     * 返回值语义与原版一致：
+     *   > 0  读到字节
+     *   == 0 本次没数据（原版 return 0，由调用方继续循环，不是失败）
+     *   < 0  真正断链
+     * 不要在这里加超时兜底——3 秒兜底会把"手机还没回"误判成断链，
+     * 上一版就是这么把自己读断的。
+     */
     private fun bulkTransferIn(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, len: Int): Int {
         var total = 0
-        val deadline = System.nanoTime() + 3_000_000_000L
         while (total < len) {
             if (!running) return -1
             val n = conn.bulkTransfer(ep, buf, total, len - total, 0)
-            if (n < 0) {
-                // 真正断链才返回负值；超时在 usbfs 里同样表现为 -1，
-                // 所以给一个总时长兜底，别无限重试。
-                if (System.nanoTime() >= deadline) return if (total > 0) total else -1
-                Thread.sleep(20)
-                continue
-            }
-            if (n == 0) { Thread.sleep(10); continue }
+            if (n < 0) return if (total > 0) total else -1
+            if (n == 0) continue
             total += n
         }
         return total
@@ -298,19 +301,21 @@ class CarLifeUsbTransport(
     }
 
     /** 从缓冲区起点整段写，必要时按 16KB 分段（原版 AOA_MAX_BUFFER_BYTES）。 */
+    /**
+     * 照抄 AOAHostSetup.bulkTransferOut：TIME_OUT = 0，单段 <=0 即失败。
+     *
+     * 原版：
+     *   ret = bulkTransfer(mUsbEndpointOut, data, len, TIME_OUT);
+     *   if (ret <= 0) { throw new IOException(); }
+     */
     private fun writeAll(conn: UsbDeviceConnection, ep: UsbEndpoint, data: ByteArray): Int {
         var sent = 0
-        val deadline = System.nanoTime() + 3_000_000_000L
         while (sent < data.size) {
             if (!running) return -1
             val seg = Math.min(data.size - sent, AOA_WRITE_CHUNK)
             val slice = if (sent == 0 && seg == data.size) data else data.copyOfRange(sent, sent + seg)
             val n = conn.bulkTransfer(ep, slice, seg, 0)
-            if (n <= 0) {
-                if (System.nanoTime() >= deadline) return if (sent > 0) sent else -1
-                Thread.sleep(20)
-                continue
-            }
+            if (n <= 0) return if (sent > 0) sent else -1
             sent += n
         }
         return sent
