@@ -147,9 +147,16 @@ class CarLifeUsbTransport(
             }
         }
         running = true
+        // 原版 initUsbDevice 在 isAccessoryMode() 分支里先起 socket 线程，
+        // Thread.sleep(SLEEP_TIME_MS) 睡 1000ms，再起读线程。
+        // 这一秒是给盒子 AOA 固件把协议栈拉起来的时间：这段时间里它能收 USB 包
+        // （bulkTransferOut 不报错），但还不解析 CarLife 帧，协商帧会被直接丢掉。
+        // 之前连接成功后 5ms 就发版本协商，手机自然回不了。
+        onLog("USB设备连接成功，等待设备就绪")
+        Thread.sleep(AOA_READY_DELAY_MS)
+        if (!running) { release(); return fail("连接被取消") }
         readerThread = Thread({ readLoop() }, "CarLife-UsbRead").apply { start() }
         writerThread = Thread({ writeLoop() }, "CarLife-UsbWrite").apply { start() }
-        onLog("USB设备连接成功")
         return true
     }
 
@@ -398,6 +405,8 @@ class CarLifeUsbTransport(
         private const val AOA_MAX_BYTES = 64 * 1024 * 1024
         /** 原版 AOA_MAX_BUFFER_BYTES：单次 bulkTransfer 上限 16KB。 */
         private const val AOA_WRITE_CHUNK = 16 * 1024
+        /** 原版 AOAHostSetup.SLEEP_TIME_MS：起读线程前的设备就绪等待。 */
+        private const val AOA_READY_DELAY_MS = 1000L
         private const val MAX_MESSAGE = 64 * 1024 * 1024
         private const val TOTAL_TIMEOUT_NS = 30_000_000_000L
         private const val MAX_RECONNECT = 12
