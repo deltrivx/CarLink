@@ -169,7 +169,11 @@ class CarLifeVideoActivity : ComponentActivity() {
             val ib = c.getInputBuffer(idx) ?: return
             ib.clear()
             ib.put(data)
-            c.queueInputBuffer(idx, 0, data.size, System.nanoTime() / 1000, 0)
+            // 原版 DecodeUtil 喂帧用的是固定值 1，不是墙上时间：
+            //   mDecoder.queueInputBuffer(inputBufferIndex, 0, length, 1, 0);
+            // 用 nanoTime 时，手机端推流时间戳与本地时钟不连续，MIUI 的
+            // MiMediaCodec 会判定 "TimeStamp has skip" 反复重算帧率 —— 也就是卡顿。
+            c.queueInputBuffer(idx, 0, data.size, 1, 0)
             if (!videoStarted) {
                 videoStarted = true
                 runOnUiThread { statusView?.visibility = View.GONE }
