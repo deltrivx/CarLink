@@ -66,6 +66,8 @@ class CarLifeUsbTransport(
     private var reconnectManager: UsbManager? = null
     private var reconnectDevice: UsbDevice? = null
     private var reconnectAttempts = 0
+    /** 当前要打开的 accessory 实例是本进程刚切出来的，不需要再补发身份串。 */
+    @Volatile private var assumeCleanAccessory = false
 
     /**
      * 读取结束后的韧性重连：原版对盒子的实际行为是读取失败 → resetDevice →
