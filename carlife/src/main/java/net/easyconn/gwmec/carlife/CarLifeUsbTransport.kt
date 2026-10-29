@@ -21,7 +21,7 @@ import kotlin.concurrent.thread
  * - 多路复用帧（小端，区别于 WiFi 通道的大端帧头）：
  *   [int32LE channel][int32LE size][payload]，channel ∈ 1..7，size ≤ 64MB。
  * - 读写都在 interface 0：endpoint 0 = IN，endpoint 1 = OUT；
- *   bulkTransfer 用 timeout=0 阻塞等待，与百度 SDK 一致（0 不是失败）。
+ *   与百度 SDK 一致：多路复用头用 timeout=0 阻塞，body 用 1000ms 分片读。
  */
 class CarLifeUsbTransport(
     private val context: Context,
@@ -185,7 +185,8 @@ class CarLifeUsbTransport(
                 var bodyReadFailed = false
                 while (running && remaining > 0) {
                     val chunk = Math.min(remaining, ep.maxPacketSize)
-                    val nBody = conn.bulkTransfer(ep, body, size - remaining, chunk, 0)
+                    // 原版此处是 1000ms（header 才是 0）：body 分段读，超时即视为断链
+                    val nBody = conn.bulkTransfer(ep, body, size - remaining, chunk, 1000)
                     if (nBody > 0) {
                         remaining -= nBody
                     } else if (nBody < 0) {
@@ -227,6 +228,8 @@ class CarLifeUsbTransport(
     }
 
     private var txLogBudget = 24
+    /** 复用的多路复用头（channel + size，各 4 字节 BE）。 */
+    private val txMux = ByteArray(8)
 
     override fun send(channel: Int, serviceType: Int, payload: ByteArray, seqOrTs: Int): Boolean {
         val conn = connection ?: return false
@@ -234,7 +237,10 @@ class CarLifeUsbTransport(
         val frame = CarLifeProtocol.pack(channel, serviceType, payload, seqOrTs)
         // 长度字段是"整帧长度（含通道内头）"，与 CarLifeMessage.getSize() 一致：
         // getSize() = payloadSize + commandSize，而 frame 就是 header(commandSize) + payload。
-        val muxHeader = beBytes(channel) + beBytes(frame.size)
+        // 复用固定的 8 字节多路复用头缓冲（原版复用 this.header，不每次新建）。
+        beBytes(channel, txMux)
+        beBytes(frame.size, txMux, 4)
+        val muxHeader = txMux
         if (txLogBudget > 0) {
             txLogBudget--
             onLog("TX ch=$channel st=0x${serviceType.toString(16)} len=${frame.size} hdr=" +
@@ -306,6 +312,14 @@ class CarLifeUsbTransport(
 
         fun beBytes(v: Int) = byteArrayOf(
             (v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())
+
+        /** 写入 BE 整数到固定缓冲，避免每次发送都新建数组。 */
+        fun beBytes(v: Int, out: ByteArray, off: Int = 0) {
+            out[off] = (v ushr 24).toByte()
+            out[off + 1] = (v ushr 16).toByte()
+            out[off + 2] = (v ushr 8).toByte()
+            out[off + 3] = v.toByte()
+        }
         fun beInt(b: ByteArray, off: Int) =
             ((b[off].toInt() and 0xFF) shl 24) or ((b[off + 1].toInt() and 0xFF) shl 16) or
                 ((b[off + 2].toInt() and 0xFF) shl 8) or (b[off + 3].toInt() and 0xFF)
