@@ -33,6 +33,7 @@ class CarLifeVideoActivity : ComponentActivity() {
     private var statusView: TextView? = null
     private var surfaceView: SurfaceView? = null
     private var videoStarted = false
+    @Volatile private var running = true
 
     private val centerListener = object : CarLifeSession.Listener {
         override fun onState(state: String) {}
@@ -85,6 +86,23 @@ class CarLifeVideoActivity : ComponentActivity() {
             Gravity.CENTER))
         setContentView(frame)
         CarLifeCenter.addListener(centerListener)
+        // 对齐原版 sendVideoCodecMsg(mSurfaceView.getWidth(), getHeight(), 0)：
+        // 画布尺寸来自车机屏幕，不是写死的 1280x720。
+        surface.post {
+            val w = surface.width
+            val h = surface.height
+            if (w > 0 && h > 0) {
+                CarLifeCenter.session?.let { s ->
+                    s.videoWidth = w
+                    s.videoHeight = h
+                    videoWidth = w
+                    videoHeight = h
+                    Log.i("CarLifeVideo", "canvas from surface: ${w}x$h")
+                    // 通知会话用新尺寸重新协商视频参数
+                    s.requestVideoResize(w, h)
+                }
+            }
+        }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -94,6 +112,13 @@ class CarLifeVideoActivity : ComponentActivity() {
         })
     }
 
+    /**
+     * 喂帧：只负责把码流塞进解码器，不在调用线程里做渲染。
+     *
+     * 原来每来一帧只 dequeueInputBuffer 一次、超时 10ms 就丢，且渲染用 timeout=0
+     * 空转——这就是卡顿和丢帧的来源。原版 DecodeUtil 把渲染交给独立的
+     * DisplayThread 持续 dequeue，这里照做。
+     */
     private fun feed(data: ByteArray) {
         val surface = videoSurface ?: return
         if (!surface.isValid) return
@@ -103,28 +128,43 @@ class CarLifeVideoActivity : ComponentActivity() {
                     surface, null, 0)
                 it.start()
                 codec = it
+                startRenderThread(it)
             }
+            // 阻塞等一个可用的输入槽：丢帧会让画面停顿
+            var idx = -1
+            while (idx < 0 && running) {
+                idx = c.dequeueInputBuffer(20_000)
+            }
+            if (idx < 0) return
+            val ib = c.getInputBuffer(idx) ?: return
+            ib.clear()
+            ib.put(data)
+            c.queueInputBuffer(idx, 0, data.size, System.nanoTime() / 1000, 0)
             if (!videoStarted) {
                 videoStarted = true
-                statusView?.visibility = View.GONE
-            }
-            val idx = c.dequeueInputBuffer(10_000)
-            if (idx >= 0) {
-                val ib = c.getInputBuffer(idx)
-                if (ib != null) {
-                    ib.clear()
-                    ib.put(data)
-                    c.queueInputBuffer(idx, 0, data.size, System.nanoTime() / 1000, 0)
-                }
-            }
-            var out = c.dequeueOutputBuffer(bufferInfo, 0)
-            while (out >= 0) {
-                c.releaseOutputBuffer(out, true)
-                out = c.dequeueOutputBuffer(bufferInfo, 0)
+                runOnUiThread { statusView?.visibility = View.GONE }
             }
         } catch (e: Exception) {
             Log.e("CarLifeVideo", "decoder: ${e.message}")
         }
+    }
+
+    /** 对应原版 DisplayThread：持续把解码结果送去渲染，不依赖新帧到达。 */
+    private fun startRenderThread(codec: MediaCodec) {
+        Thread({
+            val info = MediaCodec.BufferInfo()
+            while (running) {
+                try {
+                    when (val out = codec.dequeueOutputBuffer(info, 10_000)) {
+                        MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
+                        MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> Unit
+                        else -> if (out >= 0) codec.releaseOutputBuffer(out, true)
+                    }
+                } catch (e: IllegalStateException) {
+                    break
+                }
+            }
+        }, "CarLife-Render").start()
     }
 
     private fun handleTouch(event: MotionEvent) {
@@ -164,6 +204,7 @@ class CarLifeVideoActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        running = false
         CarLifeCenter.removeListener(centerListener)
         codec?.let { try { it.stop() } catch (_: Exception) {}; it.release() }
         codec = null

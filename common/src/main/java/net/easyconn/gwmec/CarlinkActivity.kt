@@ -2560,8 +2560,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             override fun onPhoneInfo(info: String) {}
             override fun onVideoFrame(data: ByteArray, tsMs: Long) {
                 runOnUiThread {
-                    if (!carLifeConnectedOnce) {
-                        carLifeConnectedOnce = true
+                    // 只要会话在推流且当前不在投屏页，就进投屏（含从投屏页返回后再进）
+                    if (CarLifeCenter.connectionState == CarLifeCenter.State.CONNECTED ||
+                        CarLifeCenter.session?.running == true) {
                         startActivity(Intent(this@CarlinkActivity, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
                     }
                 }

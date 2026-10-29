@@ -11,8 +11,9 @@ import kotlin.concurrent.thread
 class CarLifeSession(
     private val transport: CarLifeTransport,
     private val connectType: Int,
-    private val videoWidth: Int = 1280,
-    private val videoHeight: Int = 720,
+    /** 视频画布尺寸：由车机 Surface 实际尺寸决定，对齐原版 mSurfaceView.getWidth()/getHeight()。 */
+    @Volatile var videoWidth: Int = 1280,
+    @Volatile var videoHeight: Int = 720,
     private val frameRate: Int = 30,
     private val listener: Listener,
 ) {
@@ -94,6 +95,9 @@ class CarLifeSession(
                 versionMatched = true
                 listener.onLog("手机版本匹配成功")
                 sendCmd(CarLifeProtocol.MSG_HU_STATISTIC_INFO, CarLifeMessages.statisticsInfo())
+                // 原版在此刻 VehiclePCMPlayer.initial() + threadStart()：音频播放器要先就绪，
+                // 手机端才会向音频通道推 PCM。
+                audio.prepare()
                 startHeartbeat()
                 listener.onState("交换设备信息")
             }
@@ -171,6 +175,22 @@ class CarLifeSession(
                 Thread.sleep(1000)
             }
         }
+    }
+
+    /**
+     * 画布尺寸变化后重新协商视频参数。
+     *
+     * 原版在 rotation/窗口变化时会再发一次 sendVideoCodecMsg(w, h, 0) 并在必要时重建
+     * 解码器；这里让投屏页把 Surface 尺寸交给会话，会话按新尺寸重发编码参数。
+     */
+    fun requestVideoResize(width: Int, height: Int) {
+        if (width == videoWidth && height == videoHeight) return
+        videoWidth = width
+        videoHeight = height
+        if (!versionMatched) return
+        listener.onLog("画布更新为 ${width}x$height，重发视频参数")
+        sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_INIT,
+            CarLifeMessages.videoEncoderInfo(width, height, frameRate))
     }
 
     fun sendTouch(action: Int, x: Int, y: Int) {

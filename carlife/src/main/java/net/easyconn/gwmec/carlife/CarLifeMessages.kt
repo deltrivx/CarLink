@@ -44,16 +44,39 @@ object CarLifeMessages {
     fun videoEncoderInfo(w: Int, h: Int, fps: Int): ByteArray =
         Pb.int32(1, w) + Pb.int32(2, h) + Pb.int32(3, fps)
 
-    /** 特征配置：CONNECT_TYPE 决定手机端走 WiFi 还是 AOA 路径；AOA 需申报 USB_MTU。 */
+    /**
+     * 特征配置：对齐原版 FeatureConfigManager.customFeature() 的完整 key 列表。
+     *
+     * 少了 VOICE_MIC / MEDIA_SAMPLE_RATE / AUDIO_TRANSMISSION_MODE 这些项，手机端
+     * 就不知道车机要音频，只推视频——之前"声音还在手机上"就是这个原因。
+     */
     fun featureConfigList(connectType: Int): ByteArray {
-        val item1 = Pb.str(1, "I_FRAME_INTERVAL") + Pb.int32(2, 300)
-        val item2 = Pb.str(1, "CONNECT_TYPE") + Pb.int32(2, connectType)
-        val usbMtu = if (connectType == CarLifeProtocol.CONNECT_TYPE_AOA)
-            Pb.msg(2, Pb.str(1, "USB_MTU") + Pb.int32(2, 16384)) else ByteArray(0)
-        return Pb.int32(1, if (usbMtu.isEmpty()) 2 else 3) +
-            Pb.msg(2, item1) +
-            Pb.msg(2, item2) +
-            usbMtu +
+        // 原版 CarlifeConfUtil 的默认值
+        val items = listOf(
+            "VOICE_WAKEUP" to 1,               // true
+            "BLUETOOTH_AUTO_PAIR" to 0,        // false
+            "BLUETOOTH_INTERNAL_UI" to 0,      // false
+            "FOCUS_UI" to 0,                   // false
+            "VOICE_MIC" to 0,                  // 0 = 用车机麦克风
+            "MEDIA_SAMPLE_RATE" to 0,          // 0 = 原始采样率
+            "AUDIO_TRANSMISSION_MODE" to 0,    // 0 = 默认传输模式
+            "CONTENT_ENCRYPTION" to 0,         // false
+            "ENGINE_TYPE" to 0,
+            "INPUT_DISABLE" to 0,
+            "I_FRAME_INTERVAL" to 300,
+            "CONNECT_TYPE" to connectType,
+        )
+
+        val body = ArrayList<ByteArray>()
+        items.forEach { (key, value) ->
+            body.add(Pb.msg(2, Pb.str(1, key) + Pb.int32(2, value)))
+        }
+        if (connectType == CarLifeProtocol.CONNECT_TYPE_AOA) {
+            body.add(Pb.msg(2, Pb.str(1, "USB_MTU") + Pb.int32(2, 16384)))
+        }
+
+        return Pb.int32(1, body.size) +
+            body.reduce { a, b -> a + b } +
             Pb.bool(3, false) +
             Pb.str(4, "CarLink") +
             Pb.str(5, "00:11:22:33:44:55")

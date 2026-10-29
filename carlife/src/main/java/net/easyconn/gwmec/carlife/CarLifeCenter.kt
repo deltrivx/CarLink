@@ -49,7 +49,10 @@ object CarLifeCenter {
     }
 
     fun connect(context: Context, usb: Boolean) {
-        if (session != null) return
+        // 会话还活着就复用：从投屏页返回再进入时，重建会把正在跑的链路拆掉，
+        // 新界面拿不到流就卡在「连接中请稍候」。
+        session?.let { if (it.running) return }
+        session = null
         attach(context)
         mode = if (usb) "usb" else "wifi"
         val transport: CarLifeTransport = if (usb) {

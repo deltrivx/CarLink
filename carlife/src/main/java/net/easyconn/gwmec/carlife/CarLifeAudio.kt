@@ -23,6 +23,24 @@ class CarLifeAudio(private val onLog: (String) -> Unit) {
 
     private val micQueue = ConcurrentLinkedQueue<ByteArray>()
 
+    /**
+     * 对应原版 VehiclePCMPlayer.initial()：在版本匹配时先把播放器建好。
+     *
+     * 手机端只有确认车机侧音频通路就绪才会往音频通道推 PCM；等
+     * MSG_MD_MUSIC_INIT 才建 AudioTrack 已经太晚，声音就一直留在手机上。
+     * 这里按 48kHz 立体声 16bit 预建两条轨道，后续 INIT 若给别的参数再重建。
+     */
+    fun prepare() {
+        if (musicTrack == null) {
+            val fmt = buildAudioFormat(48000, 2, 1)
+            createTrack(fmt)?.let { track ->
+                musicTrack = track
+                track.play()
+                onLog("媒体音频已预建 48000Hz")
+            }
+        }
+    }
+
     fun startMusic(sampleRate: Int, channelConfig: Int, sampleFormat: Int) {
         stopMusic()
         val fmt = buildAudioFormat(sampleRate, channelConfig, sampleFormat)
