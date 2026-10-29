@@ -66,8 +66,6 @@ class CarLifeUsbTransport(
     private var reconnectManager: UsbManager? = null
     private var reconnectDevice: UsbDevice? = null
     private var reconnectAttempts = 0
-    /** 重连路径专用：此刻的 accessory 实例是刚复位重枚举出来的，不需要再复位。 */
-    @Volatile private var assumeCleanAccessory = false
 
     /**
      * 读取结束后的韧性重连：原版对盒子的实际行为是读取失败 → resetDevice →
@@ -92,11 +90,7 @@ class CarLifeUsbTransport(
                 ?: manager.deviceList.values.firstOrNull()
             if (fresh == null) { onLog("USB 设备已拔出"); stop(); return@thread }
             reconnectDevice = fresh
-            // 重连拿到的就是复位后重新枚举出来的实例，可以直接用。
-            assumeCleanAccessory = true
-            val opened = open(manager, fresh, onMessageSink ?: return@thread)
-            assumeCleanAccessory = false
-            if (opened) {
+            if (open(manager, fresh, onMessageSink ?: return@thread)) {
                 reconnectAttempts = 0
                 onLog("USB 已重连，继续握手")
                 // 版本协商必须走 send() 入队，由写线程发出；直接 dispatch 会绕过 USB。
@@ -138,15 +132,9 @@ class CarLifeUsbTransport(
             release(); return fail("USB 端点不可用（IN/OUT 缺失）")
         }
         if (isAccessory(device)) {
-            // 盒子从 2d00 开局是上一个会话遗留的实例：能收 USB 包（写入不报错），
-            // 但不解析 CarLife 帧，版本协商永远没有回应——偶尔碰巧能通，不可靠。
-            // 原版从不接手这种实例：它每次连接都是先让设备处于普通模式再完整切换。
-            // 所以这里主动复位一次，让盒子回到 0bb4:1001 重新枚举，下一轮从干净实例开始。
-            if (!assumeCleanAccessory) {
-                onLog("配件实例是上一个会话遗留的，复位后重新枚举")
-                release(resetDevice = true)
-                return fail("已复位遗留配件，等待设备重新枚举")
-            }
+            // 原版 UsbAccessoryStarter.openAccessory(): isAccessory() 为 true 直接返回，
+            // 不再发任何控制传输。对已是配件模式的设备发 START_ACCESSORY 不会让它重新
+            // 枚举，反而把 open() 变成"发一次→释放→重连"的死循环。
             onLog("设备已是配件模式，直接使用现有实例")
         } else {
             when (aoaHandshake(conn)) {
