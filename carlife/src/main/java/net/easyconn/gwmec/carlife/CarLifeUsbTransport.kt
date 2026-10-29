@@ -229,34 +229,71 @@ class CarLifeUsbTransport(
     private fun writeLoop() {
         val conn = connection ?: return
         val ep = endpointOut ?: return
+        // 原版复用 this.header 和 mDataBuffer 两个固定缓冲；这里同样只分配一次。
         val head = ByteArray(LEN_OF_MSG_HEAD)
+        val body = ByteArray(AOA_WRITE_CHUNK)
+        // 对应原版 mDataBuffer：长包分段时的落点
+        val scratch = ByteArray(AOA_WRITE_CHUNK)
         try {
             while (running) {
-                val msg = txQueue.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
-                if (msg.isEmpty()) continue
+                val queued = txQueue.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
+                if (queued.size <= 4) continue
 
                 // 队列元素 = [4B BE channel][整帧]；整帧长度就是原版 getSize()
-                val channel = beInt(msg, 0)
-                val frameLen = msg.size - 4
+                val channel = beInt(queued, 0)
+                val frameLen = queued.size - 4
+                System.arraycopy(queued, 4, body, 0, frameLen)
                 beBytes(channel, head, 0)
                 beBytes(frameLen, head, 4)
 
-                if (bulkTransferOut(conn, ep, head, 0, LEN_OF_MSG_HEAD) < 0) {
-                    onLog("bulkTransferOut fail 1"); break
-                }
-                if (bulkTransferOut(conn, ep, msg, 4, frameLen) < 0) {
-                    onLog("bulkTransferOut fail 2"); break
-                }
+                // 日志放在写之前：写阻塞时也能看到实际交给端点的字节
                 if (txLogBudget > 0) {
                     txLogBudget--
                     onLog("TX ch=$channel len=$frameLen hdr=" +
                         head.joinToString("") { "%02X".format(it) } +
-                        " body=" + msg.copyOfRange(4, minOf(msg.size, 28)).joinToString("") { "%02X".format(it) })
+                        " body=" + body.copyOfRange(0, minOf(frameLen, 24)).joinToString("") { "%02X".format(it) })
+                }
+
+                if (bulkTransferOutFixed(conn, ep, head, LEN_OF_MSG_HEAD, scratch) <= 0) {
+                    onLog("bulkTransferOut fail 1"); break
+                }
+                if (frameLen > 0 && bulkTransferOutFixed(conn, ep, body, frameLen, scratch) <= 0) {
+                    onLog("bulkTransferOut fail 2"); break
                 }
             }
         } catch (e: Exception) {
             if (running) onLog("写线程异常: ${e.message}")
         }
+    }
+
+    /**
+     * 照抄 AOAHostSetup.bulkTransferOut(data, len)。
+     *
+     * 短包（<= 16KB）单次调用，长度传实际字节数；长包才拷进固定的 mDataBuffer
+     * 分段发。千万别把固定缓冲的 buf.size 当长度传出去——那样会把声明 12 字节的
+     * 帧连 16KB 垃圾一起灌进端点，盒子直接不认。
+     */
+    private fun bulkTransferOutFixed(
+        conn: UsbDeviceConnection,
+        ep: UsbEndpoint,
+        data: ByteArray,
+        len: Int,
+        scratch: ByteArray,
+    ): Int {
+        if (len <= 0) return 0
+        if (len <= AOA_WRITE_CHUNK) {
+            val n = conn.bulkTransfer(ep, data, len, 0)
+            return if (n <= 0) -1 else n
+        }
+        var sent = 0
+        while (sent < len) {
+            val chunk = Math.min(len - sent, AOA_WRITE_CHUNK)
+            System.arraycopy(data, sent, scratch, 0, chunk)
+            val n = conn.bulkTransfer(ep, scratch, chunk, 0)
+            if (n <= 0) return if (sent > 0) sent else -1
+            sent += n
+        }
+        return sent
     }
 
     /** 原版 bulkTransferIn：0 表示无限等待，负数才是断链。 */
@@ -288,44 +325,6 @@ class CarLifeUsbTransport(
         return total
     }
 
-    /**
-     * 原版 AOAHostSetup.bulkTransferOut：分段直到发完。
-     *
-     * 同样只用「从缓冲区起点」的形态：需要偏移时先拷到 mDataBuffer，
-     * 和原版 System.arraycopy(data, dataLen, mDataBuffer, 0, readLen) 一致。
-     */
-    private fun bulkTransferOut(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, off: Int, len: Int): Int {
-        if (off == 0 && len == buf.size) return writeAll(conn, ep, buf)
-        val chunk = buf.copyOfRange(off, off + len)
-        return writeAll(conn, ep, chunk)
-    }
-
-    /** 从缓冲区起点整段写，必要时按 16KB 分段（原版 AOA_MAX_BUFFER_BYTES）。 */
-    /**
-     * 照抄 AOAHostSetup.bulkTransferOut：TIME_OUT = 0，单段 <=0 即失败。
-     *
-     * 原版：
-     *   ret = bulkTransfer(mUsbEndpointOut, data, len, TIME_OUT);
-     *   if (ret <= 0) { throw new IOException(); }
-     */
-    private fun writeAll(conn: UsbDeviceConnection, ep: UsbEndpoint, data: ByteArray): Int {
-        var sent = 0
-        while (sent < data.size) {
-            if (!running) return -1
-            val seg = Math.min(data.size - sent, AOA_WRITE_CHUNK)
-            val slice = if (sent == 0 && seg == data.size) data else data.copyOfRange(sent, sent + seg)
-            val n = conn.bulkTransfer(ep, slice, seg, 0)
-            if (n <= 0) return if (sent > 0) sent else -1
-            sent += n
-        }
-        return sent
-    }
-
-    /**
-     * USB 单管道消息体解析：
-     * 通道 1/6 是 [u16 len][u16 rsv][u32 BE serviceType] + body；
-     * 其余通道是 [u32 len][u32 seq][u32 BE serviceType] + body。
-     */
     private fun splitChannelFrame(channel: Int, payload: ByteArray): Pair<Int, ByteArray> {
         return try {
             val (len, _, serviceType) = CarLifeProtocol.parseHeader(channel, payload)
