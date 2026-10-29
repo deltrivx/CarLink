@@ -72,6 +72,9 @@ class CarLifeSession(
     private companion object {
         /** 1.5s 一次，约 20 秒无回应即判超时（原版连接超时同为 20s 量级）。 */
         const val HANDSHAKE_TIMEOUT_TRIES = 14
+
+        /** 版本协商没回应时重新握手的次数；原版靠手机端复核恢复，这里自己补几轮。 */
+        const val MAX_HANDSHAKE_RETRIES = 3
     }
 
     private fun sendCmd(serviceType: Int, payload: ByteArray = ByteArray(0)): Boolean =
@@ -85,11 +88,6 @@ class CarLifeSession(
     private var handshakeRetries = 0
 
     // ---- 握手状态机 ----
-    private companion object {
-        /** 版本协商几次没回应就重新握手；原版靠手机端复核恢复，这里自己补几轮。 */
-        const val MAX_HANDSHAKE_RETRIES = 3
-    }
-
     private fun startHandshake() {
         listener.onState("版本协商")
         thread(name = "CarLife-Handshake") {
