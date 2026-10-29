@@ -262,6 +262,13 @@ class CarLifeUsbTransport(
 
     private fun release() {
         try { usbInterface?.let { connection?.releaseInterface(it) } } catch (_: Exception) {}
+        // 百度 SDK 的 terminate(true) 会先 resetDevice 再 close：盒子在异常后留在半开
+        // 状态，不复位的话下一次 openDevice 拿到的连接仍然读不动（bulkTransfer 立即 -1）。
+        try {
+            connection?.let { conn ->
+                conn.javaClass.getMethod("resetDevice").invoke(conn)
+            }
+        } catch (_: Exception) {}
         try { connection?.close() } catch (_: Exception) {}
         connection = null; usbInterface = null; endpointIn = null; endpointOut = null
     }
