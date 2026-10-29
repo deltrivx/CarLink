@@ -91,7 +91,8 @@ class CarLifeUsbTransport(
             if (fresh == null) { onLog("USB 设备已拔出"); stop(); return@thread }
             reconnectDevice = fresh
             if (open(manager, fresh, onMessageSink ?: return@thread)) {
-                reconnectAttempts = 0
+                // 不在这里清零：open() 成功不等于链路可用，紧接着 -1 失败的话
+                // 计数会被重置，重连上限形同虚设，变成连上→失败→再连的死循环。
                 onLog("USB 已重连，继续握手")
                 // 版本协商必须走 send() 入队，由写线程发出；直接 dispatch 会绕过 USB。
                 send(CarLifeProtocol.CHANNEL_CMD, CarLifeProtocol.MSG_HU_PROTOCOL_VERSION,
