@@ -39,6 +39,20 @@ class CarLifeVideoActivity : ComponentActivity() {
         override fun onState(state: String) {}
         override fun onLog(line: String) {}
         override fun onPhoneInfo(info: String) {}
+        /**
+         * 手机回的编码尺寸才是解码器的真实画布，对齐原版 DecodeUtil.initDecoder(
+         * mSurface, encWidth, encHeight)。尺寸变了就重建解码器。
+         */
+        override fun onVideoSize(width: Int, height: Int) {
+            runOnUiThread {
+                if (width <= 0 || height <= 0) return@runOnUiThread
+                if (width == videoWidth && height == videoHeight && codec != null) return@runOnUiThread
+                logCanvas(width, height)
+                videoWidth = width
+                videoHeight = height
+                resetCodec()
+            }
+        }
         override fun onVideoFrame(data: ByteArray, tsMs: Long) {
             runOnUiThread { feed(data) }
         }
@@ -110,6 +124,22 @@ class CarLifeVideoActivity : ComponentActivity() {
                 finish()
             }
         })
+    }
+
+    private fun logCanvas(w: Int, h: Int) {
+        val sv = surfaceView
+        Log.i("CarLifeVideo", "phone canvas ${w}x$h, surface ${sv?.width}x${sv?.height}")
+    }
+
+    /** 换解码器：旧的先停再放，避免两个解码器抢同一个 Surface。 */
+    private fun resetCodec() {
+        val old = codec
+        codec = null
+        videoStarted = false
+        old?.let {
+            try { it.stop() } catch (_: Exception) {}
+            try { it.release() } catch (_: Exception) {}
+        }
     }
 
     /**

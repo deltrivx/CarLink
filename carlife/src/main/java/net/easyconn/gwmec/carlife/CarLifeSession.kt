@@ -25,6 +25,8 @@ class CarLifeSession(
         fun onNaviInfo(info: CarLifeMessages.NaviNextTurnInfo) {}
         fun onMediaInfo(info: CarLifeMessages.MediaInfoData) {}
         fun onBtHfpIndication(command: Int, phoneNum: String) {}
+        /** 手机回的真实编码尺寸：解码器必须按这个建，不能按车机猜的。 */
+        fun onVideoSize(width: Int, height: Int) {}
         fun onDisconnected()
     }
 
@@ -123,8 +125,11 @@ class CarLifeSession(
                 listener.onState("视频准备中")
             }
             CarLifeProtocol.MSG_MD_VIDEO_ENCODER_INIT -> {
+                // 原版 CarlifeActivity MSG_CMD_VIDEO_ENCODER_INIT_DONE 分支：
+                // 1) 用手机回的尺寸建解码器  2) 设触摸容器  3) 才发 START 请求推流
                 val (w, h, fps) = CarLifeMessages.parseEncoderInfo(payload)
                 listener.onLog("手机确认编码参数 ${w}x${h}@$fps")
+                listener.onVideoSize(w, h)
                 sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_START)
                 videoStarted = true
                 listener.onState("已连接")
@@ -187,7 +192,9 @@ class CarLifeSession(
         if (width == videoWidth && height == videoHeight) return
         videoWidth = width
         videoHeight = height
+        // 握手没完成时只记住画布，不发帧：此时发视频参数手机端还没准备好接收。
         if (!versionMatched) return
+        if (!videoStarted) return
         listener.onLog("画布更新为 ${width}x$height，重发视频参数")
         sendCmd(CarLifeProtocol.MSG_HU_VIDEO_ENCODER_INIT,
             CarLifeMessages.videoEncoderInfo(width, height, frameRate))
