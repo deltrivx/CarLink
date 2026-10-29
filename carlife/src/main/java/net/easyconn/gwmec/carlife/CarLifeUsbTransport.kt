@@ -81,6 +81,9 @@ class CarLifeUsbTransport(
         thread(name = "CarLife-UsbReconnect") {
             Thread.sleep(1200L)
             if (!running) return@thread
+            // 先停掉旧读写线程：它们手里握着已关闭 connection 的旧引用，
+            // 不先停就重开，会变成新旧两组线程抢同一个端点。
+            stopIoThreads()
             release()
             val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
                 ?: manager.deviceList.values.firstOrNull { it == reconnectDevice }
@@ -90,8 +93,9 @@ class CarLifeUsbTransport(
             if (open(manager, fresh, onMessageSink ?: return@thread)) {
                 reconnectAttempts = 0
                 onLog("USB 已重连，继续握手")
-                // 重连成功后重新发起版本协商
-                dispatch?.let { d -> d(CarLifeProtocol.CHANNEL_CMD, CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 0)) }
+                // 版本协商必须走 send() 入队，由写线程发出；直接 dispatch 会绕过 USB。
+                send(CarLifeProtocol.CHANNEL_CMD, CarLifeProtocol.MSG_HU_PROTOCOL_VERSION,
+                    CarLifeMessages.protocolVersion(4, 0), 0)
             } else {
                 scheduleReconnect()
             }
@@ -99,6 +103,15 @@ class CarLifeUsbTransport(
     }
 
     @Volatile private var onMessageSink: ((Int, Int, ByteArray) -> Unit)? = null
+
+    /** 停掉当前读写线程（重连前调用，避免旧线程持着已关闭的连接继续读）。 */
+    private fun stopIoThreads() {
+        try { readerThread?.interrupt() } catch (_: Exception) {}
+        try { writerThread?.interrupt() } catch (_: Exception) {}
+        readerThread = null
+        writerThread = null
+        txQueue.clear()
+    }
 
     /** 真正打开设备并启动读线程；AOA 切换指令发出后设备会重新枚举，需要等重新插入。 */
     fun open(manager: UsbManager, device: UsbDevice, onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit = { _, _, _ -> }): Boolean {
@@ -298,7 +311,7 @@ class CarLifeUsbTransport(
 
     override fun stop() {
         running = false
-        txQueue.clear()
+        stopIoThreads()
         release()
     }
 
