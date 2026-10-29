@@ -132,16 +132,10 @@ class CarLifeUsbTransport(
             release(); return fail("USB 端点不可用（IN/OUT 缺失）")
         }
         if (isAccessory(device)) {
-            // 设备已经是 18d1:2d00，但这个实例可能是上一轮会话遗留的：
-            // 枚举成配件模式了，协议栈却没初始化（读不到任何数据）。
-            // 原版这种实例来自刚刚的切换，是干净的；我们接手的往往不是。
-            // 所以这里补发一次 START_ACCESSORY(53)，让盒子重新枚举出干净实例。
-            val restarted = conn.controlTransfer(0x40, 53, 0, 0, null, 0, 0)
-            if (restarted >= 0) {
-                release()
-                return fail("已重新激活AOA配件模式，等待设备重新枚举")
-            }
-            onLog("AOA 重新激活失败（ret=$restarted），按现有实例继续")
+            // 原版 UsbAccessoryStarter.openAccessory(): isAccessory() 为 true 直接返回，
+            // 不再发任何控制传输。对已是配件模式的设备发 START_ACCESSORY 不会让它重新
+            // 枚举，反而把 open() 变成"发一次→释放→重连"的死循环。
+            onLog("设备已是配件模式，直接使用现有实例")
         } else {
             when (aoaHandshake(conn)) {
                 AoaResult.ALREADY -> Unit
