@@ -795,4 +795,6 @@
     <string name="carlife_status_error">Ошибка подключения</string>
     <string name="carlife_action_reconnect">Переподключить</string>
     <string name="carlife_action_stop_connecting">Остановить подключение</string>
+    <string name="carlife_page_eyebrow">Телефон Android</string>
+    <string name="carlife_page_title">Подключить телефон Android</string>
 </resources>

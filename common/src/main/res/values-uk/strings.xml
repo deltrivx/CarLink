@@ -807,4 +807,6 @@
     <string name="carlife_status_error">Помилка підключення</string>
     <string name="carlife_action_reconnect">Повторити</string>
     <string name="carlife_action_stop_connecting">Зупинити</string>
+    <string name="carlife_page_eyebrow">Телефон Android</string>
+    <string name="carlife_page_title">Підключити телефон Android</string>
 </resources>

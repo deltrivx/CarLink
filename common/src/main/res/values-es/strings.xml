@@ -795,4 +795,6 @@
     <string name="carlife_status_error">Problema de conexión</string>
     <string name="carlife_action_reconnect">Reconectar</string>
     <string name="carlife_action_stop_connecting">Detener conexión</string>
+    <string name="carlife_page_eyebrow">Teléfono Android</string>
+    <string name="carlife_page_title">Conectar un teléfono Android</string>
 </resources>

@@ -940,8 +940,8 @@
     <string name="settings_ambient_swatch">Color %1$d</string>
     <string name="settings_ambient_swatch_selected">Color %1$d, selected</string>
     <string name="settings_cluster_music_unknown">Unknown artist</string>
-    <string name="carlife_page_title">Android phone</string>
-    <string name="carlife_page_subtitle">Connect an Android phone over Baidu CarLife</string>
+    <string name="carlife_page_eyebrow">Android phone</string>
+    <string name="carlife_page_title">Connect an Android phone</string>
     <string name="carlife_section_connection">Connection</string>
     <string name="carlife_section_log">Log</string>
     <string name="carlife_section_help">How to connect</string>
@@ -961,11 +961,11 @@
     <string name="setup_feature_hud">HUD navigation projection</string>
     <string name="setup_feature_hud_description">Project turn guidance to the car HUD when the head unit exposes one. Experimental outside BYD.</string>
     <string name="carlife_status_ready">All set</string>
-    <string name="carlife_hint_idle">Wi-Fi Direct / USB · Keep phone connected and open CarLife app</string>
+    <string name="carlife_hint_idle">Wired or wireless · Connect an Android phone, then open the CarLife app.</string>
     <string name="carlife_status_connecting">Connecting to Android phone…</string>
-    <string name="carlife_hint_connecting">Setting up CarLife session…</string>
+    <string name="carlife_hint_connecting">Getting CarLife ready…</string>
     <string name="carlife_status_connected">CarLife Connected</string>
-    <string name="carlife_hint_connected">Android phone is projecting to the car screen</string>
+    <string name="carlife_hint_connected">Your Android phone is projecting to this display.</string>
     <string name="carlife_status_error">Connection problem</string>
     <string name="carlife_action_reconnect">Reconnect</string>
     <string name="carlife_action_stop_connecting">Stop connecting</string>

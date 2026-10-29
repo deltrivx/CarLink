@@ -795,4 +795,6 @@
     <string name="carlife_status_error">مشكلة في الاتصال</string>
     <string name="carlife_action_reconnect">إعادة الاتصال</string>
     <string name="carlife_action_stop_connecting">إيقاف الاتصال</string>
+    <string name="carlife_page_eyebrow">هاتف أندرويد</string>
+    <string name="carlife_page_title">الاتصال بهاتف أندرويد</string>
 </resources>

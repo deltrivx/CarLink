@@ -947,4 +947,6 @@
     <string name="carlife_status_error">接続エラー</string>
     <string name="carlife_action_reconnect">再接続</string>
     <string name="carlife_action_stop_connecting">接続停止</string>
+    <string name="carlife_page_eyebrow">Android スマートフォン</string>
+    <string name="carlife_page_title">Android を接続</string>
 </resources>

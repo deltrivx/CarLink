@@ -804,7 +804,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         // The home's corners hold the screen's own edges: the build bottom-left, a
         // waiting update bottom-right. They sit above the scrolling content, pinned
         // to the physical screen, so they land the same on every display.
-        val screen: View = if (page == "home") FrameLayout(this).apply {
+        val screen: View = if (page == "home" || page == "carlife") FrameLayout(this).apply {
             addView(root, FrameLayout.LayoutParams(-1, -1))
             val edge = dp(44)
             val lift = dp(26)
@@ -896,7 +896,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         val glyph = dp(if (compact) 44 else 68)
         // Inside the app (connection setup, guide): a back glyph leads the left edge.
         // On the home itself the brand's glyph leads, twice the older corner size.
-        if (page != "home") {
+        if (page != "home" && page != "carlife") {
             addView(headerIcon(R.drawable.ic_dp_back, getString(R.string.back), compact) {
                 navigateBack()
             }, LinearLayout.LayoutParams(glyph, glyph))
@@ -2499,11 +2499,18 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         val compact = isCompactLayout
         val body = column().apply { gravity = Gravity.CENTER_HORIZONTAL }
 
-        // Title and subtitle - same pattern as home page
-        body.addView(label(getString(R.string.carlife_page_title), 40, TEXT, true))
-        body.addView(label(getString(R.string.carlife_page_subtitle), 20, MUTED).apply {
-            setPadding(0, dp(8), 0, dp(24))
-        })
+        // Same eye-brow + title pair the CarPlay home carries, so both pages put the
+        // hero on the same line of the screen: one accent line, one title, no subtitle.
+        if (!compact) {
+            body.addView(label(getString(R.string.carlife_page_eyebrow), 12, ACCENT, true).apply {
+                gravity = Gravity.CENTER
+                letterSpacing = .16f
+            })
+            body.addView(label(getString(R.string.carlife_page_title), 34, TEXT, true).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, dp(10), 0, dp(6))
+            })
+        }
 
         // Hero image - reuse the existing CarLife hero
         val hero = ImageView(this).apply {
@@ -2591,7 +2598,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             // ============ 帧2：已连接 ============
             isConnected -> {
                 carLifeHero?.setImageResource(R.drawable.cover_success)
-                val statusLabel = label(getString(R.string.carlife_status_connected), 19, TEXT, true).apply {
+                val statusLabel = label(getString(R.string.carlife_status_connected), 15, TEXT, true).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(3), 0, 0)
                 }
@@ -2618,7 +2625,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             // ============ 帧3：连接中 ============
             state == CarLifeCenter.State.CONNECTING -> {
                 carLifeHero?.setImageResource(R.drawable.cover_wait)
-                val statusLabel = label(getString(R.string.carlife_status_connecting), 19, TEXT, true).apply {
+                val statusLabel = label(getString(R.string.carlife_status_connecting), 15, TEXT, true).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(3), 0, 0)
                 }
@@ -2656,7 +2663,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             // ============ 帧4：连接遇到问题 / 异常 ============
             state == CarLifeCenter.State.ERROR -> {
                 carLifeHero?.setImageResource(R.drawable.cover_fail)
-                val statusLabel = label(getString(R.string.carlife_status_error), 19, WARNING, true).apply {
+                val statusLabel = label(getString(R.string.carlife_status_error), 15, WARNING, true).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(3), 0, 0)
                 }
@@ -2685,7 +2692,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             // ============ 帧1：未连接 / 一切就绪 ============
             else -> {
                 carLifeHero?.setImageResource(R.drawable.cover_wait)
-                val statusLabel = label(getString(R.string.carlife_status_ready), 19, TEXT, true).apply {
+                val statusLabel = label(getString(R.string.carlife_status_ready), 15, TEXT, true).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(3), 0, 0)
                 }
