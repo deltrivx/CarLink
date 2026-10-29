@@ -132,10 +132,13 @@ class CarLifeUsbTransport(
             release(); return fail("USB 端点不可用（IN/OUT 缺失）")
         }
         if (isAccessory(device)) {
-            // 原版 UsbAccessoryStarter.openAccessory(): isAccessory() 为 true 直接返回，
-            // 不再发任何控制传输。对已是配件模式的设备发 START_ACCESSORY 不会让它重新
-            // 枚举，反而把 open() 变成"发一次→释放→重连"的死循环。
-            onLog("设备已是配件模式，直接使用现有实例")
+            // 已是配件模式：不再发 START_ACCESSORY（对已切换的设备无效，只会把 open()
+            // 变成"发一次→释放→重连"的死循环）。但把 6 条 AOA 身份串重发一遍是安全的
+            // ——SEND_STRING 只写字符串，不改设备模式，却能让盒子的配件协议栈重新拿到
+            // 主机身份、真正进入可通信状态。遗留的 2d00 实例能收 USB 包却不解析
+            // CarLife 帧，就是缺这一步。
+            onLog("设备已是配件模式，补发 AOA 身份串")
+            resendIdentities(conn)
         } else {
             when (aoaHandshake(conn)) {
                 AoaResult.ALREADY -> Unit
@@ -164,6 +167,19 @@ class CarLifeUsbTransport(
 
     private fun isAccessory(d: UsbDevice) =
         d.vendorId == AOA_VID && d.productId in AOA_PIDS
+
+    /**
+     * 只补发身份串，不发 START_ACCESSORY：对已经处于 accessory 模式的设备，
+     * 这一步只是让固件的配件协议栈重新绑定主机身份，不触发重新枚举。
+     */
+    private fun resendIdentities(conn: UsbDeviceConnection) {
+        ACCESSORY_STRINGS.forEachIndexed { index, value ->
+            val bytes = value.toByteArray(Charsets.UTF_8)
+            if (conn.controlTransfer(0x40, 52, 0, index, bytes, bytes.size, 0) < 0) {
+                onLog("AOA 身份串 $index 补发失败")
+            }
+        }
+    }
 
     private fun aoaHandshake(conn: UsbDeviceConnection): AoaResult {
         val proto = ByteArray(2)
