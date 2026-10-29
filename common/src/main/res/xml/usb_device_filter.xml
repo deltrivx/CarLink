@@ -4,4 +4,8 @@
     <usb-device vendor-id="6790" product-id="21778" />
     <!-- Apple -->
     <usb-device vendor-id="1452" />
+    <!-- 车机互联盒子 AutoBox：普通模式 0bb4:1001 -->
+    <usb-device vendor-id="3012" product-id="4097" />
+    <!-- 车机互联盒子 AutoBox：AOA 配件模式 18d1:2d00 -->
+    <usb-device vendor-id="6353" product-id="11520" />
 </resources>
