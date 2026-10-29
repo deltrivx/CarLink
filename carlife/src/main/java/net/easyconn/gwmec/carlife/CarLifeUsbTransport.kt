@@ -144,8 +144,13 @@ class CarLifeUsbTransport(
             when (aoaHandshake(conn)) {
                 AoaResult.ALREADY -> Unit
                 AoaResult.SWITCHED -> {
+                    // 原版 changeToAccessoryMode() 之后是把控制权交回扫描循环，
+                    // 下一轮 scanUsbDevices 发现 2d00 就接着 initUsbDevice。
+                    // 原来这里直接 fail 返回，等一个永远不会来的"自动继续"，
+                    // 插线后界面就一直停在连接不上。
                     release()
-                    return fail("已发送AOA切换指令，手机重新识别后自动继续")
+                    onLog("已发送AOA切换指令，等待设备重新枚举")
+                    return awaitAccessoryReenumeration()
                 }
                 AoaResult.UNSUPPORTED -> { release(); return fail("该手机不支持AOA配件模式，请改用无线连接") }
             }
@@ -162,6 +167,30 @@ class CarLifeUsbTransport(
         readerThread = Thread({ readLoop() }, "CarLife-UsbRead").apply { start() }
         writerThread = Thread({ writeLoop() }, "CarLife-UsbWrite").apply { start() }
         return true
+    }
+
+    /**
+     * AOA 切换后等盒子以 18d1:2d00 重新枚举出来，然后接着打开它继续握手。
+     * 对应原版扫描循环的下一轮；等不到就明确失败，不再留一个悬空的"自动继续"。
+     */
+    private fun awaitAccessoryReenumeration(): Boolean {
+        val manager = reconnectManager ?: return fail("USB 管理器不可用")
+        val deadline = System.currentTimeMillis() + AOA_REENUM_TIMEOUT_MS
+        var polled = 0
+        while (System.currentTimeMillis() < deadline) {
+            Thread.sleep(300)
+            if (!running && polled > 0) return fail("连接被取消")
+            polled++
+            val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) } ?: continue
+            onLog("盒子已重新枚举为配件模式，继续握手")
+            reconnectDevice = fresh
+            // 这个实例是刚刚自己切出来的，不需要再补发身份串。
+            assumeCleanAccessory = true
+            val opened = open(manager, fresh, onMessageSink ?: return fail("消息通道未就绪"))
+            assumeCleanAccessory = false
+            return opened
+        }
+        return fail("切换 AOA 后设备未重新枚举，请重新插拔盒子")
     }
 
     private enum class AoaResult { ALREADY, SWITCHED, UNSUPPORTED }
@@ -438,6 +467,8 @@ class CarLifeUsbTransport(
         private const val AOA_WRITE_CHUNK = 16 * 1024
         /** 原版 AOAHostSetup.SLEEP_TIME_MS：起读线程前的设备就绪等待。 */
         private const val AOA_READY_DELAY_MS = 1000L
+        /** AOA 切换后等盒子重新枚举成配件模式的时限。 */
+        private const val AOA_REENUM_TIMEOUT_MS = 8000L
         private const val MAX_MESSAGE = 64 * 1024 * 1024
         private const val TOTAL_TIMEOUT_NS = 30_000_000_000L
         private const val MAX_RECONNECT = 12
