@@ -109,6 +109,11 @@ class CarLifeSession(
                 versionMatched = true
                 listener.onLog("手机版本匹配成功")
                 sendCmd(CarLifeProtocol.MSG_HU_STATISTIC_INFO, CarLifeMessages.statisticsInfo())
+                // 原版 CarlifeActivity MSG_CMD_PROTOCOL_VERSION_MATCH_STATUS 成功分支：
+                // sendConnectTypeToMd(CARLIFE_CONNECT_MODULE_ID, CONNECTED_TYPE)。
+                // 手机靠这条决定启用哪些通道，不发它手机就不启动音频。
+                sendCmd(CarLifeProtocol.MSG_HU_MODULE_CONTROL,
+                    CarLifeMessages.connectTypeToMd(connectType))
                 // 原版在此刻 VehiclePCMPlayer.initial() + threadStart()：音频播放器要先就绪，
                 // 手机端才会向音频通道推 PCM。
                 audio.prepare()

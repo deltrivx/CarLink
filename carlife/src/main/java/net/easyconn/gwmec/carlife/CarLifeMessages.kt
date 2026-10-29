@@ -41,6 +41,19 @@ object CarLifeMessages {
             Pb.int32(21, 30) +
             Pb.str(22, "4.0.0")
 
+    /**
+     * 原版 ConnectManager.sendConnectTypeToMd(CARLIFE_CONNECT_MODULE_ID, CONNECTED_TYPE)：
+     * CarlifeModuleStatus { moduleID = 1, statusID = 2 }，serviceType = MSG_CMD_MODULE_CONTROL。
+     *
+     * 版本匹配成功后原版必发这条，把连接方式告诉手机。手机据此决定启用哪些通道；
+     * 缺了它，手机不会发 MSG_MD_MUSIC_INIT，音频就一直留在手机上。
+     */
+    fun connectTypeToMd(connectType: Int): ByteArray =
+        Pb.int32(1, MODULE_ID_CARLIFE_CONNECT) + Pb.int32(2, connectType)
+
+    /** 原版 ModuleStatusModel.CARLIFE_CONNECT_MODULE_ID。 */
+    private const val MODULE_ID_CARLIFE_CONNECT = 5
+
     fun videoEncoderInfo(w: Int, h: Int, fps: Int): ByteArray =
         Pb.int32(1, w) + Pb.int32(2, h) + Pb.int32(3, fps)
 

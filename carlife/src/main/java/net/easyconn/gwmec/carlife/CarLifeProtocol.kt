@@ -43,6 +43,7 @@ object CarLifeProtocol {
     const val MSG_HU_INFO = 98307                      // 0x18003 车端设备信息
     const val MSG_MD_INFO = 65540                      // 0x10004 手机设备信息
     const val MSG_HU_STATISTIC_INFO = 98343            // 0x18027 车端统计
+    const val MSG_HU_MODULE_CONTROL = 98344            // 0x18028 车端模块控制
     const val MSG_MD_AUTHEN_RESULT = 65611             // 0x1004B 手机鉴权结果
     const val MSG_HU_AUTHEN_RESULT = 98380             // 0x1804C 车端鉴权确认
     const val MSG_MD_FEATURE_CONFIG_REQUEST = 65617    // 0x10051 手机特征请求
