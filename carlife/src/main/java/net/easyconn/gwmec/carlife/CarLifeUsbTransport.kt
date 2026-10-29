@@ -21,7 +21,7 @@ import kotlin.concurrent.thread
  * - 多路复用帧（小端，区别于 WiFi 通道的大端帧头）：
  *   [int32LE channel][int32LE size][payload]，channel ∈ 1..7，size ≤ 64MB。
  * - 读写都在 interface 0：endpoint 0 = IN，endpoint 1 = OUT；
- *   bulkTransfer 单次 3s 超时，整段 30s 总超时，空转重试 50ms。
+ *   bulkTransfer 用 timeout=0 阻塞等待，与百度 SDK 一致（0 不是失败）。
  */
 class CarLifeUsbTransport(
     private val context: Context,
@@ -107,10 +107,9 @@ class CarLifeUsbTransport(
         }
         connection = conn
         usbInterface = iface
-        endpointIn = iface.getEndpoint(0).takeIf { it.direction == UsbConstants.USB_DIR_IN }
-            ?: iface.getEndpoint(1).takeIf { it.direction == UsbConstants.USB_DIR_IN }
-        endpointOut = iface.getEndpoint(1).takeIf { it.direction == UsbConstants.USB_DIR_OUT }
-            ?: iface.getEndpoint(0).takeIf { it.direction == UsbConstants.USB_DIR_OUT }
+        // 与百度 SDK 一致：getEndpoint(0) 读，getEndpoint(1) 写。
+        endpointIn = iface.getEndpoint(0)
+        endpointOut = iface.getEndpoint(1)
         if (endpointIn == null || endpointOut == null) {
             release(); return fail("USB 端点不可用（IN/OUT 缺失）")
         }
@@ -166,7 +165,8 @@ class CarLifeUsbTransport(
                 // 原版 UsbAccessoryCommunicator: 循环 bulkTransfer 读 8 字节 headerBuffer (timeout=0 阻塞)
                 var nHeader = 0
                 while (running && nHeader == 0) {
-                    nHeader = conn.bulkTransfer(ep, header, 0, 8, 1000)
+                    // 原版：bulkTransfer(..., 0) —— 0 表示无限等待，不把"没数据"当断链
+                    nHeader = conn.bulkTransfer(ep, header, 0, 8, 0)
                 }
                 if (nHeader < 0) {
                     if (running) onLog("USB 帧头读取中断 (ret=$nHeader)")
@@ -185,7 +185,7 @@ class CarLifeUsbTransport(
                 var bodyReadFailed = false
                 while (running && remaining > 0) {
                     val chunk = Math.min(remaining, ep.maxPacketSize)
-                    val nBody = conn.bulkTransfer(ep, body, size - remaining, chunk, 1000)
+                    val nBody = conn.bulkTransfer(ep, body, size - remaining, chunk, 0)
                     if (nBody > 0) {
                         remaining -= nBody
                     } else if (nBody < 0) {
@@ -235,7 +235,7 @@ class CarLifeUsbTransport(
         // bulkTransfer(endpointOut, body, 0, size, 0)
         var nHead = 0
         while (running && nHead == 0) {
-            nHead = conn.bulkTransfer(ep, muxHeader, 0, 8, 1000)
+            nHead = conn.bulkTransfer(ep, muxHeader, 0, 8, 0)
         }
         if (nHead < 0) {
             onLog("USB 多路复用头发送失败 (ret=$nHead)")
@@ -245,7 +245,7 @@ class CarLifeUsbTransport(
         if (frame.isNotEmpty()) {
             var nBody = 0
             while (running && nBody == 0) {
-                nBody = conn.bulkTransfer(ep, frame, 0, frame.size, 1000)
+                nBody = conn.bulkTransfer(ep, frame, 0, frame.size, 0)
             }
             if (nBody < 0) {
                 onLog("USB 消息体发送失败 (ret=$nBody)")
