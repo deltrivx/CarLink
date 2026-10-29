@@ -35,6 +35,11 @@ class CarLifeUsbTransport(
     @Volatile private var running = false
     private var dispatch: ((channel: Int, serviceType: Int, payload: ByteArray) -> Unit)? = null
     private var readerThread: Thread? = null
+    private var writerThread: Thread? = null
+    /** 待发帧队列，承担原版 SocketReadThread 里 ServerSocket 的角色。 */
+    private val txQueue = java.util.concurrent.LinkedBlockingQueue<ByteArray>()
+    /** 前若干帧打印 TX hex，便于对照原版，之后静默。 */
+    private var txLogBudget = 24
 
     override fun start(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         dispatch = onMessage
@@ -125,6 +130,7 @@ class CarLifeUsbTransport(
         }
         running = true
         readerThread = Thread({ readLoop() }, "CarLife-UsbRead").apply { start() }
+        writerThread = Thread({ writeLoop() }, "CarLife-UsbWrite").apply { start() }
         onLog("USB设备连接成功")
         return true
     }
@@ -157,58 +163,111 @@ class CarLifeUsbTransport(
             }
             ?: manager.deviceList.values.firstOrNull()
 
+    /**
+     * 读线程：独占 bulk IN，严格照原版 AOAReadThread。
+     *
+     * 原版一个线程只碰 IN，另一个（SocketReadThread）只碰 OUT，两者从不并发。
+     * 我们之前读写在同一个 connection 上并发调用 bulkTransfer，内核直接回 -1。
+     */
     private fun readLoop() {
         val conn = connection ?: return
         val ep = endpointIn ?: return
+        val msgHead = ByteArray(LEN_OF_MSG_HEAD)
+        var payload = ByteArray(12)
         try {
             while (running) {
-                // 原版 UsbAccessoryCommunicator: 循环 bulkTransfer 读 8 字节 headerBuffer (timeout=0 阻塞)
-                var nHeader = 0
-                while (running && nHeader == 0) {
-                    // 原版：bulkTransfer(..., 0) —— 0 表示无限等待，不把"没数据"当断链
-                    nHeader = conn.bulkTransfer(ep, header, 0, 8, 0)
-                }
-                if (nHeader < 0) {
-                    if (running) onLog("USB 帧头读取中断 (ret=$nHeader)")
-                    break
-                }
-                val channel = beInt(header, 0)
-                val size = beInt(header, 4)
-                if (channel !in 1..7 || size < 0 || size > MAX_MESSAGE) {
-                    onLog("USB 帧头非法 channel=$channel size=$size")
+                // 原版：bulkTransferIn(msgHead, 8)，TIME_OUT = 0，读到才返回
+                val nHead = bulkTransferIn(conn, ep, msgHead, 0, LEN_OF_MSG_HEAD)
+                if (nHead < 0) { onLog("bulkTransferIn fail 1 (ret=$nHead)"); break }
+                if (nHead == 0) continue
+
+                val typeMsg = beInt(msgHead, 0)
+                val lenMsg = beInt(msgHead, 4)
+                if (typeMsg < 1 || typeMsg > 6 || lenMsg < 8 || lenMsg > AOA_MAX_BYTES) {
+                    onLog("typeMsg=$typeMsg lenMsg=$lenMsg 非法")
                     break
                 }
 
-                // 读取 body：原版是 while (remaining > 0) bulkTransfer(ep, body, offset, Math.min(remaining, maxPacketSize), 1000)
-                val body = ByteArray(size)
-                var remaining = size
-                var bodyReadFailed = false
-                while (running && remaining > 0) {
-                    val chunk = Math.min(remaining, ep.maxPacketSize)
-                    // 原版此处是 1000ms（header 才是 0）：body 分段读，超时即视为断链
-                    val nBody = conn.bulkTransfer(ep, body, size - remaining, chunk, 1000)
-                    if (nBody > 0) {
-                        remaining -= nBody
-                    } else if (nBody < 0) {
-                        onLog("USB 消息体读取失败 (ret=$nBody, want=$size, remain=$remaining)")
-                        bodyReadFailed = true
-                        break
-                    }
-                }
-                if (bodyReadFailed || !running) break
+                if (payload.size < lenMsg) payload = ByteArray(lenMsg)
+                val nBody = bulkTransferIn(conn, ep, payload, 0, lenMsg)
+                if (nBody < 0) { onLog("bulkTransferIn fail 2 (ret=$nBody)"); break }
 
-                val (serviceType, inner) = splitChannelFrame(channel, body)
-                dispatch?.invoke(channel, serviceType, inner)
+                // 原版按通道把整段（内头+载荷）交给上层
+                val msg = payload.copyOfRange(0, lenMsg)
+                val (serviceType, inner) = splitChannelFrame(typeMsg, msg)
+                dispatch?.invoke(typeMsg, serviceType, inner)
             }
         } catch (e: Exception) {
-            if (running) onLog("USB 读取异常: ${e.message}")
+            if (running) onLog("读线程异常: ${e.message}")
         }
         if (running) {
-            onLog("USB 读取结束")
-            // 读失败才复位设备：管道已经不可用，不复位下一轮 openDevice 仍然读不动
+            onLog("读取结束")
             release(resetDevice = true)
             scheduleReconnect()
         }
+    }
+
+    /**
+     * 写线程：独占 bulk OUT，照原版 SocketReadThread。
+     *
+     * 原版从 ServerSocket 读待发数据再写 USB；这里用队列承担同样的角色，
+     * send() 只入队，绝不直接碰 connection。
+     */
+    private fun writeLoop() {
+        val conn = connection ?: return
+        val ep = endpointOut ?: return
+        val head = ByteArray(LEN_OF_MSG_HEAD)
+        try {
+            while (running) {
+                val msg = txQueue.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
+                if (msg.isEmpty()) continue
+
+                // 队列元素 = [4B BE channel][整帧]；整帧长度就是原版 getSize()
+                val channel = beInt(msg, 0)
+                val frameLen = msg.size - 4
+                beBytes(channel, head, 0)
+                beBytes(frameLen, head, 4)
+
+                if (bulkTransferOut(conn, ep, head, 0, LEN_OF_MSG_HEAD) < 0) {
+                    onLog("bulkTransferOut fail 1"); break
+                }
+                if (bulkTransferOut(conn, ep, msg, 4, frameLen) < 0) {
+                    onLog("bulkTransferOut fail 2"); break
+                }
+                if (txLogBudget > 0) {
+                    txLogBudget--
+                    onLog("TX ch=$channel len=$frameLen hdr=" +
+                        head.joinToString("") { "%02X".format(it) } +
+                        " body=" + msg.copyOfRange(4, minOf(msg.size, 28)).joinToString("") { "%02X".format(it) })
+                }
+            }
+        } catch (e: Exception) {
+            if (running) onLog("写线程异常: ${e.message}")
+        }
+    }
+
+    /** 原版 bulkTransferIn：0 表示无限等待，负数才是断链。 */
+    private fun bulkTransferIn(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, off: Int, len: Int): Int {
+        var total = 0
+        while (total < len) {
+            if (!running) return -1
+            val n = conn.bulkTransfer(ep, buf, off + total, len - total, 0)
+            if (n < 0) return if (total > 0) total else -1
+            total += n
+        }
+        return total
+    }
+
+    /** 原版 bulkTransferOut 单段写。 */
+    private fun bulkTransferOut(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, off: Int, len: Int): Int {
+        var total = 0
+        while (total < len) {
+            if (!running) return -1
+            val n = conn.bulkTransfer(ep, buf, off + total, len - total, 0)
+            if (n < 0) return -1
+            total += n
+        }
+        return total
     }
 
     /**
@@ -227,54 +286,19 @@ class CarLifeUsbTransport(
         }
     }
 
-    private var txLogBudget = 24
-    /** 复用的多路复用头（channel + size，各 4 字节 BE）。 */
-    private val txMux = ByteArray(8)
-
     override fun send(channel: Int, serviceType: Int, payload: ByteArray, seqOrTs: Int): Boolean {
-        val conn = connection ?: return false
-        val ep = endpointOut ?: return false
+        if (!running) return false
         val frame = CarLifeProtocol.pack(channel, serviceType, payload, seqOrTs)
-        // 长度字段是"整帧长度（含通道内头）"，与 CarLifeMessage.getSize() 一致：
-        // getSize() = payloadSize + commandSize，而 frame 就是 header(commandSize) + payload。
-        // 复用固定的 8 字节多路复用头缓冲（原版复用 this.header，不每次新建）。
-        beBytes(channel, txMux)
-        beBytes(frame.size, txMux, 4)
-        val muxHeader = txMux
-        if (txLogBudget > 0) {
-            txLogBudget--
-            onLog("TX ch=$channel st=0x${serviceType.toString(16)} len=${frame.size} hdr=" +
-                muxHeader.joinToString("") { "%02X".format(it) } +
-                " body=" + frame.take(24).joinToString("") { "%02X".format(it) })
-        }
-
-        // 原版 UsbAccessoryCommunicator:
-        // bulkTransfer(endpointOut, header, 0, 8, 0)
-        // bulkTransfer(endpointOut, body, 0, size, 0)
-        var nHead = 0
-        while (running && nHead == 0) {
-            nHead = conn.bulkTransfer(ep, muxHeader, 0, 8, 0)
-        }
-        if (nHead < 0) {
-            onLog("USB 多路复用头发送失败 (ret=$nHead)")
-            return false
-        }
-
-        if (frame.isNotEmpty()) {
-            var nBody = 0
-            while (running && nBody == 0) {
-                nBody = conn.bulkTransfer(ep, frame, 0, frame.size, 0)
-            }
-            if (nBody < 0) {
-                onLog("USB 消息体发送失败 (ret=$nBody)")
-                return false
-            }
-        }
-        return true
+        // 交给写线程，调用方不碰 USB。队列元素 = [4B BE channel][整帧]，与 writeLoop 对齐。
+        val queued = ByteArray(4 + frame.size)
+        beBytes(channel, queued, 0)
+        System.arraycopy(frame, 0, queued, 4, frame.size)
+        return txQueue.offer(queued)
     }
 
     override fun stop() {
         running = false
+        txQueue.clear()
         release()
     }
 
@@ -306,6 +330,10 @@ class CarLifeUsbTransport(
             "Baidu", "CarLife", "Baidu CarLife", "1.0.0", "http://carlife.baidu.com/", "0720SerialNo.",
         )
         val PHONE_VID_HINTS = setOf(0x04E8, 0x2717, 0x12D1, 0x22D9, 0x2A70, 0x18D1, 0x0BB4, 0x054C)
+        /** 与原版 LEN_OF_MSG_HEAD 一致：多路复用头 8 字节。 */
+        private const val LEN_OF_MSG_HEAD = 8
+        /** 原版 AOA_MAX_BYTES。 */
+        private const val AOA_MAX_BYTES = 64 * 1024 * 1024
         private const val MAX_MESSAGE = 64 * 1024 * 1024
         private const val TOTAL_TIMEOUT_NS = 30_000_000_000L
         private const val MAX_RECONNECT = 12
