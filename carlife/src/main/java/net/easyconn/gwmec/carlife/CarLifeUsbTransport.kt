@@ -215,7 +215,9 @@ class CarLifeUsbTransport(
         }
         if (running) {
             onLog("读取结束")
-            release(resetDevice = true)
+            // 不 reset：原版读失败只是重新 openAccessory，reset 会把盒子打回普通模式
+            // （0bb4:1001），重连又要重走 AOA 切换，来回震荡反而更连不上。
+            release()
             scheduleReconnect()
         }
     }
