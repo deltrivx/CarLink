@@ -226,11 +226,21 @@ class CarLifeUsbTransport(
         }
     }
 
+    private var txLogBudget = 24
+
     override fun send(channel: Int, serviceType: Int, payload: ByteArray, seqOrTs: Int): Boolean {
         val conn = connection ?: return false
         val ep = endpointOut ?: return false
         val frame = CarLifeProtocol.pack(channel, serviceType, payload, seqOrTs)
+        // 长度字段是"整帧长度（含通道内头）"，与 CarLifeMessage.getSize() 一致：
+        // getSize() = payloadSize + commandSize，而 frame 就是 header(commandSize) + payload。
         val muxHeader = beBytes(channel) + beBytes(frame.size)
+        if (txLogBudget > 0) {
+            txLogBudget--
+            onLog("TX ch=$channel st=0x${serviceType.toString(16)} len=${frame.size} hdr=" +
+                muxHeader.joinToString("") { "%02X".format(it) } +
+                " body=" + frame.take(24).joinToString("") { "%02X".format(it) })
+        }
 
         // 原版 UsbAccessoryCommunicator:
         // bulkTransfer(endpointOut, header, 0, 8, 0)
