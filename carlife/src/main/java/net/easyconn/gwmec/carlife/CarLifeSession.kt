@@ -82,7 +82,14 @@ class CarLifeSession(
         // 此处先处理手机端发来的 VR 数据（如语音识别结果），麦克风数据由 startMic 驱动
     }
 
+    private var handshakeRetries = 0
+
     // ---- 握手状态机 ----
+    private companion object {
+        /** 版本协商几次没回应就重新握手；原版靠手机端复核恢复，这里自己补几轮。 */
+        const val MAX_HANDSHAKE_RETRIES = 3
+    }
+
     private fun startHandshake() {
         listener.onState("版本协商")
         thread(name = "CarLife-Handshake") {
@@ -91,7 +98,17 @@ class CarLifeSession(
                 // 握手超过 20 秒没有任何回应，就当这条链路废了：主动收尾回 IDLE，
                 // 不要让界面永远停在「连接中请稍候」。原版有 20 秒连接超时，同理。
                 if (retries >= HANDSHAKE_TIMEOUT_TRIES) {
-                    listener.onLog("等待手机响应超时，结束本次连接")
+                    // 超时说明手机这轮没在听，但链路本身没报错。原来这里直接放弃，
+                    // 只有「读失败」才会重连——所以表现成偶尔能通、多数不通。
+                    if (handshakeRetries < MAX_HANDSHAKE_RETRIES) {
+                        handshakeRetries++
+                        listener.onLog("手机本轮未响应，重新握手第 $handshakeRetries/$MAX_HANDSHAKE_RETRIES 次")
+                        retries = 0
+                        transport.retryHandshake()
+                        Thread.sleep(1500)
+                        continue
+                    }
+                    listener.onLog("多次重新握手仍无响应，结束本次连接")
                     stop()
                     return@thread
                 }

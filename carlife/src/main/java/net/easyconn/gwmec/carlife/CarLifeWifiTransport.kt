@@ -109,6 +109,9 @@ class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTranspo
         }
     }
 
+    /** 无线链路没有可复位的端点，重连交给中心层重新拨号。 */
+    override fun retryHandshake() = Unit
+
     override fun stop() {
         if (!running) return
         running = false

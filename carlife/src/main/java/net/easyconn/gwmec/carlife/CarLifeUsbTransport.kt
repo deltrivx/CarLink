@@ -381,6 +381,16 @@ class CarLifeUsbTransport(
         running && connection != null &&
             readerThread?.isAlive == true && writerThread?.isAlive == true
 
+    /**
+     * 版本协商超时后的重连：链路没报错，只是手机这轮没在听。
+     * 走一遍和读失败相同的重开流程，让盒子和手机重新对齐。
+     */
+    override fun retryHandshake() {
+        if (!running) return
+        onLog("手机本轮未响应，重新打开 USB 再试")
+        scheduleReconnect()
+    }
+
     override fun stop() {
         running = false
         stopIoThreads()
