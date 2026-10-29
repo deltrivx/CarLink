@@ -204,6 +204,8 @@ class CarLifeUsbTransport(
         }
         if (running) {
             onLog("USB 读取结束")
+            // 读失败才复位设备：管道已经不可用，不复位下一轮 openDevice 仍然读不动
+            release(resetDevice = true)
             scheduleReconnect()
         }
     }
@@ -260,15 +262,20 @@ class CarLifeUsbTransport(
         release()
     }
 
-    private fun release() {
+    /**
+     * 关闭连接。正常停止只释放接口，不碰设备本身。
+     *
+     * resetDevice 是破坏性的：盒子会重新枚举，正在跑的数据通路也会断。百度 SDK 只在
+     * 异常终止（terminate(true)）时才复位，正常停止走 terminate(false)。这里照做，
+     * 否则每次退出都白白折腾一遍盒子。
+     */
+    private fun release(resetDevice: Boolean = false) {
         try { usbInterface?.let { connection?.releaseInterface(it) } } catch (_: Exception) {}
-        // 百度 SDK 的 terminate(true) 会先 resetDevice 再 close：盒子在异常后留在半开
-        // 状态，不复位的话下一次 openDevice 拿到的连接仍然读不动（bulkTransfer 立即 -1）。
-        try {
-            connection?.let { conn ->
-                conn.javaClass.getMethod("resetDevice").invoke(conn)
-            }
-        } catch (_: Exception) {}
+        if (resetDevice) {
+            try {
+                connection?.let { conn -> conn.javaClass.getMethod("resetDevice").invoke(conn) }
+            } catch (_: Exception) {}
+        }
         try { connection?.close() } catch (_: Exception) {}
         connection = null; usbInterface = null; endpointIn = null; endpointOut = null
     }
