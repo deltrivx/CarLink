@@ -110,7 +110,7 @@ class CarLifeSession(
                     stop()
                     return@thread
                 }
-                sendCmd(CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 0))
+                sendCmd(CarLifeProtocol.MSG_HU_PROTOCOL_VERSION, CarLifeMessages.protocolVersion(4, 1))
                 retries++
                 if (retries % 4 == 0) listener.onLog("等待手机响应版本协商…（请确认手机 CarLife 在前台）")
                 Thread.sleep(1500)

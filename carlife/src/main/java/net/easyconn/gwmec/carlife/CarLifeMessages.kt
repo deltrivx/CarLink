@@ -2,15 +2,23 @@ package net.easyconn.gwmec.carlife
 
 /** CarLife protobuf 消息构造与解析（字段号对照百度 com.baidu.carlife.protobuf.*）。 */
 object CarLifeMessages {
-    fun protocolVersion(major: Int, minor: Int): ByteArray =
+    /**
+     * 对齐原版 ConnectionEstablishHandler.onConnectionAttached：
+     * majorVersion = 4, minorVersion = 1
+     */
+    fun protocolVersion(major: Int = 4, minor: Int = 1): ByteArray =
         Pb.int32(1, major) + Pb.int32(2, minor)
 
     /** 车机统计信息（原生车机公开测试渠道号，来自 VehicleApplication 反编译）。 */
+    /**
+     * 对齐原版 MainApplication.onCreate 中的 CarLife.init 参数：
+     * channel = "20352101", cuid = "12345678"
+     */
     fun statisticsInfo(): ByteArray =
         Pb.str(1, "12345678") +
             Pb.str(2, "4.0.0") +
             Pb.int32(3, 16) +
-            Pb.str(4, "20029999") +
+            Pb.str(4, "20352101") +
             Pb.int32(5, 0) +
             Pb.int32(6, 0) +
             Pb.int32(7, 0) +
