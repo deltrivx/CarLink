@@ -18,22 +18,36 @@ import androidx.activity.OnBackPressedCallback
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.TimeUnit
 
 /**
  * CarLife 投屏画面：会话由 CarLifeCenter 持有（连接页建立），
  * 本界面只负责解码渲染与触控回传；无会话时引导回连接页。
  * 沉浸式全屏，对齐 CarPlayVideoActivity 的系统栏处理。
+ *
+ * 解码全部在专用线程进行（旧版在 UI 线程跑 dequeueInputBuffer 自旋，
+ * Surface 停顿时直接卡死主线程——返回键、进入动画全部无响应）：
+ * UI 线程只入队，解码线程出队喂 MediaCodec。
  */
 class CarLifeVideoActivity : ComponentActivity() {
     private var codec: MediaCodec? = null
-    private var videoSurface: Surface? = null
-    private var videoWidth = 1280
-    private var videoHeight = 720
+    @Volatile private var videoSurface: Surface? = null
+    @Volatile private var videoWidth = 1280
+    @Volatile private var videoHeight = 720
     private val bufferInfo = MediaCodec.BufferInfo()
     private var statusView: TextView? = null
     private var surfaceView: SurfaceView? = null
-    private var videoStarted = false
+    @Volatile private var videoStarted = false
     @Volatile private var running = true
+
+    /** 有界帧队列：解码线程消费不过来时丢最旧帧，绝不倒灌 UI 线程。 */
+    private val frameQueue = ArrayBlockingQueue<ByteArray>(6)
+
+    /** 解码线程观察的待重建尺寸（onVideoSize 来自会话线程）。null 表示无变更。 */
+    private val pendingSize = java.util.concurrent.atomic.AtomicReference<IntArray?>(null)
+
+    private var decodeThread: Thread? = null
 
     private val centerListener = object : CarLifeSession.Listener {
         override fun onState(state: String) {}
@@ -41,20 +55,19 @@ class CarLifeVideoActivity : ComponentActivity() {
         override fun onPhoneInfo(info: String) {}
         /**
          * 手机回的编码尺寸才是解码器的真实画布，对齐原版 DecodeUtil.initDecoder(
-         * mSurface, encWidth, encHeight)。尺寸变了就重建解码器。
+         * mSurface, encWidth, encHeight)。尺寸变了就重建解码器（在解码线程做）。
          */
         override fun onVideoSize(width: Int, height: Int) {
-            runOnUiThread {
-                if (width <= 0 || height <= 0) return@runOnUiThread
-                if (width == videoWidth && height == videoHeight && codec != null) return@runOnUiThread
-                logCanvas(width, height)
-                videoWidth = width
-                videoHeight = height
-                resetCodec()
-            }
+            if (width <= 0 || height <= 0) return
+            if (width == videoWidth && height == videoHeight && codec != null) return
+            logCanvas(width, height)
+            pendingSize.set(intArrayOf(width, height))
         }
         override fun onVideoFrame(data: ByteArray, tsMs: Long) {
-            runOnUiThread { feed(data) }
+            if (!frameQueue.offer(data)) {
+                frameQueue.poll()
+                frameQueue.offer(data)
+            }
         }
         override fun onDisconnected() {
             runOnUiThread { finish() }
@@ -118,6 +131,8 @@ class CarLifeVideoActivity : ComponentActivity() {
             }
         }
 
+        startDecodeThread()
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 CarLifeCenter.disconnect()
@@ -126,16 +141,41 @@ class CarLifeVideoActivity : ComponentActivity() {
         })
     }
 
+    /** 专用解码线程：等待首帧前先等 Surface 就绪，避免空转。 */
+    private fun startDecodeThread() {
+        val t = Thread({
+            while (running) {
+                try {
+                    val data = frameQueue.poll(200, TimeUnit.MILLISECONDS) ?: continue
+                    applyPendingSize()
+                    feed(data)
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
+        }, "CarLife-Decode")
+        t.start()
+        decodeThread = t
+    }
+
+    /** 解码线程内应用 onVideoSize 的待重建请求（旧版在 UI 线程 reset，会和 feed 抢锁）。 */
+    private fun applyPendingSize() {
+        val size = pendingSize.getAndSet(null) ?: return
+        videoWidth = size[0]
+        videoHeight = size[1]
+        releaseCodec()
+        videoStarted = false
+    }
+
     private fun logCanvas(w: Int, h: Int) {
         val sv = surfaceView
         Log.i("CarLifeVideo", "phone canvas ${w}x$h, surface ${sv?.width}x${sv?.height}")
     }
 
     /** 换解码器：旧的先停再放，避免两个解码器抢同一个 Surface。 */
-    private fun resetCodec() {
+    private fun releaseCodec() {
         val old = codec
         codec = null
-        videoStarted = false
         old?.let {
             try { it.stop() } catch (_: Exception) {}
             try { it.release() } catch (_: Exception) {}
@@ -201,8 +241,11 @@ class CarLifeVideoActivity : ComponentActivity() {
             var payloadRemaining = data.size
             while (running && payloadRemaining > 0) {
                 var idx = -1
+                var spins = 0
                 while (idx < 0 && running) {
                     idx = c.dequeueInputBuffer(10_000)
+                    // Surface 消失/解码器失效时别无限自旋：连续 500 次拿不到就丢帧
+                    if (idx < 0 && ++spins > 500) return
                 }
                 if (idx < 0) break
                 val ib = c.getInputBuffer(idx) ?: break
@@ -273,9 +316,11 @@ class CarLifeVideoActivity : ComponentActivity() {
 
     override fun onDestroy() {
         running = false
+        frameQueue.clear()
+        decodeThread?.interrupt()
+        decodeThread = null
         CarLifeCenter.removeListener(centerListener)
-        codec?.let { try { it.stop() } catch (_: Exception) {}; it.release() }
-        codec = null
+        releaseCodec()
         super.onDestroy()
     }
 }

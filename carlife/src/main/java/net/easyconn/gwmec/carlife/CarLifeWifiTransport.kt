@@ -1,6 +1,7 @@
 package net.easyconn.gwmec.carlife
 
 import java.io.BufferedOutputStream
+import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.Socket
 import kotlin.concurrent.thread
@@ -12,16 +13,25 @@ import kotlin.concurrent.thread
 class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTransport {
     private val sockets = HashMap<Int, Socket>()
     private val outputs = HashMap<Int, BufferedOutputStream>()
-    private var udpSocket: java.net.DatagramSocket? = null
+    private var udpSocket: DatagramSocket? = null
     @Volatile private var running = false
     private var videoSeq = 0
 
     override fun start(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         if (running) return true
         running = true
+        // UDP socket 同步创建：7999 可能刚被 CarLifeDiscovery 释放（返回主页再进入
+        // 的经典时序）。绑定失败重试一小会儿，仍失败就如实返回 false——
+        // 旧版在线程里构造 socket 且在 try 之外，BindException 后线程静默死亡，
+        // start() 却返回 true，握手循环空转约 80 秒，界面钉死在「连接中」。
+        val sock = bindUdpWithRetry()
+        if (sock == null) {
+            running = false
+            onLog("UDP 7999 绑定失败：端口被占用且重试无效")
+            return false
+        }
+        udpSocket = sock
         thread(name = "CarLife-UdpListen") {
-            val sock = java.net.DatagramSocket(CarLifeProtocol.UDP_DISCOVERY_PORT)
-            udpSocket = sock
             onLog("正在监听手机广播（UDP 7999）…")
             val buf = ByteArray(1024)
             while (running) {
@@ -33,6 +43,24 @@ class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTranspo
             }
         }
         return true
+    }
+
+    private fun bindUdpWithRetry(): DatagramSocket? {
+        var lastError: Exception? = null
+        repeat(10) {
+            if (!running) return null
+            try {
+                val s = DatagramSocket(null)
+                s.reuseAddress = true
+                s.bind(InetSocketAddress(CarLifeProtocol.UDP_DISCOVERY_PORT))
+                return s
+            } catch (e: Exception) {
+                lastError = e
+                try { Thread.sleep(200) } catch (_: InterruptedException) { return null }
+            }
+        }
+        if (lastError != null) onLog("UDP 绑定重试耗尽: ${lastError?.message}")
+        return null
     }
 
     private fun connectChannels(phoneIp: String, onMessage: (Int, Int, ByteArray) -> Unit): Boolean {
@@ -109,7 +137,7 @@ class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTranspo
         }
     }
 
-    /** 无线链路没有可复位的端点，重连交给中心层重新拨号。 */
+    /** 无线链路没有可复用的端点，重连交给中心层重新拨号。 */
     override fun retryHandshake() = Unit
 
     override fun stop() {

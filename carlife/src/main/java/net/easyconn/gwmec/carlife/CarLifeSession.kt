@@ -70,11 +70,12 @@ class CarLifeSession(
     }
 
     private companion object {
-        /** 1.5s 一次，约 20 秒无回应即判超时（原版连接超时同为 20s 量级）。 */
-        const val HANDSHAKE_TIMEOUT_TRIES = 14
+        /** 1.5s 一次，约 12 秒无回应即判本轮超时。 */
+        const val HANDSHAKE_TIMEOUT_TRIES = 8
 
-        /** 版本协商没回应时重新握手的次数；原版靠手机端复核恢复，这里自己补几轮。 */
-        const val MAX_HANDSHAKE_RETRIES = 3
+        /** 版本协商没回应时重新握手的次数。旧值 3 会让最坏情况空转 80 多秒，
+         *  观感就是「卡死」；现在 1 轮重试，最坏约 25 秒即回 IDLE 由用户重拨。 */
+        const val MAX_HANDSHAKE_RETRIES = 1
     }
 
     private fun sendCmd(serviceType: Int, payload: ByteArray = ByteArray(0)): Boolean =

@@ -185,7 +185,9 @@ object CarLifeCenter {
                 connectionState = State.ERROR
                 lastError = state
             } else if (state.contains("已断开")) {
-                connectionState = State.IDLE
+                // 迟到的旧会话「已断开」不能覆盖新会话的 CONNECTING 状态
+                val cur = session
+                if (cur == null || !cur.running) connectionState = State.IDLE
             } else {
                 connectionState = State.CONNECTING
             }
@@ -214,6 +216,14 @@ object CarLifeCenter {
             synchronized(listeners) { listeners.forEach { it.onBtHfpIndication(command, phoneNum) } }
         }
         override fun onDisconnected() {
+            // 防迟到回调：传输线程检测到断链时会异步触发 stop()→onDisconnected()。
+            // 如果此时用户已经重建了新会话（返回主界面再进入的场景），绝不能把
+            // 新会话引用和状态清掉——那会把界面重新钉死在「连接中」。
+            val cur = session
+            if (cur != null && cur.running) {
+                log("忽略旧会话迟到的断开回调（新会话运行中）")
+                return
+            }
             session = null
             mode = null
             connectionState = State.IDLE
