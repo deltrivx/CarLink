@@ -2570,10 +2570,12 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             override fun onPhoneInfo(info: String) {}
             override fun onVideoFrame(data: ByteArray, tsMs: Long) {
                 runOnUiThread {
-                    // 只要会话在推流且当前不在投屏页，就进投屏（含从投屏页返回后再进）
-                    if (CarLifeCenter.connectionState == CarLifeCenter.State.CONNECTED ||
-                        CarLifeCenter.session?.running == true) {
-                        startActivity(Intent(this@CarlinkActivity, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java))
+                    // 仅当首次连接成功且尚未进入投屏页面时跳转一次，严禁每帧都调用 startActivity 导致系统严重卡死！
+                    if (!carLifeConnectedOnce && (CarLifeCenter.connectionState == CarLifeCenter.State.CONNECTED ||
+                        CarLifeCenter.session?.running == true)) {
+                        carLifeConnectedOnce = true
+                        val intent = Intent(this@CarlinkActivity, net.easyconn.gwmec.carlife.CarLifeVideoActivity::class.java)
+                        startActivity(intent)
                     }
                 }
             }
