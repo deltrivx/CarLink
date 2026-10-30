@@ -113,9 +113,8 @@ class CarPlayRuntimeConfig(
         }
         if (transport == CarPlayTransport.WIRELESS && wirelessHotspotMode == WirelessHotspotMode.MANUAL) {
             val ssid = manualHotspotSsid
-            require(!ssid.isNullOrBlank()) {
-                "manualHotspotSsid is required in manual hotspot mode"
-            }
+            // 未配置手动热点 SSID 时跳过后续针对具体 SSID/密码长度的断言，避免后台或初始化时闪退
+            if (!ssid.isNullOrBlank()) {
             require('\u0000' !in ssid) {
                 "manualHotspotSsid must not contain U+0000"
             }
@@ -145,6 +144,7 @@ class CarPlayRuntimeConfig(
                 manualHotspotSecurity == ManualHotspotSecurity.OPEN || passphrase.isNotEmpty(),
             ) {
                 "manualHotspotPassphrase is required for secured manual hotspots"
+            }
             }
         }
     }
