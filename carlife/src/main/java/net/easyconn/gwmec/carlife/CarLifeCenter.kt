@@ -1,3 +1,4 @@
+import android.hardware.usb.UsbDevice
 package net.easyconn.gwmec.carlife
 
 import android.content.BroadcastReceiver
@@ -138,9 +139,19 @@ object CarLifeCenter {
                     log("USB设备已插入")
                     if (session == null) connect(c, usb = true)
                 } else if (intent.action == UsbManager.ACTION_USB_DEVICE_DETACHED) {
-                    if (session != null && mode == "usb") {
-                        log("USB设备已拔出")
-                        disconnect()
+                    val dev = if (android.os.Build.VERSION.SDK_INT >= 33) {
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    }
+                    // AOA切换时设备会从普通模式(如0bb4:1001)断开并重枚举为配件(18d1:2d00)，不能判定为拔出误断开！
+                    // 对齐原版 UsbAccessoryScanner：DETACHED 时只重置就绪状态，不中断握手
+                    if (dev?.vendorId == 6353) {
+                        log("AOA 配件设备拔出")
+                        if (session != null && mode == "usb") {
+                            disconnect()
+                        }
                     }
                 }
             }
