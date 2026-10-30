@@ -1246,7 +1246,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             gravity = Gravity.CENTER
         }
         fun addAction(view: View, first: Boolean = false) {
-            if (!first) actions.addView(ghostDivider(), LinearLayout.LayoutParams(dp(1), dp(18)).apply { gravity = Gravity.CENTER })
+            if (!first) actions.addView(ghostDivider(), LinearLayout.LayoutParams(dp(12), dp(1)).apply { gravity = Gravity.CENTER })
             actions.addView(view, LinearLayout.LayoutParams(-2, dp(if (compact) 44 else 52)).apply { gravity = Gravity.CENTER })
         }
         when (state) {
@@ -1487,36 +1487,45 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             primary -> ACCENT
             else -> TEXT
         }
+        // 2026.10.31 按钮重设计：纯文字 ghost 改为胶囊（pill）。
+        // 页面布局、动作行位置与顺序全部不变，只有控件本身的视觉更换：
+        // 主按钮 = 品牌色填充胶囊 + 白字 + 保留柔光；其余 = 极淡填充 + 细描边胶囊。
+        val fill = when {
+            primary -> ACCENT
+            danger -> (palette.danger and 0x00FFFFFF) or 0x1A000000
+            warn -> (WARNING and 0x00FFFFFF) or 0x1A000000
+            else -> (TEXT and 0x00FFFFFF) or 0x0D000000
+        }
+        val stroke = when {
+            primary -> ACCENT
+            danger -> (palette.danger and 0x00FFFFFF) or 0x40000000
+            warn -> (WARNING and 0x00FFFFFF) or 0x40000000
+            else -> (TEXT and 0x00FFFFFF) or 0x2E000000
+        }
+        val pill = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(26).toFloat()
+            setColor(fill)
+            setStroke(dp(1), stroke)
+        }
         return TextView(this).apply {
             text = title
             textSize = 19f
-            setTextColor(colour)
+            setTextColor(if (primary) 0xFFFFFFFF.toInt() else colour)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             gravity = Gravity.CENTER
-            setPadding(dp(20), dp(11), dp(20), dp(11))
+            setPadding(dp(22), dp(11), dp(22), dp(11))
+            minWidth = dp(56)
             isClickable = true
             isFocusable = true
-            // The primary action glows: a soft shadow in its own colour.
+            // The primary action still glows: a soft shadow in its own colour.
             if (primary) setShadowLayer(dp(10).toFloat(), 0f, 0f, (ACCENT and 0x00FFFFFF) or 0x50000000)
-            // The primary action also carries a hairline underline, brightest at its centre.
-            if (primary) {
-                val underline = GradientDrawable(
-                    GradientDrawable.Orientation.LEFT_RIGHT,
-                    intArrayOf(
-                        (ACCENT and 0x00FFFFFF) or 0x00000000,
-                        ((ACCENT and 0x00FFFFFF) or 0xB3000000.toInt()),
-                        (ACCENT and 0x00FFFFFF) or 0x00000000,
-                    ),
-                ).apply { cornerRadius = dp(1).toFloat() }
-                val layered = android.graphics.drawable.LayerDrawable(arrayOf(underline))
-                layered.setLayerHeight(0, dp(2))
-                layered.setLayerGravity(0, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
-                background = layered
-            } else {
-                // No fill and no ripple: the words are the whole control, and an
-                // unmasked ripple drew a large faint circle behind them.
-                background = null
-            }
+            // Ripple masked to the pill: an unmasked ripple drew a large faint circle behind the words.
+            background = android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf((TEXT and 0x00FFFFFF) or 0x20000000),
+                pill,
+                pill,
+            )
             setOnClickListener { click() }
         }
     }
@@ -2604,7 +2613,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
         val actions = row().apply { gravity = Gravity.CENTER }
         fun addAction(view: View, first: Boolean = false) {
-            if (!first) actions.addView(ghostDivider(), LinearLayout.LayoutParams(dp(1), dp(18)).apply { gravity = Gravity.CENTER })
+            if (!first) actions.addView(ghostDivider(), LinearLayout.LayoutParams(dp(12), dp(1)).apply { gravity = Gravity.CENTER })
             actions.addView(view, LinearLayout.LayoutParams(-2, dp(if (compact) 44 else 52)).apply { gravity = Gravity.CENTER })
         }
 

@@ -169,7 +169,13 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     // CH341 USB\VID_1A86&PID_5512&REV_0304 is the deployment-supplied bridge identity.
-    private fun createRuntimeConfig(): CarPlayRuntimeConfig = CarPlayRuntimeConfig(
+    private fun createRuntimeConfig(): CarPlayRuntimeConfig = runtimeConfig(wirelessHotspotMode)
+
+    /**
+     * @param mode 显式传入热点模式：fallback 路径用它强制回到自动 Wi-Fi Direct，
+     *   绕开 MANUAL/EXISTING_WIFI 模式下针对用户配置的校验断言。
+     */
+    private fun runtimeConfig(mode: WirelessHotspotMode): CarPlayRuntimeConfig = CarPlayRuntimeConfig(
         mfiTarget = mfiTarget,
         ch341Devices = if (mfiTarget == MfiTarget.USB_CH341) {
             listOf(UsbDeviceId(0x1a86, 0x5512))
@@ -202,8 +208,8 @@ class CarPlayHostActivity : ComponentActivity() {
         hostName = "diplay-" + CarlinkBootstrap.deviceId(airPlayIdentity).replace(":", "").lowercase(),
         hostMac = CarlinkBootstrap.deviceId(airPlayIdentity).split(":").map { it.toInt(16).toByte() }.toByteArray(),
         wirelessBluetoothDeviceAddress = CarlinkPreferences.phoneAddress(this),
-        transport = if (wirelessEnabled) CarPlayTransport.WIRELESS else CarPlayTransport.WIRED,
-        wirelessHotspotMode = wirelessHotspotMode,
+        transport = if (wirelessEnabled) CarPlayTransport.WIRED else CarPlayTransport.WIRELESS,
+        wirelessHotspotMode = mode,
         wifiP2pPreferredChannel = AirPlayPersistence.loadWifiP2pPreferredChannel(this),
         manualHotspotSsid = manualHotspotSsid,
         manualHotspotPassphrase = manualHotspotPassphrase,
@@ -5099,7 +5105,24 @@ class CarPlayHostActivity : ComponentActivity() {
         if (CarPlayBackgroundSession.hasSession() && !CarPlayBackgroundSession.isOwner(this)) return
         if (shuttingDown.get() || menuOpen || handshakeResetInProgress || controller != null) return
         val controllerGeneration = restartGeneration
-        val config = createRuntimeConfig()
+        // 配置校验断言绝不允许闪退投屏：无线权限回调经由 activity-result 派发进入
+        // startCarPlay()，一处 require() 抛出就是整包崩溃（dropbox 里的
+        // "Failure delivering result … IllegalArgumentException: manualHotspotSsid is
+        // required in manual hotspot mode"）。先按用户配置构建；被拒则强制回落到
+        // 自动 Wi-Fi Direct 模式再试一次；仍失败就终止本次启动，只留日志与状态。
+        val config = try {
+            createRuntimeConfig()
+        } catch (e: Exception) {
+            appendLog("runtime config rejected (${e.message}); retrying with auto hotspot mode")
+            try {
+                runtimeConfig(WirelessHotspotMode.WIFI_P2P)
+            } catch (e2: Exception) {
+                appendLog("runtime config still rejected: ${e2.message}; aborting start")
+                setConnectionStage(getString(R.string.carplay_start_aborted))
+                updateDebugOverlays()
+                return
+            }
+        }
         val effectiveSize = if (isMultiWindowActive() && !AirPlayPersistence.loadAdaptPipResolution(this) &&
             maximumDetectedWidthPixels >= size.width && maximumDetectedHeightPixels >= size.height &&
             (maximumDetectedWidthPixels > size.width || maximumDetectedHeightPixels > size.height)) {
