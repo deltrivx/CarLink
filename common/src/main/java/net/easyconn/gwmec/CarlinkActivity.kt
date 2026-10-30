@@ -394,6 +394,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 上游 CarLife 的音频/工具类通过静态 Context 取系统服务，先把宿主绑上。
+        com.baidu.carlifevehicle.BaseActivity.bind(this)
         // A crash is the one thing a driver cannot describe from a car; the diagnostic
         // report is where it can be read without adb.
         LastCrashReport.bind(this)

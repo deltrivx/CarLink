@@ -88,7 +88,7 @@ class UsbAutoConfirmService : AccessibilityService() {
             "com.android.systemui.usb.UsbPermissionActivity",
             "com.android.systemui.usb.UsbConfirmActivity",
         )
-        private val CONFIRM_LABELS = setOf("确定", "允许", "OK", "Allow", "Confirm")
+        private val CONFIRM_LABELS = setOf("确定", "允许", "始终", "接受", "OK", "Allow", "Confirm")
 
         internal fun isSystemUsbWindow(pkg: String?, className: String?): Boolean =
             pkg in SYSTEM_PACKAGES && className in USB_ACTIVITIES
@@ -99,10 +99,13 @@ class UsbAutoConfirmService : AccessibilityService() {
          * puts the name between letters ("要允许DiPlay访问iPhone吗？"), so only ASCII word characters
          * count as part of a longer name such as "FakeDiPlay".
          */
-        internal fun isTargetPrompt(text: String, appLabel: String): Boolean =
-            appLabel.isNotBlank() &&
-                Regex("(?<![A-Za-z0-9_])${Regex.escape(appLabel)}(?![A-Za-z0-9_])", RegexOption.IGNORE_CASE)
-                    .containsMatchIn(text)
+        internal fun isTargetPrompt(text: String, appLabel: String): Boolean {
+            if (appLabel.isNotBlank() && Regex("(?<![A-Za-z0-9_])${Regex.escape(appLabel)}(?![A-Za-z0-9_])", RegexOption.IGNORE_CASE).containsMatchIn(text)) {
+                return true
+            }
+            // 兼容 AutoBox 或通用 USB 设备提示文本
+            return text.contains("AutoBox") || text.contains("USB") || text.contains("车机互联")
+        }
 
         fun isEnabled(context: Context): Boolean {
             val enabledServices = Settings.Secure.getString(

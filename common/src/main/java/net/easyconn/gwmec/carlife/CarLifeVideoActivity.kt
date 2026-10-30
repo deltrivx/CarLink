@@ -201,28 +201,31 @@ class CarLifeVideoActivity : ComponentActivity() {
         }, "CarLife-Render").start()
     }
 
+    /**
+     * 对齐原版 APK (h8/b.java)：
+     * 1. 采用原版确切的 Action 传递 (保留 event.action，包括多点 pointer)
+     * 2. 纯线性无黑边换算 (viewWidth/videoWidth)
+     * 3. 支持第二个触控点的 pointerx, pointery，对齐原版多点手势
+     */
     private fun handleTouch(event: MotionEvent) {
         val s = CarLifeCenter.session ?: return
         val sv = surfaceView ?: return
-        val action = when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> 0
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> 1
-            MotionEvent.ACTION_MOVE -> 2
-            else -> return
+        val viewW = sv.width
+        val viewH = sv.height
+        if (viewW <= 0 || viewH <= 0 || videoWidth <= 0 || videoHeight <= 0) return
+
+        val action = event.action
+        val x = (event.x.toInt() * videoWidth) / viewW
+        val y = (event.y.toInt() * videoHeight) / viewH
+
+        var px = 0
+        var py = 0
+        if (event.pointerCount > 1) {
+            px = (event.getX(1).toInt() * videoWidth) / viewW
+            py = (event.getY(1).toInt() * videoHeight) / viewH
         }
-        // 原版 TouchListenerManager 的坐标换算：纯线性映射，没有等比缩放也没有居中偏移。
-        //   int x1 = (int) (x0 * mPhoneContainerWidth  / mContainerWidth);
-        //   int y1 = (int) (y0 * mPhoneContainerHeight / mContainerHeight);
-        // 之前自己加的「等比缩放 + 居中留黑边」会让手机 16:9 的画面在 16:10 的车机屏上下留边，
-        // y 坐标整体偏下，底部按钮就点不准——这就是底部焦点错位。
-        val viewW = sv.width.toFloat()
-        val viewH = sv.height.toFloat()
-        if (viewW <= 0 || viewH <= 0) return
-        val phoneW = videoWidth.toFloat().takeIf { it > 0 } ?: viewW
-        val phoneH = videoHeight.toFloat().takeIf { it > 0 } ?: viewH
-        val x = (event.x * phoneW / viewW).toInt().coerceIn(0, phoneW.toInt())
-        val y = (event.y * phoneH / viewH).toInt().coerceIn(0, phoneH.toInt())
-        s.sendTouch(action, x, y)
+
+        s.sendTouchAction(action, x, y, px, py)
     }
 
     override fun onDestroy() {

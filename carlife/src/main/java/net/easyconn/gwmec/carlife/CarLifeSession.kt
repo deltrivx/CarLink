@@ -246,8 +246,16 @@ class CarLifeSession(
     fun isLinkAlive(): Boolean = running && transport.isAlive()
 
     fun sendTouch(action: Int, x: Int, y: Int) {
+        sendTouchAction(action, x, y, 0, 0)
+    }
+
+    /**
+     * 对齐原版 h8/b.java 触控协议：
+     * 支持包含主点 (x, y) 与次触控点 (px, py) 的完整多点触控上报
+     */
+    fun sendTouchAction(action: Int, x: Int, y: Int, px: Int = 0, py: Int = 0) {
         transport.send(CarLifeProtocol.CHANNEL_TOUCH, CarLifeProtocol.MSG_TOUCH_ACTION,
-            CarLifeMessages.touchAction(action, x, y))
+            CarLifeMessages.touchAction(action, x, y, px, py))
     }
 
     fun sendHardKey(code: Int) {
