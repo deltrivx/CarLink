@@ -163,6 +163,20 @@ class CarLifeUsbTransport private constructor(
     private fun isAccessory(d: UsbDevice) =
         d.vendorId == AOA_VID && d.productId in AOA_PIDS
 
+    private fun aoaHandshake(conn: UsbDeviceConnection): AoaResult {
+        val proto = ByteArray(2)
+        val got = conn.controlTransfer(0xC0, 51, 0, 0, proto, 2, 0)
+        if (got < 0) return AoaResult.UNSUPPORTED
+        ACCESSORY_STRINGS.forEachIndexed { index, value ->
+            val bytes = value.toByteArray(Charsets.UTF_8)
+            if (conn.controlTransfer(0x40, 52, 0, index, bytes, bytes.size, 0) < 0) {
+                onLog("AOA 身份串 $index 发送失败")
+            }
+        }
+        val started = conn.controlTransfer(0x40, 53, 0, 0, null, 0, 0)
+        return if (started >= 0) AoaResult.SWITCHED else AoaResult.UNSUPPORTED
+    }
+
     private fun findAccessory(manager: UsbManager): UsbDevice? =
         manager.deviceList.values.firstOrNull { isAccessory(it) }
             ?: manager.deviceList.values.firstOrNull {
