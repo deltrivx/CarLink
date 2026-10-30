@@ -128,21 +128,10 @@ class CarLifeUsbTransport(
         }
         connection = conn
         usbInterface = iface
-        // 严谨匹配 USB 描述符方向：UsbConstants.USB_DIR_IN 与 USB_DIR_OUT
-        // 盒子在不同 Linux/Android 平台枚举时 endpoint 顺序可能颠倒 (如 ep_01 为 OUT, ep_81 为 IN)
-        var inEp: android.hardware.usb.UsbEndpoint? = null
-        var outEp: android.hardware.usb.UsbEndpoint? = null
-        for (i in 0 until iface.endpointCount) {
-            val ep = iface.getEndpoint(i)
-            if (ep.direction == android.hardware.usb.UsbConstants.USB_DIR_IN) {
-                inEp = ep
-            } else if (ep.direction == android.hardware.usb.UsbConstants.USB_DIR_OUT) {
-                outEp = ep
-            }
-        }
-        endpointIn = inEp ?: iface.getEndpoint(0)
-        endpointOut = outEp ?: iface.getEndpoint(1)
-        onLog("USB 端点绑定: IN=${endpointIn?.endpointNumber}(${endpointIn?.direction}), OUT=${endpointOut?.endpointNumber}(${endpointOut?.direction})")
+        // 100% 严格对齐原版 UsbAccessoryCommunicator:
+        // getEndpoint(0) 读，getEndpoint(1) 写
+        endpointIn = iface.getEndpoint(0)
+        endpointOut = iface.getEndpoint(1)
         if (endpointIn == null || endpointOut == null) {
             release(); return fail("USB 端点不可用（IN/OUT 缺失）")
         }
@@ -254,29 +243,43 @@ class CarLifeUsbTransport(
     private fun readLoop() {
         val conn = connection ?: return
         val ep = endpointIn ?: return
-        val msgHead = ByteArray(LEN_OF_MSG_HEAD)
-        var payload = ByteArray(12)
+        val header = ByteArray(8)
         try {
             while (running) {
-                // 原版：bulkTransferIn(msgHead, 8)，TIME_OUT = 0，读到才返回
-                val nHead = bulkTransferIn(conn, ep, msgHead, LEN_OF_MSG_HEAD)
-                if (nHead < 0) { onLog("bulkTransferIn fail 1 (ret=$nHead)"); break }
-                if (nHead == 0) continue
+                var nHead = 0
+                while (running && nHead == 0) {
+                    nHead = conn.bulkTransfer(ep, header, 0, 8, 0)
+                }
+                if (nHead < 0) {
+                    onLog("bulkTransferIn fail 1 (ret=$nHead)")
+                    break
+                }
 
-                val typeMsg = beInt(msgHead, 0)
-                val lenMsg = beInt(msgHead, 4)
-                if (typeMsg < 1 || typeMsg > 6 || lenMsg < 8 || lenMsg > AOA_MAX_BYTES) {
+                val typeMsg = beInt(header, 0)
+                val lenMsg = beInt(header, 4)
+                if (typeMsg < 1 || typeMsg > 7 || lenMsg < 0 || lenMsg > AOA_MAX_BYTES) {
                     onLog("typeMsg=$typeMsg lenMsg=$lenMsg 非法")
                     break
                 }
 
-                if (payload.size < lenMsg) payload = ByteArray(lenMsg)
-                val nBody = bulkTransferIn(conn, ep, payload, lenMsg)
-                if (nBody < 0) { onLog("bulkTransferIn fail 2 (ret=$nBody)"); break }
+                val body = ByteArray(lenMsg)
+                var remaining = lenMsg
+                var readFailed = false
+                val maxPkt = ep.maxPacketSize.coerceAtLeast(64)
+                while (remaining > 0 && running) {
+                    val chunk = Math.min(remaining, maxPkt)
+                    val n = conn.bulkTransfer(ep, body, lenMsg - remaining, chunk, 1000)
+                    if (n > 0) {
+                        remaining -= n
+                    } else if (n < 0) {
+                        onLog("bulkTransferIn body fail (ret=$n)")
+                        readFailed = true
+                        break
+                    }
+                }
+                if (readFailed) break
 
-                // 原版按通道把整段（内头+载荷）交给上层
-                val msg = payload.copyOfRange(0, lenMsg)
-                val (serviceType, inner) = splitChannelFrame(typeMsg, msg)
+                val (serviceType, inner) = splitChannelFrame(typeMsg, body)
                 dispatch?.invoke(typeMsg, serviceType, inner)
             }
         } catch (e: Exception) {
@@ -284,9 +287,7 @@ class CarLifeUsbTransport(
         }
         if (running) {
             onLog("读取结束")
-            // 不 reset：原版读失败只是重新 openAccessory，reset 会把盒子打回普通模式
-            // （0bb4:1001），重连又要重走 AOA 切换，来回震荡反而更连不上。
-            release()
+            release(resetDevice = false)
             scheduleReconnect()
         }
     }
@@ -300,36 +301,42 @@ class CarLifeUsbTransport(
     private fun writeLoop() {
         val conn = connection ?: return
         val ep = endpointOut ?: return
-        // 原版复用 this.header 和 mDataBuffer 两个固定缓冲；这里同样只分配一次。
-        val head = ByteArray(LEN_OF_MSG_HEAD)
-        val body = ByteArray(AOA_WRITE_CHUNK)
-        // 对应原版 mDataBuffer：长包分段时的落点
-        val scratch = ByteArray(AOA_WRITE_CHUNK)
+        val head = ByteArray(8)
         try {
             while (running) {
                 val queued = txQueue.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
                 if (queued.size <= 4) continue
 
-                // 队列元素 = [4B BE channel][整帧]；整帧长度就是原版 getSize()
                 val channel = beInt(queued, 0)
                 val frameLen = queued.size - 4
-                System.arraycopy(queued, 4, body, 0, frameLen)
                 beBytes(channel, head, 0)
                 beBytes(frameLen, head, 4)
 
-                // 日志放在写之前：写阻塞时也能看到实际交给端点的字节
                 if (txLogBudget > 0) {
                     txLogBudget--
                     onLog("TX ch=$channel len=$frameLen hdr=" +
                         head.joinToString("") { "%02X".format(it) } +
-                        " body=" + body.copyOfRange(0, minOf(frameLen, 24)).joinToString("") { "%02X".format(it) })
+                        " body=" + queued.copyOfRange(4, minOf(queued.size, 28)).joinToString("") { "%02X".format(it) })
                 }
 
-                if (bulkTransferOutFixed(conn, ep, head, LEN_OF_MSG_HEAD, scratch) <= 0) {
-                    onLog("bulkTransferOut fail 1"); break
+                var nHead = 0
+                while (running && nHead == 0) {
+                    nHead = conn.bulkTransfer(ep, head, 0, 8, 0)
                 }
-                if (frameLen > 0 && bulkTransferOutFixed(conn, ep, body, frameLen, scratch) <= 0) {
-                    onLog("bulkTransferOut fail 2"); break
+                if (nHead < 0) {
+                    onLog("bulkTransferOut fail 1")
+                    break
+                }
+
+                if (frameLen > 0) {
+                    var nBody = 0
+                    while (running && nBody == 0) {
+                        nBody = conn.bulkTransfer(ep, queued, 4, frameLen, 0)
+                    }
+                    if (nBody < 0) {
+                        onLog("bulkTransferOut fail 2")
+                        break
+                    }
                 }
             }
         } catch (e: Exception) {
