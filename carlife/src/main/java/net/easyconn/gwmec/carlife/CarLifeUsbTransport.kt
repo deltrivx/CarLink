@@ -73,34 +73,42 @@ class CarLifeUsbTransport(
      * 读取结束后的韧性重连：原版对盒子的实际行为是读取失败 → resetDevice →
      * 重新 open，若干轮后数据通路才稳定。这里复刻同样的循环。
      */
+    @Volatile private var isReconnecting = false
+
     private fun scheduleReconnect() {
-        if (!running) return
-        val manager = reconnectManager ?: return
-        if (reconnectAttempts >= MAX_RECONNECT) { onLog("USB 重连次数用尽"); stop(); return }
+        if (!running || isReconnecting) return
+        isReconnecting = true
+        val manager = reconnectManager ?: run { isReconnecting = false; return }
+        if (reconnectAttempts >= MAX_RECONNECT) { 
+            onLog("USB 重连次数用尽")
+            isReconnecting = false
+            stop()
+            return 
+        }
         reconnectAttempts++
         val attempt = reconnectAttempts
         onLog("USB 断开，重连第 $attempt/$MAX_RECONNECT 次…")
         thread(name = "CarLife-UsbReconnect") {
-            Thread.sleep(1200L)
-            if (!running) return@thread
-            // 先停掉旧读写线程：它们手里握着已关闭 connection 的旧引用，
-            // 不先停就重开，会变成新旧两组线程抢同一个端点。
-            stopIoThreads()
-            release()
-            val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
-                ?: manager.deviceList.values.firstOrNull { it == reconnectDevice }
-                ?: manager.deviceList.values.firstOrNull()
-            if (fresh == null) { onLog("USB 设备已拔出"); stop(); return@thread }
-            reconnectDevice = fresh
-            if (open(manager, fresh, onMessageSink ?: return@thread)) {
-                // 不在这里清零：open() 成功不等于链路可用，紧接着 -1 失败的话
-                // 计数会被重置，重连上限形同虚设，变成连上→失败→再连的死循环。
-                onLog("USB 已重连，继续握手")
-                // 版本协商必须走 send() 入队，由写线程发出；直接 dispatch 会绕过 USB。
-                send(CarLifeProtocol.CHANNEL_CMD, CarLifeProtocol.MSG_HU_PROTOCOL_VERSION,
-                    CarLifeMessages.protocolVersion(4, 0), 0)
-            } else {
-                scheduleReconnect()
+            try {
+                Thread.sleep(1200L)
+                if (!running) return@thread
+                stopIoThreads()
+                release(resetDevice = false)
+                val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
+                    ?: manager.deviceList.values.firstOrNull { it == reconnectDevice }
+                    ?: manager.deviceList.values.firstOrNull()
+                if (fresh == null) { onLog("USB 设备已拔出"); stop(); return@thread }
+                reconnectDevice = fresh
+                if (open(manager, fresh, onMessageSink ?: return@thread)) {
+                    onLog("USB 已重连，继续握手")
+                    send(CarLifeProtocol.CHANNEL_CMD, CarLifeProtocol.MSG_HU_PROTOCOL_VERSION,
+                        CarLifeMessages.protocolVersion(4, 0), 0)
+                } else {
+                    isReconnecting = false
+                    scheduleReconnect()
+                }
+            } finally {
+                isReconnecting = false
             }
         }
     }
