@@ -9,6 +9,17 @@ package net.easyconn.gwmec.carlife
  * 其余通道头 12 字节 [u32 len][u32 seqOrTs][u32 serviceType]。
  */
 object CarLifeProtocol {
+    // 原版 ServiceTypes 对齐
+    const val MSG_MEDIA_INIT = 196609
+    const val MSG_MEDIA_STOP = 196610
+    const val MSG_MEDIA_PAUSE = 196611
+    const val MSG_MEDIA_RESUME_PLAY = 196612
+    const val MSG_MEDIA_DATA = 196614
+    const val MSG_MEDIA_DATA_ENCODER = 196615
+    const val MSG_NAV_TTS_INIT = 262145
+    const val MSG_NAV_TTS_END = 262146
+    const val MSG_NAV_TTS_DATA = 262147
+
     // ---- 通道与端口（WiFi 模式下每通道一条 TCP 连接，端口在手机侧）----
     const val CHANNEL_CMD = 1
     const val CHANNEL_VIDEO = 2

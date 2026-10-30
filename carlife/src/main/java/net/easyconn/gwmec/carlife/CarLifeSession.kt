@@ -173,11 +173,23 @@ class CarLifeSession(
                         CarLifeMessages.videoEncoderInfo(videoWidth, videoHeight, frameRate))
                 }
             }
-            CarLifeProtocol.MSG_MD_MUSIC_INIT -> {
+            CarLifeProtocol.MSG_MD_MUSIC_INIT, CarLifeProtocol.MSG_MEDIA_INIT -> {
                 val params = CarLifeAudio.parseAudioInit(payload)
                 audio.startMusic(params.sampleRate, params.channelConfig, params.sampleFormat)
                 sendCmd(CarLifeProtocol.MSG_HU_MUSIC_INIT)
                 listener.onLog("媒体音频初始化 ${params.sampleRate}Hz ch=${params.channelConfig}")
+            }
+            CarLifeProtocol.MSG_MEDIA_STOP -> {
+                audio.stopMusic()
+                listener.onLog("媒体音频停止")
+            }
+            CarLifeProtocol.MSG_MEDIA_PAUSE -> {
+                audio.pauseMusic()
+                listener.onLog("媒体音频暂停")
+            }
+            CarLifeProtocol.MSG_MEDIA_RESUME_PLAY -> {
+                audio.resumeMusic()
+                listener.onLog("媒体音频恢复播放")
             }
             CarLifeProtocol.MSG_MD_TTS_INIT -> {
                 val params = CarLifeAudio.parseAudioInit(payload)

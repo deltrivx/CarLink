@@ -119,13 +119,17 @@ class CarLifeAudio(private val onLog: (String) -> Unit) {
 
     fun pollMicData(): ByteArray? = micQueue.poll()
 
+    
+    fun pauseMusic() { try { musicTrack?.pause() } catch (_: Exception) {} }
+    fun resumeMusic() { try { musicTrack?.play() } catch (_: Exception) {} }
+
     fun stopAll() {
         stopMusic()
         stopTts()
         stopMic()
     }
 
-    private fun stopMusic() {
+    fun stopMusic() {
         try { musicTrack?.stop(); musicTrack?.release() } catch (_: Exception) {}
         musicTrack = null
     }

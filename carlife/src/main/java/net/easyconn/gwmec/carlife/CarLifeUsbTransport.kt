@@ -430,7 +430,7 @@ class CarLifeUsbTransport(
         // 断开就把盒子打回普通模式（0bb4:1001），下次连接自然会重新走完整 AOA 切换，
         // 拿到一个干净实例。不清场的话盒子一直挂在 2d00，第二次连接接手的是
         // 半死实例——能收发 USB 包却不解析 CarLife 帧，版本协商永远没回应。
-        release(resetDevice = true)
+        release(resetDevice = false)
     }
 
     /**
