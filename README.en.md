@@ -2,12 +2,12 @@
 
 [![Latest](https://img.shields.io/github/v/release/deltrivx/CarLink?display_name=tag&sort=semver&label=Latest)](https://github.com/deltrivx/CarLink/releases/latest)
 [![Android](https://img.shields.io/badge/Android-9.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
-[![Build](https://img.shields.io/badge/Build-FnOS%20local-1E6FA8)](https://github.com/deltrivx/CarLink)
+[![Build](https://img.shields.io/badge/Build-GitHub%20Actions-2088FF)](https://github.com/deltrivx/CarLink)
 [![Signing](https://img.shields.io/badge/Signing-Freescale%20platform-8a2be2)](https://github.com/deltrivx/CarLink/releases/latest)
 
 A car-phone link application that merges phone projection, media control and vehicle data reading in one app. Supports both Android Auto and CarPlay, offers three connection modes (built-in hotspot, same LAN, WiFi Direct), and exposes vehicle-only features such as battery, wheel speed and dashboard song.
 
-> Current version: **2026.10.19** · Application ID: `net.easyconn.gwmec` · Minimum Android: **9.0 (API 28)**
+> Version numbering is date-based (`YYYY.MM.DD`, same-day builds suffixed `-N`) · Application ID: `net.easyconn.gwmec` · Minimum Android: **9.0 (API 28)**
 
 ![Car-phone link](asset/xcertplay_small.png)
 
@@ -19,7 +19,7 @@ A car-phone link application that merges phone projection, media control and veh
 | Three connection modes | Built-in car hotspot, same LAN, WiFi Direct — switch by scenario |
 | Vehicle data | Battery, charging state, wheel speed and dashboard song, read over ADB |
 | Media control | Play/pause/track, with per-generation DiLink key mapping |
-| Local build | Built entirely on a local FnOS host, no GitHub Actions |
+| Cloud build | Built and released automatically by GitHub Actions, dual APKs signed with the Freescale platform key |
 | Platform signing | Freescale platform signing (`android@freescale.com`), APK Signature Scheme v2 + v3 |
 
 ## Connection Modes
