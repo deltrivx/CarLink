@@ -128,9 +128,21 @@ class CarLifeUsbTransport(
         }
         connection = conn
         usbInterface = iface
-        // 与百度 SDK 一致：getEndpoint(0) 读，getEndpoint(1) 写。
-        endpointIn = iface.getEndpoint(0)
-        endpointOut = iface.getEndpoint(1)
+        // 严谨匹配 USB 描述符方向：UsbConstants.USB_DIR_IN 与 USB_DIR_OUT
+        // 盒子在不同 Linux/Android 平台枚举时 endpoint 顺序可能颠倒 (如 ep_01 为 OUT, ep_81 为 IN)
+        var inEp: android.hardware.usb.UsbEndpoint? = null
+        var outEp: android.hardware.usb.UsbEndpoint? = null
+        for (i in 0 until iface.endpointCount) {
+            val ep = iface.getEndpoint(i)
+            if (ep.direction == android.hardware.usb.UsbConstants.USB_DIR_IN) {
+                inEp = ep
+            } else if (ep.direction == android.hardware.usb.UsbConstants.USB_DIR_OUT) {
+                outEp = ep
+            }
+        }
+        endpointIn = inEp ?: iface.getEndpoint(0)
+        endpointOut = outEp ?: iface.getEndpoint(1)
+        onLog("USB 端点绑定: IN=${endpointIn?.endpointNumber}(${endpointIn?.direction}), OUT=${endpointOut?.endpointNumber}(${endpointOut?.direction})")
         if (endpointIn == null || endpointOut == null) {
             release(); return fail("USB 端点不可用（IN/OUT 缺失）")
         }
