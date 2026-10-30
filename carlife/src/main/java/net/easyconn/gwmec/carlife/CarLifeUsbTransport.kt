@@ -243,43 +243,27 @@ class CarLifeUsbTransport(
     private fun readLoop() {
         val conn = connection ?: return
         val ep = endpointIn ?: return
-        val header = ByteArray(8)
+        val msgHead = ByteArray(LEN_OF_MSG_HEAD)
+        var payload = ByteArray(12)
         try {
             while (running) {
-                var nHead = 0
-                while (running && nHead == 0) {
-                    nHead = conn.bulkTransfer(ep, header, 0, 8, 0)
-                }
-                if (nHead < 0) {
-                    onLog("bulkTransferIn fail 1 (ret=$nHead)")
-                    break
-                }
+                val nHead = bulkTransferIn(conn, ep, msgHead, LEN_OF_MSG_HEAD)
+                if (nHead < 0) { onLog("bulkTransferIn fail 1 (ret=$nHead)"); break }
+                if (nHead == 0) continue
 
-                val typeMsg = beInt(header, 0)
-                val lenMsg = beInt(header, 4)
-                if (typeMsg < 1 || typeMsg > 7 || lenMsg < 0 || lenMsg > AOA_MAX_BYTES) {
+                val typeMsg = beInt(msgHead, 0)
+                val lenMsg = beInt(msgHead, 4)
+                if (typeMsg < 1 || typeMsg > 6 || lenMsg < 8 || lenMsg > AOA_MAX_BYTES) {
                     onLog("typeMsg=$typeMsg lenMsg=$lenMsg 非法")
                     break
                 }
 
-                val body = ByteArray(lenMsg)
-                var remaining = lenMsg
-                var readFailed = false
-                val maxPkt = ep.maxPacketSize.coerceAtLeast(64)
-                while (remaining > 0 && running) {
-                    val chunk = Math.min(remaining, maxPkt)
-                    val n = conn.bulkTransfer(ep, body, lenMsg - remaining, chunk, 1000)
-                    if (n > 0) {
-                        remaining -= n
-                    } else if (n < 0) {
-                        onLog("bulkTransferIn body fail (ret=$n)")
-                        readFailed = true
-                        break
-                    }
-                }
-                if (readFailed) break
+                if (payload.size < lenMsg) payload = ByteArray(lenMsg)
+                val nBody = bulkTransferIn(conn, ep, payload, lenMsg)
+                if (nBody < 0) { onLog("bulkTransferIn fail 2 (ret=$nBody)"); break }
 
-                val (serviceType, inner) = splitChannelFrame(typeMsg, body)
+                val msg = payload.copyOfRange(0, lenMsg)
+                val (serviceType, inner) = splitChannelFrame(typeMsg, msg)
                 dispatch?.invoke(typeMsg, serviceType, inner)
             }
         } catch (e: Exception) {
@@ -301,7 +285,9 @@ class CarLifeUsbTransport(
     private fun writeLoop() {
         val conn = connection ?: return
         val ep = endpointOut ?: return
-        val head = ByteArray(8)
+        val head = ByteArray(LEN_OF_MSG_HEAD)
+        val body = ByteArray(AOA_WRITE_CHUNK)
+        val scratch = ByteArray(AOA_WRITE_CHUNK)
         try {
             while (running) {
                 val queued = txQueue.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
@@ -309,6 +295,7 @@ class CarLifeUsbTransport(
 
                 val channel = beInt(queued, 0)
                 val frameLen = queued.size - 4
+                System.arraycopy(queued, 4, body, 0, frameLen)
                 beBytes(channel, head, 0)
                 beBytes(frameLen, head, 4)
 
@@ -316,27 +303,14 @@ class CarLifeUsbTransport(
                     txLogBudget--
                     onLog("TX ch=$channel len=$frameLen hdr=" +
                         head.joinToString("") { "%02X".format(it) } +
-                        " body=" + queued.copyOfRange(4, minOf(queued.size, 28)).joinToString("") { "%02X".format(it) })
+                        " body=" + body.copyOfRange(0, minOf(frameLen, 24)).joinToString("") { "%02X".format(it) })
                 }
 
-                var nHead = 0
-                while (running && nHead == 0) {
-                    nHead = conn.bulkTransfer(ep, head, 0, 8, 0)
+                if (bulkTransferOutFixed(conn, ep, head, LEN_OF_MSG_HEAD, scratch) <= 0) {
+                    onLog("bulkTransferOut fail 1"); break
                 }
-                if (nHead < 0) {
-                    onLog("bulkTransferOut fail 1")
-                    break
-                }
-
-                if (frameLen > 0) {
-                    var nBody = 0
-                    while (running && nBody == 0) {
-                        nBody = conn.bulkTransfer(ep, queued, 4, frameLen, 0)
-                    }
-                    if (nBody < 0) {
-                        onLog("bulkTransferOut fail 2")
-                        break
-                    }
+                if (frameLen > 0 && bulkTransferOutFixed(conn, ep, body, frameLen, scratch) <= 0) {
+                    onLog("bulkTransferOut fail 2"); break
                 }
             }
         } catch (e: Exception) {
