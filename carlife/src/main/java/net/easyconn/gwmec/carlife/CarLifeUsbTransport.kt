@@ -135,13 +135,10 @@ class CarLifeUsbTransport(
             release(); return fail("USB 端点不可用（IN/OUT 缺失）")
         }
         if (isAccessory(device)) {
-            // 已是配件模式：不再发 START_ACCESSORY（对已切换的设备无效，只会把 open()
-            // 变成"发一次→释放→重连"的死循环）。但把 6 条 AOA 身份串重发一遍是安全的
-            // ——SEND_STRING 只写字符串，不改设备模式，却能让盒子的配件协议栈重新拿到
-            // 主机身份、真正进入可通信状态。遗留的 2d00 实例能收 USB 包却不解析
-            // CarLife 帧，就是缺这一步。
-            onLog("设备已是配件模式，补发 AOA 身份串")
-            resendIdentities(conn)
+            // 严格对齐原版 UsbAccessoryStarter.openAccessory()：
+            // if (isAccessory()) return true;
+            // 绝不在已枚举的配件上发 controlTransfer，直接使用原有端点正常通信！
+            onLog("设备已是配件模式，直接建立连接通道")
         } else {
             when (aoaHandshake(conn)) {
                 AoaResult.ALREADY -> Unit
