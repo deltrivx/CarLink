@@ -576,6 +576,7 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         if (!initialLaunch && !adbSwitchChangePending && !pausedForAdbSwitchChange) {
             when (page) {
                 "home" -> if (!refreshHomeStatus()) render()
+                "carlife" -> refreshCarLifeStatus()
                 "settings", "connection", "setup" -> render()
             }
         }
