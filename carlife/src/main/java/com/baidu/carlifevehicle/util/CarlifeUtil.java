@@ -25,7 +25,6 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import com.baidu.android.common.util.CommonParam;
 import com.baidu.carlife.protobuf.CarlifeModuleStatusProto.CarlifeModuleStatus;
 import com.baidu.carlife.protobuf.CarlifeStatisticsInfoProto.CarlifeStatisticsInfo;
 import com.baidu.carlife.protobuf.CarlifeVideoEncoderInfoProto.CarlifeVideoEncoderInfo;
@@ -83,7 +82,10 @@ public class CarlifeUtil {
             return;
         mContext = context;
 
-        mCuid = CommonParam.getCUID(mContext);
+        // 百度私有库 CommonParam 不可用；CUID 只是统计用的设备标识，用 Android ID 顶上。
+        mCuid = android.provider.Settings.Secure.getString(
+                mContext.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+        if (mCuid == null) mCuid = "carlink";
         LogUtil.e(TAG, "CUID = " + mCuid);
 
         try {
