@@ -901,6 +901,17 @@ class CarPlayController(
         phase = Phase.MFI
         onStatus(CarPlayStatus.DiscoveringMfi)
         val offlineDirectory = java.io.File(appContext.noBackupFilesDir, LocalMfiAuthenticationClient.DIRECTORY)
+        // 对齐 CarUp：随包分发的离线 MFi 资产存在即强制 LOCAL，其余 target 一律不启用
+        // （CarUp: "offline-mfi present -> backend=LocalOffline remoteFallback=disabled"）。
+        // 通用版没有车机板载 MFi 协处理器，DiPlay 时代残留的 I2C/CH341/REMOTE 配置会把
+        // 初始化引向死路——这就是"初始化连接还是老 DiPlay 方案"的根因。
+        if (offlineDirectory.exists()) {
+            if (config.mfiTarget != MfiTarget.LOCAL) {
+                debugLog("mfi offline assets present; overriding configured target=${config.mfiTarget} to LOCAL")
+            }
+            openLocalMfi(offlineDirectory)
+            return
+        }
         when (config.mfiTarget) {
             MfiTarget.LOCAL -> openLocalMfi(offlineDirectory)
             MfiTarget.USB_CH341 -> {

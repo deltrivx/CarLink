@@ -62,6 +62,21 @@ class CarLifeSession(
         if (!running) return
         running = false
         videoStarted = false
+        // 对齐原版断开流程：握手建立过协议就先告诉手机「CARLIFE_CONNECT 模块断开」
+        // （Constants.VALUE_DISCONNECT=0，经 MSG_HU_MODULE_CONTROL 下发），手机端才会
+        // 复位自己的连接状态并立刻重新广播。旧实现直接砸 socket，手机不知道已断开，
+        // 二次连接时车端在 UDP 7999 上等一个永远不会来的广播——界面钉死在「连接中」。
+        if (versionMatched) {
+            try {
+                transport.send(
+                    CarLifeProtocol.CHANNEL_CMD,
+                    CarLifeProtocol.MSG_HU_MODULE_CONTROL,
+                    CarLifeMessages.connectTypeToMd(0),
+                    0,
+                )
+            } catch (_: Exception) {
+            }
+        }
         versionMatched = false
         audio.stopAll()
         transport.stop()
