@@ -408,7 +408,8 @@ public class CarlifeUtil {
     }
 
     public static void showToastInUIThread(final int textId) {
-        BaseActivity.mContext.runOnUiThread(new Runnable() {
+        // Context 上没有 runOnUiThread（那是 Activity 的方法），编到主线程用 Handler。
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
             @Override
             public void run() {
                 Toast.makeText(BaseActivity.mContext, textId, Toast.LENGTH_SHORT).show();
