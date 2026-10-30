@@ -1,13 +1,11 @@
 package net.easyconn.gwmec.carlife
 
 import android.content.Context
-import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
-import android.util.Log
 import kotlin.concurrent.thread
 
 /**
@@ -20,30 +18,37 @@ import kotlin.concurrent.thread
  *   "http://carlife.baidu.com/","0720SerialNo."
  * - 多路复用帧（小端，区别于 WiFi 通道的大端帧头）：
  *   [int32LE channel][int32LE size][payload]，channel ∈ 1..7，size ≤ 64MB。
- * - 读写都在 interface 0：endpoint 0 = IN，endpoint 1 = OUT；
- *   与百度 SDK 一致：多路复用头用 timeout=0 阻塞，body 用 1000ms 分片读。
+ * - 读写都在 interface 0：endpoint 0 = IN，endpoint 1 = OUT。
+ *
+ * 授权生命周期对齐原版（仅首次初始化连接弹授权窗）：
+ * 本传输是进程级单例（obtain）。断开时不关闭 USB 连接——手机保持配件模式、
+ * 系统授权不丢，读写线程停驻待命；下次 start() 直接复用同一连接，
+ * 不再触发系统授权弹窗，也不再重走 AOA 切换。只有设备真的消失（拔线）
+ * 或授权失效才丢弃连接，回到完整流程。
  */
-class CarLifeUsbTransport(
+class CarLifeUsbTransport private constructor(
     private val context: Context,
     private val onLog: (String) -> Unit,
 ) : CarLifeTransport {
-    private var connection: UsbDeviceConnection? = null
-    private var usbInterface: UsbInterface? = null
-    private var endpointIn: UsbEndpoint? = null
-    private var endpointOut: UsbEndpoint? = null
-    private val header = ByteArray(8)
-    @Volatile private var running = false
-    private var dispatch: ((channel: Int, serviceType: Int, payload: ByteArray) -> Unit)? = null
-    private var readerThread: Thread? = null
-    private var writerThread: Thread? = null
-    /** 待发帧队列，承担原版 SocketReadThread 里 ServerSocket 的角色。 */
-    private val txQueue = java.util.concurrent.LinkedBlockingQueue<ByteArray>()
-    /** 前若干帧打印 TX hex，便于对照原版，之后静默。 */
-    private var txLogBudget = 24
 
     override fun start(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         dispatch = onMessage
         val manager = context.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return fail("无 USB 服务")
+
+        // 先试复用保留的配件连接：设备还在、授权还在 → 直接接着用（对齐原版仅首次弹窗）。
+        val kept = reconnectDevice
+        if (connection != null && kept != null && isAccessory(kept)) {
+            val stillThere = manager.deviceList.values.any { it.deviceName == kept.deviceName }
+            if (stillThere && manager.hasPermission(kept)) {
+                onLog("复用已授权的配件连接（对齐原版：仅首次连接弹授权）")
+                running = true
+                ensureIoThreads()
+                return true
+            }
+            onLog("保留的配件已拔出或授权失效，走完整连接流程")
+            discardRetained()
+        }
+
         val device = findAccessory(manager) ?: return fail("未发现USB设备，请插入安卓手机")
         if (!manager.hasPermission(device)) {
             // 车机通常预授权系统 USB；未授权时请求一次，用户确认后由调用方重试。
@@ -62,28 +67,121 @@ class CarLifeUsbTransport(
         )
     }
 
+    private fun fail(msg: String): Boolean { onLog(msg); return false }
+
     /** 记录用于自动重连的上下文（盒子/手机在 AOA 建立初期会多次重置）。 */
     private var reconnectManager: UsbManager? = null
     private var reconnectDevice: UsbDevice? = null
-    private var reconnectAttempts = 0
-    /** 当前要打开的 accessory 实例是本进程刚切出来的，不需要再补发身份串。 */
-    @Volatile private var assumeCleanAccessory = false
 
-    /**
-     * 读取结束后的韧性重连：原版对盒子的实际行为是读取失败 → resetDevice →
-     * 重新 open，若干轮后数据通路才稳定。这里复刻同样的循环。
-     */
+    private var connection: UsbDeviceConnection? = null
+    private var usbInterface: UsbInterface? = null
+    private var endpointIn: UsbEndpoint? = null
+    private var endpointOut: UsbEndpoint? = null
+    private var readerThread: Thread? = null
+    private var writerThread: Thread? = null
+    private val txQueue = java.util.concurrent.LinkedBlockingQueue<ByteArray>()
+    @Volatile private var running = false
+    @Volatile private var dispatch: ((channel: Int, serviceType: Int, payload: ByteArray) -> Unit)? = null
     @Volatile private var isReconnecting = false
+    @Volatile private var onMessageSink: ((Int, Int, ByteArray) -> Unit)? = null
+    private var reconnectAttempts = 0
 
+    /** 真正打开设备并启动读写线程；AOA 切换指令发出后设备会重新枚举，需要等重新插入。 */
+    fun open(manager: UsbManager, device: UsbDevice, onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit = { _, _, _ -> }): Boolean {
+        reconnectManager = manager
+        reconnectDevice = device
+        dispatch = onMessage
+        onMessageSink = onMessage
+        val conn = manager.openDevice(device) ?: return fail("USB设备打开失败，请重新插拔USB线")
+        val iface = device.getInterface(0)
+        if (!conn.claimInterface(iface, true)) {
+            conn.close(); return fail("USB 接口声明失败")
+        }
+        connection = conn
+        usbInterface = iface
+        // 严格对齐原版 UsbAccessoryCommunicator: getEndpoint(0) 读，getEndpoint(1) 写
+        endpointIn = iface.getEndpoint(0)
+        endpointOut = iface.getEndpoint(1)
+        if (endpointIn == null || endpointOut == null) {
+            release(); return fail("USB 端点不可用（IN/OUT 缺失）")
+        }
+        if (isAccessory(device)) {
+            // 严格对齐原版 UsbAccessoryStarter.openAccessory()：if (isAccessory()) return true;
+            // 绝不在已枚举的配件上发 controlTransfer，直接使用原有端点正常通信！
+            onLog("设备已是配件模式，直接建立连接通道")
+        } else {
+            when (aoaHandshake(conn)) {
+                AoaResult.ALREADY -> Unit
+                AoaResult.SWITCHED -> {
+                    // 原版 changeToAccessoryMode() 之后把控制权交回扫描循环，
+                    // 下一轮发现 2d00 就接着 initUsbDevice。
+                    release()
+                    onLog("已发送AOA切换指令，等待设备重新枚举")
+                    return awaitAccessoryReenumeration()
+                }
+                AoaResult.UNSUPPORTED -> { release(); return fail("该手机不支持AOA配件模式，请改用无线连接") }
+            }
+        }
+        running = true
+        // 原版 initUsbDevice 在 isAccessoryMode() 分支里先起 socket 线程，
+        // Thread.sleep(SLEEP_TIME_MS) 睡 1000ms 再起读线程：给配件固件拉起协议栈的时间。
+        onLog("USB设备连接成功，等待设备就绪")
+        Thread.sleep(AOA_READY_DELAY_MS)
+        if (!running) { release(); return fail("连接被取消") }
+        ensureIoThreads()
+        return true
+    }
+
+    /** 读写线程活着就复用（保留停驻），死了才重建。 */
+    private fun ensureIoThreads() {
+        if (readerThread?.isAlive != true) {
+            readerThread = Thread({ readLoop() }, "CarLife-UsbRead").apply { start() }
+        }
+        if (writerThread?.isAlive != true) {
+            writerThread = Thread({ writeLoop() }, "CarLife-UsbWrite").apply { start() }
+        }
+    }
+
+    private fun awaitAccessoryReenumeration(): Boolean {
+        val manager = reconnectManager ?: return fail("USB 管理器不可用")
+        val deadline = System.currentTimeMillis() + AOA_REENUM_TIMEOUT_MS
+        var polled = 0
+        while (System.currentTimeMillis() < deadline) {
+            Thread.sleep(300)
+            if (!running && polled > 0) return fail("连接被取消")
+            polled++
+            val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) } ?: continue
+            onLog("盒子已重新枚举为配件模式，继续握手")
+            reconnectDevice = fresh
+            return open(manager, fresh, dispatch ?: return fail("消息通道未就绪"))
+        }
+        return fail("切换 AOA 后设备未重新枚举，请重新插拔盒子")
+    }
+
+    private enum class AoaResult { ALREADY, SWITCHED, UNSUPPORTED }
+
+    private fun isAccessory(d: UsbDevice) =
+        d.vendorId == AOA_VID && d.productId in AOA_PIDS
+
+    private fun findAccessory(manager: UsbManager): UsbDevice? =
+        manager.deviceList.values.firstOrNull { isAccessory(it) }
+            ?: manager.deviceList.values.firstOrNull {
+                // 常见安卓手机厂商 VID；仅作为“插了安卓手机”的启发提示，
+                // 真正能否 AOA 由握手决定。
+                it.vendorId in PHONE_VID_HINTS && it.deviceClass != 0
+            }
+            ?: manager.deviceList.values.firstOrNull()
+
+    /** 韧性重连：读取失败 → 重开设备，若干轮后数据通路才稳定（对齐原版盒子行为）。 */
     private fun scheduleReconnect() {
         if (!running || isReconnecting) return
         isReconnecting = true
         val manager = reconnectManager ?: run { isReconnecting = false; return }
-        if (reconnectAttempts >= MAX_RECONNECT) { 
+        if (reconnectAttempts >= MAX_RECONNECT) {
             onLog("USB 重连次数用尽")
             isReconnecting = false
             stop()
-            return 
+            return
         }
         reconnectAttempts++
         val attempt = reconnectAttempts
@@ -92,8 +190,7 @@ class CarLifeUsbTransport(
             try {
                 Thread.sleep(1200L)
                 if (!running) return@thread
-                stopIoThreads()
-                release(resetDevice = false)
+                discardConnection()
                 val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
                     ?: manager.deviceList.values.firstOrNull { it == reconnectDevice }
                     ?: manager.deviceList.values.firstOrNull()
@@ -113,191 +210,130 @@ class CarLifeUsbTransport(
         }
     }
 
-    @Volatile private var onMessageSink: ((Int, Int, ByteArray) -> Unit)? = null
+    override fun send(channel: Int, serviceType: Int, payload: ByteArray, seqOrTs: Int): Boolean {
+        if (!running) return false
+        val frame = CarLifeProtocol.pack(channel, serviceType, payload, seqOrTs)
+        // 交给写线程，调用方不碰 USB。队列元素 = [4B BE channel][整帧]，与 writeLoop 对齐。
+        val queued = ByteArray(4 + frame.size)
+        beBytes(channel, queued, 0)
+        System.arraycopy(frame, 0, queued, 4, frame.size)
+        return txQueue.offer(queued)
+    }
 
-    /** 停掉当前读写线程（重连前调用，避免旧线程持着已关闭的连接继续读）。 */
-    private fun stopIoThreads() {
+    /** 连接对象在、运行标志在、读写线程都还没死，才算活着。 */
+    override fun isAlive(): Boolean =
+        running && connection != null &&
+            readerThread?.isAlive == true && writerThread?.isAlive == true
+
+    /** 版本协商超时后的重连：链路没报错，只是手机这轮没在听。 */
+    override fun retryHandshake() {
+        if (!running) return
+        onLog("手机本轮未响应，重新打开 USB 再试")
+        scheduleReconnect()
+    }
+
+    override fun stop() {
+        val retain = connection != null && reconnectDevice?.let { isAccessory(it) } == true
+        if (retain) {
+            // 对齐原版：正常断开不释放连接、不打回普通模式——手机保持配件模式、
+            // 授权不丢，IO 线程停驻待命，下次连接直接复用（仅首次连接弹授权）。
+            // 先给断开帧（VALUE_DISCONNECT）一个发送窗口，再停驻。
+            try { writerThread?.join(800) } catch (_: InterruptedException) {}
+            running = false
+            onLog("配件连接保留待复用（不断开 USB，不重复授权）")
+            return
+        }
+        running = false
+        discardConnection()
+    }
+
+    /** 关闭连接并结束 IO 线程（设备已消失/授权失效/彻底清场时用）。 */
+    private fun discardConnection() {
+        // 先关连接解除 bulkTransfer 阻塞，线程自行退出。
+        try { connection?.close() } catch (_: Exception) {}
         try { readerThread?.interrupt() } catch (_: Exception) {}
         try { writerThread?.interrupt() } catch (_: Exception) {}
         readerThread = null
         writerThread = null
         txQueue.clear()
+        release(resetDevice = false)
     }
 
-    /** 真正打开设备并启动读线程；AOA 切换指令发出后设备会重新枚举，需要等重新插入。 */
-    fun open(manager: UsbManager, device: UsbDevice, onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit = { _, _, _ -> }): Boolean {
-        reconnectManager = manager
-        reconnectDevice = device
-        onMessageSink = onMessage
-        val conn = manager.openDevice(device) ?: return fail("USB设备打开失败，请重新插拔USB线")
-        val iface = device.getInterface(0)
-        if (!conn.claimInterface(iface, true)) {
-            conn.close(); return fail("USB 接口声明失败")
-        }
-        connection = conn
-        usbInterface = iface
-        // 100% 严格对齐原版 UsbAccessoryCommunicator:
-        // getEndpoint(0) 读，getEndpoint(1) 写
-        endpointIn = iface.getEndpoint(0)
-        endpointOut = iface.getEndpoint(1)
-        if (endpointIn == null || endpointOut == null) {
-            release(); return fail("USB 端点不可用（IN/OUT 缺失）")
-        }
-        if (isAccessory(device)) {
-            // 严格对齐原版 UsbAccessoryStarter.openAccessory()：
-            // if (isAccessory()) return true;
-            // 绝不在已枚举的配件上发 controlTransfer，直接使用原有端点正常通信！
-            onLog("设备已是配件模式，直接建立连接通道")
-        } else {
-            when (aoaHandshake(conn)) {
-                AoaResult.ALREADY -> Unit
-                AoaResult.SWITCHED -> {
-                    // 原版 changeToAccessoryMode() 之后是把控制权交回扫描循环，
-                    // 下一轮 scanUsbDevices 发现 2d00 就接着 initUsbDevice。
-                    // 原来这里直接 fail 返回，等一个永远不会来的"自动继续"，
-                    // 插线后界面就一直停在连接不上。
-                    release()
-                    onLog("已发送AOA切换指令，等待设备重新枚举")
-                    return awaitAccessoryReenumeration()
-                }
-                AoaResult.UNSUPPORTED -> { release(); return fail("该手机不支持AOA配件模式，请改用无线连接") }
-            }
-        }
-        running = true
-        // 原版 initUsbDevice 在 isAccessoryMode() 分支里先起 socket 线程，
-        // Thread.sleep(SLEEP_TIME_MS) 睡 1000ms，再起读线程。
-        // 这一秒是给盒子 AOA 固件把协议栈拉起来的时间：这段时间里它能收 USB 包
-        // （bulkTransferOut 不报错），但还不解析 CarLife 帧，协商帧会被直接丢掉。
-        // 之前连接成功后 5ms 就发版本协商，手机自然回不了。
-        onLog("USB设备连接成功，等待设备就绪")
-        Thread.sleep(AOA_READY_DELAY_MS)
-        if (!running) { release(); return fail("连接被取消") }
-        readerThread = Thread({ readLoop() }, "CarLife-UsbRead").apply { start() }
-        writerThread = Thread({ writeLoop() }, "CarLife-UsbWrite").apply { start() }
-        return true
-    }
+    private fun discardRetained() = discardConnection()
 
     /**
-     * AOA 切换后等盒子以 18d1:2d00 重新枚举出来，然后接着打开它继续握手。
-     * 对应原版扫描循环的下一轮；等不到就明确失败，不再留一个悬空的"自动继续"。
+     * 关闭连接。正常停止只释放接口，不碰设备本身。
+     * resetDevice 是破坏性的：设备会重新枚举，正在跑的数据通路也会断，只用于异常终止。
      */
-    private fun awaitAccessoryReenumeration(): Boolean {
-        val manager = reconnectManager ?: return fail("USB 管理器不可用")
-        val deadline = System.currentTimeMillis() + AOA_REENUM_TIMEOUT_MS
-        var polled = 0
-        while (System.currentTimeMillis() < deadline) {
-            Thread.sleep(300)
-            if (!running && polled > 0) return fail("连接被取消")
-            polled++
-            val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) } ?: continue
-            onLog("盒子已重新枚举为配件模式，继续握手")
-            reconnectDevice = fresh
-            // 这个实例是刚刚自己切出来的，不需要再补发身份串。
-            assumeCleanAccessory = true
-            val opened = open(manager, fresh, onMessageSink ?: return fail("消息通道未就绪"))
-            assumeCleanAccessory = false
-            return opened
+    private fun release(resetDevice: Boolean = false) {
+        try { usbInterface?.let { connection?.releaseInterface(it) } } catch (_: Exception) {}
+        if (resetDevice) {
+            try {
+                connection?.let { conn -> conn.javaClass.getMethod("resetDevice").invoke(conn) }
+            } catch (_: Exception) {}
         }
-        return fail("切换 AOA 后设备未重新枚举，请重新插拔盒子")
+        try { connection?.close() } catch (_: Exception) {}
+        connection = null; usbInterface = null; endpointIn = null; endpointOut = null
     }
-
-    private enum class AoaResult { ALREADY, SWITCHED, UNSUPPORTED }
-
-    private fun isAccessory(d: UsbDevice) =
-        d.vendorId == AOA_VID && d.productId in AOA_PIDS
-
-    /**
-     * 只补发身份串，不发 START_ACCESSORY：对已经处于 accessory 模式的设备，
-     * 这一步只是让固件的配件协议栈重新绑定主机身份，不触发重新枚举。
-     */
-    private fun resendIdentities(conn: UsbDeviceConnection) {
-        ACCESSORY_STRINGS.forEachIndexed { index, value ->
-            val bytes = value.toByteArray(Charsets.UTF_8)
-            if (conn.controlTransfer(0x40, 52, 0, index, bytes, bytes.size, 0) < 0) {
-                onLog("AOA 身份串 $index 补发失败")
-            }
-        }
-    }
-
-    private fun aoaHandshake(conn: UsbDeviceConnection): AoaResult {
-        val proto = ByteArray(2)
-        val got = conn.controlTransfer(0xC0, 51, 0, 0, proto, 2, 0)
-        if (got < 0) return AoaResult.UNSUPPORTED
-        ACCESSORY_STRINGS.forEachIndexed { index, value ->
-            val bytes = value.toByteArray(Charsets.UTF_8)
-            if (conn.controlTransfer(0x40, 52, 0, index, bytes, bytes.size, 0) < 0) {
-                onLog("AOA 身份串 $index 发送失败")
-            }
-        }
-        val started = conn.controlTransfer(0x40, 53, 0, 0, null, 0, 0)
-        return if (started >= 0) AoaResult.SWITCHED else AoaResult.UNSUPPORTED
-    }
-
-    private fun findAccessory(manager: UsbManager): UsbDevice? =
-        manager.deviceList.values.firstOrNull { isAccessory(it) }
-            ?: manager.deviceList.values.firstOrNull {
-                // 常见安卓手机厂商 VID；仅作为“插了安卓手机”的启发提示，
-                // 真正能否 AOA 由握手决定。
-                it.vendorId in PHONE_VID_HINTS && it.deviceClass != 0
-            }
-            ?: manager.deviceList.values.firstOrNull()
 
     /**
      * 读线程：独占 bulk IN，严格照原版 AOAReadThread。
-     *
-     * 原版一个线程只碰 IN，另一个（SocketReadThread）只碰 OUT，两者从不并发。
-     * 我们之前读写在同一个 connection 上并发调用 bulkTransfer，内核直接回 -1。
+     * 会话停驻（!running）时每 150ms 醒一次等待复用，不再钉死在内核 bulkTransfer 里。
      */
     private fun readLoop() {
-        val conn = connection ?: return
-        val ep = endpointIn ?: return
         val msgHead = ByteArray(LEN_OF_MSG_HEAD)
         var payload = ByteArray(12)
-        try {
-            while (running) {
-                val nHead = bulkTransferIn(conn, ep, msgHead, LEN_OF_MSG_HEAD)
-                if (nHead < 0) { onLog("bulkTransferIn fail 1 (ret=$nHead)"); break }
-                if (nHead == 0) continue
+        while (true) {
+            if (!running) { Thread.sleep(150); continue }
+            val conn = connection ?: return
+            val ep = endpointIn ?: return
+            try {
+                while (running) {
+                    val nHead = bulkTransferIn(conn, ep, msgHead, LEN_OF_MSG_HEAD)
+                    if (nHead == 0) continue
+                    if (nHead < 0) { onLog("bulkTransferIn fail 1 (ret=$nHead)"); break }
 
-                val typeMsg = beInt(msgHead, 0)
-                val lenMsg = beInt(msgHead, 4)
-                if (typeMsg < 1 || typeMsg > 6 || lenMsg < 8 || lenMsg > AOA_MAX_BYTES) {
-                    onLog("typeMsg=$typeMsg lenMsg=$lenMsg 非法")
-                    break
+                    val typeMsg = beInt(msgHead, 0)
+                    val lenMsg = beInt(msgHead, 4)
+                    if (typeMsg < 1 || typeMsg > 6 || lenMsg < 8 || lenMsg > AOA_MAX_BYTES) {
+                        onLog("typeMsg=$typeMsg lenMsg=$lenMsg 非法")
+                        break
+                    }
+
+                    if (payload.size < lenMsg) payload = ByteArray(lenMsg)
+                    val nBody = bulkTransferIn(conn, ep, payload, lenMsg)
+                    if (nBody < 0) { onLog("bulkTransferIn fail 2 (ret=$nBody)"); break }
+
+                    val msg = payload.copyOfRange(0, lenMsg)
+                    val (serviceType, inner) = splitChannelFrame(typeMsg, msg)
+                    dispatch?.invoke(typeMsg, serviceType, inner)
                 }
-
-                if (payload.size < lenMsg) payload = ByteArray(lenMsg)
-                val nBody = bulkTransferIn(conn, ep, payload, lenMsg)
-                if (nBody < 0) { onLog("bulkTransferIn fail 2 (ret=$nBody)"); break }
-
-                val msg = payload.copyOfRange(0, lenMsg)
-                val (serviceType, inner) = splitChannelFrame(typeMsg, msg)
-                dispatch?.invoke(typeMsg, serviceType, inner)
+            } catch (_: InterruptedException) {
+                return
+            } catch (e: Exception) {
+                if (running) onLog("读线程异常: ${e.message}")
             }
-        } catch (e: Exception) {
-            if (running) onLog("读线程异常: ${e.message}")
-        }
-        if (running) {
+            if (!running) continue
             onLog("读取结束")
             release(resetDevice = false)
             scheduleReconnect()
+            return
         }
     }
 
     /**
      * 写线程：独占 bulk OUT，照原版 SocketReadThread。
-     *
-     * 原版从 ServerSocket 读待发数据再写 USB；这里用队列承担同样的角色，
-     * send() 只入队，绝不直接碰 connection。
+     * send() 只入队，绝不直接碰 connection；停驻时空转等待复用。
      */
     private fun writeLoop() {
-        val conn = connection ?: return
-        val ep = endpointOut ?: return
         val head = ByteArray(LEN_OF_MSG_HEAD)
         val body = ByteArray(AOA_WRITE_CHUNK)
         val scratch = ByteArray(AOA_WRITE_CHUNK)
-        try {
-            while (running) {
+        while (true) {
+            if (!running) { Thread.sleep(150); continue }
+            val conn = connection ?: return
+            val ep = endpointOut ?: return
+            try {
                 val queued = txQueue.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
                 if (queued.size <= 4) continue
 
@@ -307,31 +343,31 @@ class CarLifeUsbTransport(
                 beBytes(channel, head, 0)
                 beBytes(frameLen, head, 4)
 
-                if (txLogBudget > 0) {
-                    txLogBudget--
-                    onLog("TX ch=$channel len=$frameLen hdr=" +
-                        head.joinToString("") { "%02X".format(it) } +
-                        " body=" + body.copyOfRange(0, minOf(frameLen, 24)).joinToString("") { "%02X".format(it) })
-                }
-
                 if (bulkTransferOutFixed(conn, ep, head, LEN_OF_MSG_HEAD, scratch) <= 0) {
-                    onLog("bulkTransferOut fail 1"); break
+                    onLog("bulkTransferOut fail 1")
+                    release(resetDevice = false)
+                    scheduleReconnect()
+                    return
                 }
                 if (frameLen > 0 && bulkTransferOutFixed(conn, ep, body, frameLen, scratch) <= 0) {
-                    onLog("bulkTransferOut fail 2"); break
+                    onLog("bulkTransferOut fail 2")
+                    release(resetDevice = false)
+                    scheduleReconnect()
+                    return
                 }
+            } catch (_: InterruptedException) {
+                return
+            } catch (e: Exception) {
+                if (running) onLog("写线程异常: ${e.message}")
             }
-        } catch (e: Exception) {
-            if (running) onLog("写线程异常: ${e.message}")
         }
     }
 
     /**
-     * 照抄 AOAHostSetup.bulkTransferOut(data, len)。
-     *
-     * 短包（<= 16KB）单次调用，长度传实际字节数；长包才拷进固定的 mDataBuffer
-     * 分段发。千万别把固定缓冲的 buf.size 当长度传出去——那样会把声明 12 字节的
-     * 帧连 16KB 垃圾一起灌进端点，盒子直接不认。
+     * 照抄 AOAHostSetup.bulkTransferOut(data, len)：
+     * 短包（<= 16KB）单次调用，长度传实际字节数；长包才拷进固定缓冲分段发。
+     * 千万别把固定缓冲的 buf.size 当长度传出去——那样会把声明 12 字节的帧连
+     * 16KB 垃圾一起灌进端点，盒子直接不认。
      */
     private fun bulkTransferOutFixed(
         conn: UsbDeviceConnection,
@@ -356,28 +392,18 @@ class CarLifeUsbTransport(
         return sent
     }
 
-    /** 原版 bulkTransferIn：0 表示无限等待，负数才是断链。 */
     /**
-     * 原版 AOAHostSetup.bulkTransferIn：整段读，timeout 0。
-     *
-     * 注意不要用 bulkTransfer(ep, buf, offset, length, timeout)：offset 非 0 时
-     * 部分内核/设备组合会直接返回 -1。原版永远从缓冲区起点收发。
-     */
-    /**
-     * 照抄 AOAHostSetup.bulkTransferIn：TIME_OUT = 0，无限阻塞。
-     *
-     * 返回值语义与原版一致：
-     *   > 0  读到字节
-     *   == 0 本次没数据（原版 return 0，由调用方继续循环，不是失败）
-     *   < 0  真正断链
-     * 不要在这里加超时兜底——3 秒兜底会把"手机还没回"误判成断链，
-     * 上一版就是这么把自己读断的。
+     * 照抄 AOAHostSetup.bulkTransferIn，但用 500ms 轮询超时：
+     * 原版 timeout=0 无限阻塞，读线程在会话结束后仍钉死在内核里，保留复用就无从谈起。
+     * 500ms 无数据返回 0 → 上层 continue，语义与原版的“本次没数据”完全一致，
+     * 数据通路行为不变。不要用带 offset 的 bulkTransfer 重载——部分内核/设备组合
+     * 会直接返回 -1，原版永远从缓冲区起点收发。
      */
     private fun bulkTransferIn(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, len: Int): Int {
         var total = 0
         while (total < len) {
-            if (!running) return -1
-            val n = conn.bulkTransfer(ep, buf, total, len - total, 0)
+            if (!running) return 0
+            val n = conn.bulkTransfer(ep, buf, total, len - total, USB_READ_POLL_MS)
             if (n < 0) return if (total > 0) total else -1
             if (n == 0) continue
             total += n
@@ -395,61 +421,6 @@ class CarLifeUsbTransport(
             0 to payload
         }
     }
-
-    override fun send(channel: Int, serviceType: Int, payload: ByteArray, seqOrTs: Int): Boolean {
-        if (!running) return false
-        val frame = CarLifeProtocol.pack(channel, serviceType, payload, seqOrTs)
-        // 交给写线程，调用方不碰 USB。队列元素 = [4B BE channel][整帧]，与 writeLoop 对齐。
-        val queued = ByteArray(4 + frame.size)
-        beBytes(channel, queued, 0)
-        System.arraycopy(frame, 0, queued, 4, frame.size)
-        return txQueue.offer(queued)
-    }
-
-    /** 连接对象在、运行标志在、读写线程都还没死，才算活着。 */
-    override fun isAlive(): Boolean =
-        running && connection != null &&
-            readerThread?.isAlive == true && writerThread?.isAlive == true
-
-    /**
-     * 版本协商超时后的重连：链路没报错，只是手机这轮没在听。
-     * 走一遍和读失败相同的重开流程，让盒子和手机重新对齐。
-     */
-    override fun retryHandshake() {
-        if (!running) return
-        onLog("手机本轮未响应，重新打开 USB 再试")
-        scheduleReconnect()
-    }
-
-    override fun stop() {
-        running = false
-        stopIoThreads()
-        // 原版 AOAConnectManager.uninit() 在 CONNECTED_BY_AOA 时调 resetUsb()：
-        // 断开就把盒子打回普通模式（0bb4:1001），下次连接自然会重新走完整 AOA 切换，
-        // 拿到一个干净实例。不清场的话盒子一直挂在 2d00，第二次连接接手的是
-        // 半死实例——能收发 USB 包却不解析 CarLife 帧，版本协商永远没回应。
-        release(resetDevice = false)
-    }
-
-    /**
-     * 关闭连接。正常停止只释放接口，不碰设备本身。
-     *
-     * resetDevice 是破坏性的：盒子会重新枚举，正在跑的数据通路也会断。百度 SDK 只在
-     * 异常终止（terminate(true)）时才复位，正常停止走 terminate(false)。这里照做，
-     * 否则每次退出都白白折腾一遍盒子。
-     */
-    private fun release(resetDevice: Boolean = false) {
-        try { usbInterface?.let { connection?.releaseInterface(it) } } catch (_: Exception) {}
-        if (resetDevice) {
-            try {
-                connection?.let { conn -> conn.javaClass.getMethod("resetDevice").invoke(conn) }
-            } catch (_: Exception) {}
-        }
-        try { connection?.close() } catch (_: Exception) {}
-        connection = null; usbInterface = null; endpointIn = null; endpointOut = null
-    }
-
-    private fun fail(msg: String): Boolean { onLog(msg); return false }
 
     companion object {
         const val ACTION_USB_PERMISSION = "net.easyconn.gwmec.carlife.USB_PERMISSION"
@@ -469,9 +440,16 @@ class CarLifeUsbTransport(
         private const val AOA_READY_DELAY_MS = 1000L
         /** AOA 切换后等盒子重新枚举成配件模式的时限。 */
         private const val AOA_REENUM_TIMEOUT_MS = 8000L
-        private const val MAX_MESSAGE = 64 * 1024 * 1024
-        private const val TOTAL_TIMEOUT_NS = 30_000_000_000L
+        /** 读线程轮询周期：会话停驻后每 500ms 醒一次检查状态。 */
+        private const val USB_READ_POLL_MS = 500
         private const val MAX_RECONNECT = 12
+
+        /** 进程级单例：连接与授权生命周期跨会话保留的前提。 */
+        @Volatile private var singleton: CarLifeUsbTransport? = null
+        fun obtain(context: Context, onLog: (String) -> Unit): CarLifeUsbTransport =
+            synchronized(this) {
+                singleton ?: CarLifeUsbTransport(context.applicationContext, onLog).also { singleton = it }
+            }
 
         fun beBytes(v: Int) = byteArrayOf(
             (v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())

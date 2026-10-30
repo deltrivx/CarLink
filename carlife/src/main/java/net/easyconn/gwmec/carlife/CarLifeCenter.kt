@@ -71,7 +71,7 @@ object CarLifeCenter {
         attach(context)
         mode = if (usb) "usb" else "wifi"
         val transport: CarLifeTransport = if (usb) {
-            CarLifeUsbTransport(context.applicationContext) { line -> log(line) }
+            CarLifeUsbTransport.obtain(context.applicationContext) { line -> log(line) }
         } else {
             CarLifeWifiTransport { line -> log(line) }
         }
