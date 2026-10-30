@@ -116,8 +116,10 @@ object BydOutputSettings {
     fun setClusterSongOnChange(context: Context, enabled: Boolean) =
         prefs(context).edit().putBoolean(KEY_CLUSTER_SONG_ON_CHANGE, enabled).apply()
 
-    fun videoWhileParkedActive(context: Context): Boolean =
-        videoWhileParked(context) && supportedInSelectedMode(context) { it.gearSupported }
+    fun videoWhileParkedActive(context: Context): Boolean {
+        // 通用设备或车载平板没有特定 BYD 模式限制，只要设置启用即生效
+        return videoWhileParked(context)
+    }
 
     /**
      * Use addresses saved by the legacy head-unit probe. Existing installations with a saved probe

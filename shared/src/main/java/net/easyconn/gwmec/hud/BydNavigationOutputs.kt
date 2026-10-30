@@ -80,7 +80,12 @@ object BydNavigationOutputs {
         ?.let(ClusterTurnGuidance::from)
 
     /** No parked state is read; video gating sees unknown. */
-    @JvmStatic fun parked(context: Context): Boolean? = null
+    @JvmStatic fun parked(context: Context): Boolean? {
+        val bydBinder = runCatching { BydParkedState.parked(context) }.getOrNull()
+        if (bydBinder != null) return bydBinder
+        // 在车载平板、通用 Android 设备或无 BYD 底盘通信时，默认允许播放（对齐盒子体验）
+        return true
+    }
     @JvmStatic fun setDiagnosticHold(hold: Boolean) {}
     @JvmStatic fun clusterNaviMode(): BydClusterNaviMode? = null
 
