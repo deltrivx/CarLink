@@ -142,59 +142,102 @@ class CarLifeVideoActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * 喂帧：只负责把码流塞进解码器，不在调用线程里做渲染。
-     *
-     * 原来每来一帧只 dequeueInputBuffer 一次、超时 10ms 就丢，且渲染用 timeout=0
-     * 空转——这就是卡顿和丢帧的来源。原版 DecodeUtil 把渲染交给独立的
-     * DisplayThread 持续 dequeue，这里照做。
-     */
+    @Volatile private var waitingFirstKeyFrame = true
+
+    /** 对照原版 h8/a.java f() 检查是否为关键帧 (SPS:7, PPS:8, IDR:5) */
+    private fun isKeyFrame(buf: ByteArray, offset: Int = 0): Boolean {
+        if (buf.size < offset + 5) return false
+        val b0 = buf[offset]
+        val headerLen = if (b0.toInt() == 0 && buf[offset + 1].toInt() == 0 && buf[offset + 2].toInt() == 0 && buf[offset + 3].toInt() == 1) 4
+        else if (b0.toInt() == 0 && buf[offset + 1].toInt() == 0 && buf[offset + 2].toInt() == 1) 3 else 0
+        if (headerLen != 0) {
+            val nalType = buf[offset + headerLen].toInt() and 0x1F
+            if (nalType == 5 || nalType == 7 || nalType == 8) return true
+        }
+        return false
+    }
+
     private fun feed(data: ByteArray) {
         val surface = videoSurface ?: return
-        if (!surface.isValid) return
+        if (!surface.isValid || data.isEmpty()) return
         try {
-            val c = codec ?: MediaCodec.createDecoderByType("video/avc").also {
-                it.configure(MediaFormat.createVideoFormat("video/avc", videoWidth, videoHeight),
-                    surface, null, 0)
-                it.start()
-                codec = it
-                startRenderThread(it)
+            // 对齐原版 h8/a.java a()：硬解失败自动回退软解
+            val c = codec ?: run {
+                val format = MediaFormat.createVideoFormat("video/avc", videoWidth, videoHeight)
+                val newCodec = try {
+                    MediaCodec.createDecoderByType("video/avc").apply {
+                        configure(format, surface, null, 0)
+                        start()
+                    }
+                } catch (e: Exception) {
+                    Log.w("CarLifeVideo", "硬解创建失败，尝试软解 OMX.google.h264.decoder", e)
+                    try {
+                        MediaCodec.createByCodecName("OMX.google.h264.decoder").apply {
+                            configure(format, surface, null, 0)
+                            start()
+                        }
+                    } catch (e2: Exception) {
+                        Log.e("CarLifeVideo", "软解创建失败", e2)
+                        return
+                    }
+                }
+                waitingFirstKeyFrame = true
+                codec = newCodec
+                startRenderThread(newCodec)
+                newCodec
             }
-            // 阻塞等一个可用的输入槽：丢帧会让画面停顿
-            var idx = -1
-            while (idx < 0 && running) {
-                idx = c.dequeueInputBuffer(20_000)
+
+            // 对齐原版：等待首个关键帧，避免残帧花屏或黑屏
+            if (waitingFirstKeyFrame) {
+                if (isKeyFrame(data)) {
+                    Log.i("CarLifeVideo", "收到首个关键帧，开启解码")
+                    waitingFirstKeyFrame = false
+                } else {
+                    return
+                }
             }
-            if (idx < 0) return
-            val ib = c.getInputBuffer(idx) ?: return
-            ib.clear()
-            ib.put(data)
-            // 原版 DecodeUtil 喂帧用的是固定值 1，不是墙上时间：
-            //   mDecoder.queueInputBuffer(inputBufferIndex, 0, length, 1, 0);
-            // 用 nanoTime 时，手机端推流时间戳与本地时钟不连续，MIUI 的
-            // MiMediaCodec 会判定 "TimeStamp has skip" 反复重算帧率 —— 也就是卡顿。
-            c.queueInputBuffer(idx, 0, data.size, 1, 0)
+
+            var offset = 0
+            var payloadRemaining = data.size
+            while (running && payloadRemaining > 0) {
+                var idx = -1
+                while (idx < 0 && running) {
+                    idx = c.dequeueInputBuffer(10_000)
+                }
+                if (idx < 0) break
+                val ib = c.getInputBuffer(idx) ?: break
+                ib.clear()
+                val chunk = Math.min(payloadRemaining, ib.remaining())
+                ib.put(data, offset, chunk)
+                val ptsUs = System.nanoTime() / 1000L
+                c.queueInputBuffer(idx, 0, chunk, ptsUs, 0)
+                offset += chunk
+                payloadRemaining -= chunk
+            }
+
             if (!videoStarted) {
                 videoStarted = true
                 runOnUiThread { statusView?.visibility = View.GONE }
             }
         } catch (e: Exception) {
-            Log.e("CarLifeVideo", "decoder: ${e.message}")
+            Log.e("CarLifeVideo", "decoder error: ${e.message}")
         }
     }
 
-    /** 对应原版 DisplayThread：持续把解码结果送去渲染，不依赖新帧到达。 */
-    private fun startRenderThread(codec: MediaCodec) {
+    /** 对齐原版 h8/a.java b()：持续批量清空渲染输出 buffer */
+    private fun startRenderThread(c: MediaCodec) {
         Thread({
             val info = MediaCodec.BufferInfo()
             while (running) {
                 try {
-                    when (val out = codec.dequeueOutputBuffer(info, 10_000)) {
-                        MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
-                        MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> Unit
-                        else -> if (out >= 0) codec.releaseOutputBuffer(out, true)
+                    var out = c.dequeueOutputBuffer(info, 10_000)
+                    while (out >= 0 && running) {
+                        val sf = videoSurface
+                        val render = sf != null && sf.isValid
+                        c.releaseOutputBuffer(out, render)
+                        out = c.dequeueOutputBuffer(info, 0L)
                     }
-                } catch (e: IllegalStateException) {
+                } catch (_: Exception) {
                     break
                 }
             }
