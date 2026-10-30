@@ -1,5 +1,6 @@
-import android.hardware.usb.UsbDevice
 package net.easyconn.gwmec.carlife
+
+import android.hardware.usb.UsbDevice
 
 import android.content.BroadcastReceiver
 import android.content.Context
