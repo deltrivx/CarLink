@@ -220,15 +220,22 @@ class CarLifeUsbTransport private constructor(
         onLog("USB 断开，重连第 $attempt/$MAX_RECONNECT 次…")
         thread(name = "CarLife-UsbReconnect") {
             try {
-                // 对齐原版：resetDevice 后 ~3s 重扫成功（端点复位+重枚举需要时间），1.2s 会撞上设备未就绪。
-                Thread.sleep(RECONNECT_DELAY_MS)
                 if (!running) return@thread
-                // 对齐原版：僵死端点必须复位（原版实测 resetDevice:true 后 3s 重扫成功）；
+                // 对齐原版：僵死端点必须复位（原版实测 resetDevice:true 后 ~3s 重扫成功）；
                 // 版本协商超时重连走的也是这条路径，不复位则重开仍是僵死会话。
                 discardConnection(resetDevice = true)
-                val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
-                    ?: manager.deviceList.values.firstOrNull { it == reconnectDevice }
-                    ?: manager.deviceList.values.firstOrNull()
+                // 复位后设备离开总线 1~3s 再重新枚举（原版观察），对齐原版持续重扫直到设备回来。
+                Thread.sleep(500)
+                var fresh: UsbDevice? = null
+                val deadline = System.currentTimeMillis() + AOA_REENUM_TIMEOUT_MS
+                while (running && System.currentTimeMillis() < deadline) {
+                    fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
+                        ?: manager.deviceList.values.firstOrNull { it == reconnectDevice }
+                        ?: manager.deviceList.values.firstOrNull()
+                    if (fresh != null) break
+                    Thread.sleep(300)
+                }
+                if (!running) return@thread
                 if (fresh == null) { onLog("USB 设备已拔出"); stop(); return@thread }
                 reconnectDevice = fresh
                 if (open(manager, fresh, onMessageSink ?: return@thread)) {
@@ -302,14 +309,19 @@ class CarLifeUsbTransport private constructor(
      * resetDevice 是破坏性的：设备会重新枚举，正在跑的数据通路也会断，只用于异常终止。
      */
     private fun release(resetDevice: Boolean = false) {
-        // 对齐原版 terminate(resetUsbDevice=true)：连接还开着时先 resetDevice（实测 result:true），
-        // 再释放接口与关闭。复位会让设备重新枚举，僵死端点随之恢复。
-        if (resetDevice) {
-            try {
-                connection?.let { conn -> conn.javaClass.getMethod("resetDevice").invoke(conn) }
-            } catch (_: Exception) {}
-        }
+        // 对齐原版 terminate(resetUsbDevice=true)：releaseInterface → resetDevice → close
+        // （原版 UsbAccessoryCommunicator.terminate 顺序，124-140 行）。复位会让设备
+        // 重新枚举，僵死端点随之恢复；同时中止未决 bulkTransfer，解除读线程阻塞。
         try { usbInterface?.let { connection?.releaseInterface(it) } } catch (_: Exception) {}
+        if (resetDevice) {
+            // 对齐原版 resetUsbDevice()：反射调用并打印结果（原版日志 "USB Device resetDevice result: "）。
+            try {
+                val result = connection?.javaClass.getMethod("resetDevice").invoke(connection)
+                onLog("USB Device resetDevice result: $result")
+            } catch (e: Exception) {
+                onLog("USB Device resetDevice error: $e")
+            }
+        }
         try { connection?.close() } catch (_: Exception) {}
         connection = null; usbInterface = null; endpointIn = null; endpointOut = null
     }
@@ -484,8 +496,6 @@ class CarLifeUsbTransport private constructor(
         /** 读线程轮询周期：会话停驻后每 500ms 醒一次检查状态。 */
         private const val USB_READ_POLL_MS = 500
         private const val MAX_RECONNECT = 12
-        /** 原版实测节奏：resetDevice 后 ~3s 重扫成功，太早会撞上设备未就绪。 */
-        private const val RECONNECT_DELAY_MS = 3000L
 
         /** 进程级单例：连接与授权生命周期跨会话保留的前提。 */
         @Volatile private var singleton: CarLifeUsbTransport? = null
