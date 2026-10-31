@@ -160,7 +160,16 @@ class CarLifeSession(
             CarLifeProtocol.MSG_MD_INFO -> {
                 listener.onPhoneInfo(CarLifeMessages.describePhone(payload))
                 sendCmd(CarLifeProtocol.MSG_HU_INFO, CarLifeMessages.huDeviceInfo(videoWidth, videoHeight))
+                // 对齐原版 ConnectionEstablishHandler.handleMDInfo()：
+                // sendHuInfo(context) 之后紧接 sendAuthRequest(context)，发 0x18048 鉴权请求。
+                // 不补这条，手机永远走不到 0x1004B 鉴权结果，握手就卡在这里。
+                sendCmd(CarLifeProtocol.MSG_HU_AUTHEN_REQUEST,
+                    CarLifeMessages.authenRequest(CarLifeMessages.authenRandomValue()))
                 listener.onState("鉴权中")
+            }
+            CarLifeProtocol.MSG_MD_AUTHEN_RESPONSE -> {
+                // 原版 handleAuthResponse：只落日志，不打断流程；真正的结果在 0x1004B。
+                listener.onLog("手机鉴权应答已收到")
             }
             CarLifeProtocol.MSG_MD_AUTHEN_RESULT -> {
                 sendCmd(CarLifeProtocol.MSG_HU_AUTHEN_RESULT)

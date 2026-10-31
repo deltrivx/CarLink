@@ -59,6 +59,23 @@ object CarLifeMessages {
     fun connectTypeToMd(connectType: Int): ByteArray =
         Pb.int32(1, MODULE_ID_CARLIFE_CONNECT) + Pb.int32(2, connectType)
 
+    /**
+     * 原版 ConnectionEstablishHandler.sendAuthRequest():
+     * CarlifeAuthenRequest { randomValue = "2.0;" + HH:mm:ss }，serviceType = MSG_CMD_HU_AUTH_REQUEST(0x18048)。
+     * 收到手机 MD_INFO 后必须发这条，否则手机不会进入鉴权流程：
+     * 不发 → 收不到 MSG_CMD_MD_AUTH_RESULT(0x1004B) → 握手卡在版本协商之后。
+     */
+    fun authenRequest(randomValue: String): ByteArray = Pb.str(1, randomValue)
+
+    /** 原版 handleAuthResult：回 MSG_CMD_MD_AUTH_RESULT_RESPONSE(0x1804C)，空负载。 */
+    fun authenResultResponse(): ByteArray = ByteArray(0)
+
+    /** 原版 randomValue 格式："2.0;HH:mm:ss"（TIME_FORMAT_FOR_HMS）。 */
+    fun authenRandomValue(now: java.util.Date = java.util.Date()): String {
+        val f = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+        return "2.0;" + f.format(now)
+    }
+
     /** 原版 ModuleStatusModel.CARLIFE_CONNECT_MODULE_ID。 */
     private const val MODULE_ID_CARLIFE_CONNECT = 5
 
