@@ -1,13 +1,13 @@
 # CarLink · Car-Phone Link
 
 [![Latest](https://img.shields.io/github/v/release/deltrivx/CarLink?display_name=tag&sort=semver&label=Latest)](https://github.com/deltrivx/CarLink/releases/latest)
-[![Android](https://img.shields.io/badge/Android-9.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
+[![Android](https://img.shields.io/badge/Android-7.1%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
 [![Build](https://img.shields.io/badge/Build-GitHub%20Actions-2088FF)](https://github.com/deltrivx/CarLink)
 [![Signing](https://img.shields.io/badge/Signing-Freescale%20platform-8a2be2)](https://github.com/deltrivx/CarLink/releases/latest)
 
 A car-phone link application that merges phone projection, media control and vehicle data reading in one app. Supports both Android Auto and CarPlay, offers three connection modes (built-in hotspot, same LAN, WiFi Direct), and exposes vehicle-only features such as battery, wheel speed and dashboard song.
 
-> Version numbering is date-based (`YYYY.MM.DD`, same-day builds suffixed `-N`) · Application ID: `net.easyconn.gwmec` · Minimum Android: **9.0 (API 28)**
+> Version numbering is date-based (`YYYY.MM.DD`, same-day builds suffixed `-N`) · Application ID: `net.easyconn.gwmec` · Minimum Android: **7.1 (API 25)**
 
 ![Car-phone link](asset/xcertplay_small.png)
 
@@ -36,13 +36,13 @@ A car-phone link application that merges phone projection, media control and veh
 Download from [Releases](https://github.com/deltrivx/CarLink/releases/latest):
 
 ```text
-CarLink-2026.10.19.apk
+CarLink.apk
 ```
 
 Verify integrity:
 
 ```bash
-sha256sum -c SHA256SUMS-CarLink.txt
+sha256sum -c SHA256SUMS.txt
 ```
 
 **Signing changed**: this release uses Freescale platform signing. If an older build (`v1.3.x`) is installed, uninstall it first, otherwise installation fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
@@ -53,17 +53,19 @@ Versions are date-based, with `-N` appended for multiple releases on the same da
 
 | Scenario | Format |
 |---|---|
-| First release of the day | `2026.10.19` |
-| Second release of the day | `2026.10.19-2` |
-| First release of the next day | `2026.10.20` |
+| First release of the day | `2026.10.21.01` |
+| Second release of the day | `2026.10.21.02` |
+| First release of the next day | `2026.10.22.01` |
+
+> The last segment is always two digits (CI zero-pads: tag `2026.10.21.1` builds as `2026.10.21.01`); `versionCode` is date + suffix, e.g. `2026102101`.
 
 ## Difference from the Custom Edition
 
 | Item | CarLink (this repo) | EasyConnect |
 |---|---|---|
 | Repository | Public | Private |
-| Positioning | Generic edition | Custom edition |
-| APK naming | `CarLink-<version>.apk` | `EasyConnect-<version>.apk` |
+| Positioning | Generic edition (no system uid) | Custom edition (`android.uid.system`) |
+| APK naming | `CarLink.apk` (fixed name) | `EasyConnect.apk` (fixed name) |
 
 Both use the same Freescale platform signature, but **they cannot overwrite each other**; uninstall one before installing the other.
 
@@ -73,10 +75,10 @@ Both use the same Freescale platform signature, but **they cannot overwrite each
 |---|---|
 | applicationId | `net.easyconn.gwmec` |
 | compileSdk / targetSdk | 37 |
-| minSdk | 28 (Android 9.0) |
+| minSdk | 25 (Android 7.1, `mobile`/`common`); `auto`/`contract` modules 28, `carlife` module 24 |
 | AGP / Kotlin | 9.3.0 / 2.2.10 |
 | Gradle | 9.5.0 |
-| Modules | `common` `mobile` `automotive` `shared` `maphost` `home` |
+| Modules | `common` `mobile` `automotive` `shared` `auto` `auto-contract` `carlife` `maphost` `home` |
 
 ## Changelog
 

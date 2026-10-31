@@ -1,13 +1,13 @@
 # CarLink · 车机互联
 
 [![最新版本](https://img.shields.io/github/v/release/deltrivx/CarLink?display_name=tag&sort=semver&label=最新版本)](https://github.com/deltrivx/CarLink/releases/latest)
-[![Android](https://img.shields.io/badge/Android-9.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
+[![Android](https://img.shields.io/badge/Android-7.1%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/)
 [![构建](https://img.shields.io/badge/构建-GitHub%20Actions-2088FF)](https://github.com/deltrivx/CarLink)
 [![签名](https://img.shields.io/badge/签名-飞思平台-8a2be2)](https://github.com/deltrivx/CarLink/releases/latest)
 
 面向车机与手机的互联应用，把手机投屏、媒体控制与车机数据读取融为一体。支持 Android Auto 与 CarPlay 双协议，内置热点、同局域网、WiFi Direct 三种连接方式，并提供电量、车速、仪表盘歌曲等车机专有功能。
 
-> 版本号按发布日期自动生成（`YYYY.MM.DD`，同日多版 `-N`）· 应用 ID：`net.easyconn.gwmec` · 最低 Android：**9.0（API 28）** · 许可：**AGPL-3.0**（合入 DiAuto 引擎后由 GPL-3.0 升级，详见 LICENSE）
+> 版本号按发布日期自动生成（`YYYY.MM.DD`，同日多版 `-N`）· 应用 ID：`net.easyconn.gwmec` · 最低 Android：**7.1（API 25）** · 许可：**AGPL-3.0**（合入 DiAuto 引擎后由 GPL-3.0 升级，详见 LICENSE）
 
 ![车机互联](asset/xcertplay_small.png)
 
@@ -54,17 +54,19 @@ sha256sum -c SHA256SUMS.txt
 
 | 场景 | 写法 |
 |---|---|
-| 当日首版 | `2026.10.21.1` |
-| 当日第二版 | `2026.10.21.2` |
-| 次日首版 | `2026.10.22.1` |
+| 当日首版 | `2026.10.21.01` |
+| 当日第二版 | `2026.10.21.02` |
+| 次日首版 | `2026.10.22.01` |
+
+> 末段固定两位（CI 自动补零：tag `2026.10.21.1` 构建为 `2026.10.21.01`）；`versionCode` 为日期 + 末段，如 `2026102101`。
 
 ## 与定制版的区别
 
 | 项 | CarLink（本仓） | EasyConnect |
 |---|---|---|
 | 仓库 | 公开 | 私有 |
-| 定位 | 通用版 | 定制版 |
-| APK 命名 | `CarLink-<版本>.apk` | `EasyConnect-<版本>.apk` |
+| 定位 | 通用版（无系统 uid） | 定制版（`android.uid.system`） |
+| APK 命名 | `CarLink.apk`（固定名） | `EasyConnect.apk`（固定名） |
 
 两者签名相同（同为飞思平台签名），但**不可互相覆盖安装**，须分别卸载后安装。
 
@@ -74,10 +76,10 @@ sha256sum -c SHA256SUMS.txt
 |---|---|
 | applicationId | `net.easyconn.gwmec` |
 | compileSdk / targetSdk | 37 |
-| minSdk | 28（Android 9.0） |
+| minSdk | 25（Android 7.1，`mobile`/`common`）；`auto`/`contract` 模块 28，`carlife` 模块 24 |
 | AGP / Kotlin | 9.3.0 / 2.2.10 |
 | Gradle | 9.5.0 |
-| 模块 | `common` `mobile` `automotive` `shared` `maphost` `home` |
+| 模块 | `common` `mobile` `automotive` `shared` `auto` `auto-contract` `carlife` `maphost` `home` |
 
 ## 更新日志
 
