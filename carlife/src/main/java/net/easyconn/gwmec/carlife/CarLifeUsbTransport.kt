@@ -316,7 +316,7 @@ class CarLifeUsbTransport private constructor(
         if (resetDevice) {
             // 对齐原版 resetUsbDevice()：反射调用并打印结果（原版日志 "USB Device resetDevice result: "）。
             try {
-                val result = connection?.javaClass.getMethod("resetDevice").invoke(connection)
+                val result = connection?.let { conn -> conn.javaClass.getMethod("resetDevice").invoke(conn) }
                 onLog("USB Device resetDevice result: $result")
             } catch (e: Exception) {
                 onLog("USB Device resetDevice error: $e")
