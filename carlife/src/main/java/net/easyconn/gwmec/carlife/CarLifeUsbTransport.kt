@@ -318,7 +318,7 @@ class CarLifeUsbTransport private constructor(
             val ep = endpointIn ?: return
             try {
                 while (running) {
-                    val nHead = bulkTransferIn(conn, ep, msgHead, LEN_OF_MSG_HEAD)
+                    val nHead = bulkTransferIn(conn, ep, msgHead, LEN_OF_MSG_HEAD, /* timeoutMs= */ 0)
                     if (nHead == 0) continue
                     if (nHead < 0) { onLog("bulkTransferIn fail 1 (ret=$nHead)"); break }
 
@@ -330,7 +330,8 @@ class CarLifeUsbTransport private constructor(
                     }
 
                     if (payload.size < lenMsg) payload = ByteArray(lenMsg)
-                    val nBody = bulkTransferIn(conn, ep, payload, lenMsg)
+                    // 原版 body 读 timeout=1000（UsbAccessoryCommunicator.read）。
+                    val nBody = bulkTransferIn(conn, ep, payload, lenMsg, /* timeoutMs= */ 1000)
                     if (nBody < 0) { onLog("bulkTransferIn fail 2 (ret=$nBody)"); break }
 
                     val msg = payload.copyOfRange(0, lenMsg)
@@ -432,11 +433,11 @@ class CarLifeUsbTransport private constructor(
      * 数据通路行为不变。不要用带 offset 的 bulkTransfer 重载——部分内核/设备组合
      * 会直接返回 -1，原版永远从缓冲区起点收发。
      */
-    private fun bulkTransferIn(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, len: Int): Int {
+    private fun bulkTransferIn(conn: UsbDeviceConnection, ep: UsbEndpoint, buf: ByteArray, len: Int, timeoutMs: Int = USB_READ_POLL_MS): Int {
         var total = 0
         while (total < len) {
             if (!running) return 0
-            val n = conn.bulkTransfer(ep, buf, total, len - total, USB_READ_POLL_MS)
+            val n = conn.bulkTransfer(ep, buf, total, len - total, timeoutMs)
             if (n < 0) return if (total > 0) total else -1
             if (n == 0) continue
             total += n
