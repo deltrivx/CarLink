@@ -181,4 +181,4 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
             --title "Release $TAG" \
             --notes "CarLink & EasyConnect $TAG release. Both signed with Freescale platform key. CarLink is generic; EasyConnect includes sharedUserId=android.uid.system."
-          gh release upload "$TAG" dist/CarLink.apk dist/EasyConnect.apk dist/CarLink-generic.apk dist/SHA256SUMS.txt dist/SHA256SUMS-generic.txt --clobber
+          gh release upload "$TAG" dist/CarLink-generic.apk dist/EasyConnect.apk dist/SHA256SUMS.txt dist/SHA256SUMS-generic.txt --clobber
