@@ -971,8 +971,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 page = "home"
                 connectionSettingsReturnCategory = null
             }
+            page == "home" && homeFrame == 2 -> homeFrame = 1
             else -> {
                 page = "home"
+                homeFrame = 1
                 connectionSettingsReturnCategory = null
             }
         }
@@ -1020,6 +1022,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
      */
     private var homeStatusBox: LinearLayout? = null
     private var homeStatusBoxState: HomeState? = null
+    /** 主页两帧：1 = 平台选择（CarPlay/CarLife），2 = CarPlay 子功能帧。 */
+    private var homeFrame = 1
+    private var homeStatusFrame = 1
     /** The action row's own box, filled by [buildHomeActions]; it does not move with the status. */
     private var homeActionBox: LinearLayout? = null
     private var homeProgressBar: android.widget.ProgressBar? = null
@@ -1208,8 +1213,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private fun refreshHomeStatus(): Boolean {
         val box = homeStatusBox ?: return false
         val state = homeState()
-        if (homeStatusBoxState == state && box.childCount > 0) return true
+        if (homeStatusBoxState == state && homeStatusFrame == homeFrame && box.childCount > 0) return true
         homeStatusBoxState = state
+        homeStatusFrame = homeFrame
         status = null
         connectButton = null
         disconnectButton = null
@@ -1315,23 +1321,31 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                         setPadding(0, dp(4), 0, 0)
                     })
                 }
-                connectButton = homeButton(getString(R.string.connect_phone), true) {
-                    if (CarPlayBackgroundSession.active) openProjection()
-                    else connect(true)
+                if (homeFrame == 1) {
+                    // 第一帧：只放两个平台入口，各自子功能在二级帧里，避免混淆。
+                    connectButton = homeButton("CarPlay", true) { homeFrame = 2; render() }
+                    addAction(connectButton!!, first = true)
+                    addAction(homeButton("CarLife", true) { startCarLife() })
+                    addAction(homeGhost(getString(R.string.settings)) { page = "settings"; render() })
+                } else {
+                    // CarPlay 二级帧：本平台全部子功能。
+                    connectButton = homeButton(getString(R.string.connect_phone), true) {
+                        if (CarPlayBackgroundSession.active) openProjection()
+                        else connect(true)
+                    }
+                    addAction(connectButton!!, first = true)
+                    // USB 有线入口常驻：插着数据线是快捷入口，没插时点击进入引导流程。
+                    addAction(homeGhost(getString(R.string.connect_with_usb)) { connect(false) })
+                    // 主页直接选择/更换要连接的 iPhone，不必等连接成功后再改。
+                    addAction(homeGhost(getString(R.string.choose_iphone)) { choosePhone() })
+                    // 环境检测（对齐 CarUp 车机体检）：投屏前确认系统环境是否就绪。
+                    addAction(homeGhost("环境检测") { startActivity(android.content.Intent(this@CarlinkActivity, EnvironmentCheckActivity::class.java)) })
+                    if (homeHotspotProblem()) {
+                        addAction(homeGhost(getString(R.string.open_car_hotspot_settings), warn = true) { openCarWifiSettings() })
+                    }
+                    addAction(homeGhost("返回") { homeFrame = 1; render() })
+                    addAction(homeGhost(getString(R.string.settings)) { page = "settings"; render() })
                 }
-                addAction(connectButton!!, first = true)
-                // USB 有线入口常驻：插着数据线是快捷入口，没插时点击进入引导流程，
-                // 不再像旧版那样整颗按钮按连接状态消失。
-                addAction(homeGhost(getString(R.string.connect_with_usb)) { connect(false) })
-                addAction(homeGhost(getString(R.string.carlife_connect)) { startCarLife() })
-                // 主页直接选择/更换要连接的 iPhone，不必等连接成功后再改。
-                addAction(homeGhost(getString(R.string.choose_iphone)) { choosePhone() })
-                // 环境检测（对齐 CarUp 车机体检）：投屏前确认系统环境是否就绪。
-                addAction(homeGhost("环境检测") { startActivity(android.content.Intent(this@CarlinkActivity, EnvironmentCheckActivity::class.java)) })
-                if (homeHotspotProblem()) {
-                    addAction(homeGhost(getString(R.string.open_car_hotspot_settings), warn = true) { openCarWifiSettings() })
-                }
-                addAction(homeGhost(getString(R.string.settings)) { page = "settings"; render() })
             }
         }
         // The row the state just built goes into the page's own box for it, whose place
