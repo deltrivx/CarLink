@@ -93,6 +93,14 @@ class CarLifeUsbTransport private constructor(
         reconnectDevice = device
         dispatch = onMessage
         onMessageSink = onMessage
+        // AOA 切换会生成新的配件实例（18d1:2d00），它的授权与手机普通模式实例相互独立。
+        // 原版 UsbAccessoryScanner 对每个新枚举设备都会补授权；这里漏了配件这一环，
+        // 导致「允许了手机弹窗 → 切配件 → 新实例无授权 → openDevice=null → 永远连不上」，
+        // 且每次重枚举又对手机实例重新弹窗——表现为每次连接都弹、一次都连不上。
+        if (!manager.hasPermission(device)) {
+            manager.requestPermission(device, permissionPendingIntent())
+            return fail(if (isAccessory(device)) "USB配件需要授权，请在弹窗中允许" else "USB设备需要授权，请在弹窗中允许")
+        }
         val conn = manager.openDevice(device) ?: return fail("USB设备打开失败，请重新插拔USB线")
         val iface = device.getInterface(0)
         if (!conn.claimInterface(iface, true)) {

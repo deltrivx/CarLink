@@ -439,8 +439,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
         setupStep = savedInstanceState?.getInt("setup_step") ?: SetupGuide.STEP_CAR
         setupFromSettings = savedInstanceState?.getBoolean("setup_from_settings") ?: false
         page = savedInstanceState?.getString("page") ?: intent.getStringExtra("page")
-            ?: if (setupError == null && SetupGuide.shouldOpenOnLaunch(SetupGuide.seen(this),
-                    CarlinkPreferences.phoneAddress(this) != null)) "setup" else "home"
+            // 2026.10.31.07：取消 DiPlay 首次初始化引导（CarUp 方案无引导，
+            // 直接进主页连接流；引导保留在 设置→连接引导 手动入口）。
+            ?: "home"
         render()
         scheduleAutomaticVehicleValidation()
         handleWirelessRecovery()
@@ -1338,8 +1339,6 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                     addAction(homeGhost(getString(R.string.connect_with_usb)) { connect(false) })
                     // 主页直接选择/更换要连接的 iPhone，不必等连接成功后再改。
                     addAction(homeGhost(getString(R.string.choose_iphone)) { choosePhone() })
-                    // 环境检测（对齐 CarUp 车机体检）：投屏前确认系统环境是否就绪。
-                    addAction(homeGhost("环境检测") { startActivity(android.content.Intent(this@CarlinkActivity, EnvironmentCheckActivity::class.java)) })
                     if (homeHotspotProblem()) {
                         addAction(homeGhost(getString(R.string.open_car_hotspot_settings), warn = true) { openCarWifiSettings() })
                     }
@@ -2776,6 +2775,10 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private fun about(content: LinearLayout) {
         content.addView(label(getString(R.string.diplay), 40, TEXT, true))
         content.addView(label(getString(R.string.carplay_at_home_in_your_car), 20, MUTED).apply { setPadding(0, dp(8), 0, dp(24)) })
+        // 环境检测入口（对齐 CarUp：体检在设置内，不占主页）。
+        content.addView(ghostAction("环境检测", primary = false) {
+            startActivity(android.content.Intent(this, EnvironmentCheckActivity::class.java))
+        }.apply { setPadding(0, dp(12), 0, dp(12)) })
         section(content, "${buildLineLabel()} · ${version()}") { card ->
             // What the receiver is, in one line - and then what this build changed, which
             // is what a driver opening the page actually came to see.
