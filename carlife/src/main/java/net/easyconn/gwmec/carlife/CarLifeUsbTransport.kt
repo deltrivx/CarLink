@@ -135,8 +135,9 @@ class CarLifeUsbTransport private constructor(
         reconnectAttempts = 0  // 成功建立即重置预算，避免跨会话累计（审计 P2-2）
         // 原版 initUsbDevice 在 isAccessoryMode() 分支里先起 socket 线程，
         // Thread.sleep(SLEEP_TIME_MS) 睡 1000ms 再起读线程：给配件固件拉起协议栈的时间。
-        onLog("USB设备连接成功，等待设备就绪")
-        Thread.sleep(AOA_READY_DELAY_MS)
+        onLog("USB设备连接成功，建立连接通道")
+        // 不加人为延迟：原版 openAccessory 成功后立即 onConnectionAttached 发首帧，
+        // 之前注释声称对齐 initUsbDevice 的 sleep 属失实（原版 AOA 路径无 sleep）。
         if (!running) { release(); return fail("连接被取消") }
         ensureIoThreads()
         return true
@@ -217,7 +218,9 @@ class CarLifeUsbTransport private constructor(
                 // 对齐原版：resetDevice 后 ~3s 重扫成功（端点复位+重枚举需要时间），1.2s 会撞上设备未就绪。
                 Thread.sleep(RECONNECT_DELAY_MS)
                 if (!running) return@thread
-                discardConnection()
+                // 对齐原版：僵死端点必须复位（原版实测 resetDevice:true 后 3s 重扫成功）；
+                // 版本协商超时重连走的也是这条路径，不复位则重开仍是僵死会话。
+                discardConnection(resetDevice = true)
                 val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
                     ?: manager.deviceList.values.firstOrNull { it == reconnectDevice }
                     ?: manager.deviceList.values.firstOrNull()
@@ -226,7 +229,7 @@ class CarLifeUsbTransport private constructor(
                 if (open(manager, fresh, onMessageSink ?: return@thread)) {
                     onLog("USB 已重连，继续握手")
                     send(CarLifeProtocol.CHANNEL_CMD, CarLifeProtocol.MSG_HU_PROTOCOL_VERSION,
-                        CarLifeMessages.protocolVersion(4, 0), 0)
+                        CarLifeMessages.protocolVersion(4, 1), 0)
                 } else {
                     isReconnecting = false
                     scheduleReconnect()
@@ -275,15 +278,15 @@ class CarLifeUsbTransport private constructor(
     }
 
     /** 关闭连接并结束 IO 线程（设备已消失/授权失效/彻底清场时用）。 */
-    private fun discardConnection() {
-        // 先关连接解除 bulkTransfer 阻塞，线程自行退出。
-        try { connection?.close() } catch (_: Exception) {}
+    private fun discardConnection(resetDevice: Boolean = false) {
+        // resetDevice 必须趁连接还开着执行（对齐原版 terminate：先复位后关闭），
+        // release() 里的 close 会解除读线程的 bulkTransfer 阻塞。
+        release(resetDevice = resetDevice)
         try { readerThread?.interrupt() } catch (_: Exception) {}
         try { writerThread?.interrupt() } catch (_: Exception) {}
         readerThread = null
         writerThread = null
         txQueue.clear()
-        release(resetDevice = false)
     }
 
     private fun discardRetained() = discardConnection()
@@ -470,8 +473,6 @@ class CarLifeUsbTransport private constructor(
         private const val AOA_MAX_BYTES = 64 * 1024 * 1024
         /** 原版 AOA_MAX_BUFFER_BYTES：单次 bulkTransfer 上限 16KB。 */
         private const val AOA_WRITE_CHUNK = 16 * 1024
-        /** 原版 AOAHostSetup.SLEEP_TIME_MS：起读线程前的设备就绪等待。 */
-        private const val AOA_READY_DELAY_MS = 1000L
         /** AOA 切换后等盒子重新枚举成配件模式的时限。 */
         private const val AOA_REENUM_TIMEOUT_MS = 8000L
         /** 读线程轮询周期：会话停驻后每 500ms 醒一次检查状态。 */
