@@ -1,0 +1,38 @@
+name: Sign external APK (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_path:
+        description: 'Repo path of the unsigned aligned APK'
+        required: true
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore platform signing keys
+        run: |
+          echo "${{ secrets.PLATFORM_PK8_BASE64 }}" | base64 -d > platform.pk8
+          echo "${{ secrets.PLATFORM_PEM_BASE64 }}" | base64 -d > platform.x509.pem
+          ls -la platform.pk8 platform.x509.pem
+
+      - name: Sign with apksigner (v1+v2+v3)
+        run: |
+          APK="${{ inputs.apk_path }}"
+          BT=$(ls -d /usr/local/lib/android/sdk/build-tools/* | sort -V | tail -1)
+          echo "build-tools: $BT"
+          "$BT/apksigner" sign \
+            --key platform.pk8 --cert platform.x509.pem \
+            --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+            --out signed.apk "$APK"
+          "$BT/apksigner" verify --print-certs signed.apk
+          ls -la signed.apk
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CarMore-signed
+          path: signed.apk
