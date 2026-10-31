@@ -5653,7 +5653,11 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
             else -> getString(R.string.ready_when_you_are)
         }
         if (lastRunning != running) {
-            connectButton?.text = if (running) getString(R.string.open_carplay) else getString(R.string.connect_phone)
+            // 只在 CarPlay 二级帧里改写主按钮文字：第一帧的主按钮是平台切换器
+            // （"CarPlay"），旧逻辑会把它改回"连接手机"（两帧设计回归 bug）。
+            if (homeFrame == 2) {
+                connectButton?.text = if (running) getString(R.string.open_carplay) else getString(R.string.connect_phone)
+            }
             disconnectButton?.visibility = if (running) View.VISIBLE else View.GONE
             disconnectButton?.isEnabled = true
             lastRunning = running
