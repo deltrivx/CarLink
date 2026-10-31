@@ -91,12 +91,12 @@
             android:theme="@style/Theme.Xcertplay">
 
 
-        <activity android:name="net.easyconn.gwmec.EnvironmentCheckActivity" android:exported="false" android:label="环境检测"/>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name="net.easyconn.gwmec.EnvironmentCheckActivity" android:exported="false" android:label="环境检测"/>
         <activity android:name="net.easyconn.gwmec.carlife.CarLifeVideoActivity"
             android:exported="false" android:launchMode="singleTask"
             android:resizeableActivity="true"
