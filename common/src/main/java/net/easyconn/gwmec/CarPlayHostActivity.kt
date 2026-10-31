@@ -5026,7 +5026,12 @@ class CarPlayHostActivity : ComponentActivity() {
         if (!backgroundSessionMatchesView(snapshot.sink.videoPacingEnabled, smoothVideo)) {
             appendLog("Background session smooth video=${snapshot.sink.videoPacingEnabled} differs from this view; " +
                 "stopping it instead of adopting it")
-            CarPlayBackgroundSession.stop { mainHandler.post { if (!isDestroyed) maybeStartCarPlay() } }
+            // endLink 而不是 stop：mismatch 时旧 host 可能已经 shuttingDown=true（正常返回
+            // 主页后再进来），它的 stopAction CAS 会空转——stop 完成回调立即再入队
+            // maybeStartCarPlay，与 500ms 自旋叠加成主线程死循环（审计 P0-1）。
+            // endLink 直接关链路并清空注册，不依赖 owner 状态。
+            CarPlayBackgroundSession.endLink()
+            mainHandler.post { if (!isDestroyed) maybeStartCarPlay() }
             return false
         }
         displayDiagnosticAttempt = DisplayDiagnosticSnapshot.currentAttempt(this)
@@ -5493,10 +5498,26 @@ class CarPlayHostActivity : ComponentActivity() {
         AirPlayPersistence.saveMaximumDetectedDisplay(this, width, height)
     }
 
+    private var adoptRetries = 0
+
     private fun maybeStartCarPlay() {
         if (shuttingDown.get()) return
         if (CarPlayBackgroundSession.hasSession() && !CarPlayBackgroundSession.isOwner(this)) {
-            if (!adoptBackgroundSession()) mainHandler.postDelayed({ maybeStartCarPlay() }, 500)
+            if (!adoptBackgroundSession()) {
+                // 自旋上限：10 次（5 秒）还 adopt 不上就把后台会话整个关掉并报错，
+                // 不允许 postDelayed 无限自旋（审计 P0-1 防御）。
+                adoptRetries++
+                if (adoptRetries > 10) {
+                    adoptRetries = 0
+                    appendLog("background session adopt retries exhausted; ending link")
+                    CarPlayBackgroundSession.endLink()
+                    setConnectionStage(getString(R.string.carplay_start_aborted))
+                    return
+                }
+                mainHandler.postDelayed({ maybeStartCarPlay() }, 500)
+            } else {
+                adoptRetries = 0
+            }
             return
         }
         if (controller == null && adoptBackgroundSession()) return
@@ -6399,8 +6420,11 @@ internal object CarPlayBackgroundSession {
         // The link may not be stored yet: a connection still shaking hands has a
         // controller that no stop action knows about. Close that one too, or stopping
         // before CarPlay comes up leaves the handshake running and the home spinning.
-        val link = controller ?: pendingController ?: return false
-        runCatching { link.close() }
+        val link = controller ?: pendingController
+        link?.let { runCatching { it.close() } }
+        // 没有 link 也要清场：restartCarPlay 的 4 秒 teardown 窗口内按返回主页，
+        // active 已被 onSessionEnded 置 false 而 stopAction 还挂着——旧实现直接
+        // return false，僵尸注册让主页永远"连接中"、通知栏断开失效（审计 P0-2）。
         // Forget it here and now. Leaving the session marked stopping kept hasSession()
         // true after the link was gone, which read as a connection that never ended.
         controller = null
@@ -6411,7 +6435,7 @@ internal object CarPlayBackgroundSession {
         active = false
         callPopupReady = false
         stopWaiters.toList().also { stopWaiters.clear() }.forEach { runCatching { it() } }
-        return true
+        return link != null
     }
 
     /** The controller of a link still coming up, before it is stored. */

@@ -30,6 +30,7 @@ class CarLifeUsbTransport private constructor(
     private val context: Context,
     private val onLog: (String) -> Unit,
 ) : CarLifeTransport {
+    override var onLinkLost: (() -> Unit)? = null
 
     override fun start(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         dispatch = onMessage
@@ -123,6 +124,7 @@ class CarLifeUsbTransport private constructor(
             }
         }
         running = true
+        reconnectAttempts = 0  // 成功建立即重置预算，避免跨会话累计（审计 P2-2）
         // 原版 initUsbDevice 在 isAccessoryMode() 分支里先起 socket 线程，
         // Thread.sleep(SLEEP_TIME_MS) 睡 1000ms 再起读线程：给配件固件拉起协议栈的时间。
         onLog("USB设备连接成功，等待设备就绪")
@@ -195,6 +197,8 @@ class CarLifeUsbTransport private constructor(
             onLog("USB 重连次数用尽")
             isReconnecting = false
             stop()
+            // 重启用尽 = 链路死亡，上报会话层收尾（审计 P1-1）
+            onLinkLost?.invoke()
             return
         }
         reconnectAttempts++

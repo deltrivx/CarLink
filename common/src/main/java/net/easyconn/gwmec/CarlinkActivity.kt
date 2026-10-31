@@ -1187,11 +1187,15 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     private fun maybeStartCarLifeDiscovery() {
         if (page != "home" || homeState() != HomeState.IDLE || carLifeDiscoveryActive) return
         carLifeDiscoveryActive = true
-        CarLifeDiscovery.start { _ ->
+        val started = CarLifeDiscovery.start { _ ->
             runOnUiThread {
                 carLifeDiscoveryActive = false
                 if (homeState() == HomeState.IDLE) startCarLife()
             }
+        }
+        if (!started) {
+            // 7999 被占（残留传输未清）时静默失效会让主页自动连接永远不工作（审计 P2-4）
+            carLifeDiscoveryActive = false
         }
     }
 
@@ -1322,6 +1326,8 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 addAction(homeGhost(getString(R.string.carlife_connect)) { startCarLife() })
                 // 主页直接选择/更换要连接的 iPhone，不必等连接成功后再改。
                 addAction(homeGhost(getString(R.string.choose_iphone)) { choosePhone() })
+                // 环境检测（对齐 CarUp 车机体检）：投屏前确认系统环境是否就绪。
+                addAction(homeGhost("环境检测") { startActivity(android.content.Intent(this@CarlinkActivity, EnvironmentCheckActivity::class.java)) })
                 if (homeHotspotProblem()) {
                     addAction(homeGhost(getString(R.string.open_car_hotspot_settings), warn = true) { openCarWifiSettings() })
                 }
@@ -2665,8 +2671,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
                 statusBox.addView(subhint)
 
                 addAction(carLifeButton(getString(R.string.carlife_action_reconnect), primary = false) {
+                    val wasWifi = CarLifeCenter.mode == "wifi"
                     CarLifeCenter.disconnect()
-                    CarLifeCenter.connect(this, usb = CarLifeCenter.mode != "wifi")
+                    CarLifeCenter.connect(this, usb = !wasWifi)
                     refreshCarLifeStatus()
                 }, first = true)
                 addAction(carLifeButton(getString(R.string.carlife_action_stop_connecting), primary = false, danger = true) {
@@ -5440,6 +5447,9 @@ class CarlinkActivity : ComponentActivity(), AppAppearanceOwner {
     }
 
     private fun connect(wireless: Boolean) {
+        // 进入 CarPlay 连接流程时停掉 CarLife 自动发现，避免发现回调把页面
+        // 从连接中拉走（审计 P2-8）。
+        stopCarLifeDiscovery()
         startupHotspotCancelled = true
         // The driver is asking to connect again: stop holding back the Bluetooth wake-up.
         getSharedPreferences("diplay_phone_wake", MODE_PRIVATE).edit()

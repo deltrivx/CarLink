@@ -11,6 +11,7 @@ import kotlin.concurrent.thread
  * 每通道一条连接，通道 1/6 帧头 8 字节、其余 12 字节（大端）。
  */
 class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTransport {
+    override var onLinkLost: (() -> Unit)? = null
     private val sockets = HashMap<Int, Socket>()
     private val outputs = HashMap<Int, BufferedOutputStream>()
     private var udpSocket: DatagramSocket? = null
@@ -75,7 +76,12 @@ class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTranspo
                 }
             } catch (e: Exception) {
                 onLog("通道 $ch ($port) 连接失败: ${e.message}")
-                stop()
+                // 只关本次尝试建立的 socket，继续监听广播——局域网里的杂散包
+                // （非 CarLife 设备发到 7999）不应该打死整个监听（审计 P2-3）。
+                synchronized(sockets) {
+                    sockets.values.forEach { try { it.close() } catch (_: Exception) {} }
+                    sockets.clear(); outputs.clear()
+                }
                 return false
             }
         }
@@ -102,7 +108,12 @@ class CarLifeWifiTransport(private val onLog: (String) -> Unit) : CarLifeTranspo
         } catch (e: Exception) {
             if (running) onLog("通道 $channel 读取异常: ${e.message}")
         }
-        if (running) { onLog("通道 $channel 断开"); stop() }
+        if (running) {
+            onLog("通道 $channel 断开")
+            stop()
+            // 链路死亡必须上报，否则界面永远「已连接」（审计 P1-1）
+            onLinkLost?.invoke()
+        }
     }
 
     private fun readFully(input: java.io.InputStream, buf: ByteArray): Boolean {

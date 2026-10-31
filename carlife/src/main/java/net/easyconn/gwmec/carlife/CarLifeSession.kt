@@ -41,6 +41,11 @@ class CarLifeSession(
     fun start() {
         if (running) return
         running = true
+        // 传输层死亡（读失败重连耗尽、通道断开）→ 走标准停机流程回 IDLE（审计 P1-1）
+        transport.onLinkLost = {
+            listener.onLog("链路已断开")
+            stop()
+        }
         listener.onState(if (connectType == CarLifeProtocol.CONNECT_TYPE_AOA) "建立 USB 连接" else "等待手机")
         val ok = transport.start { channel, serviceType, payload ->
             when (channel) {
@@ -78,6 +83,7 @@ class CarLifeSession(
             }
         }
         versionMatched = false
+        transport.onLinkLost = null
         audio.stopAll()
         transport.stop()
         listener.onState("已断开")

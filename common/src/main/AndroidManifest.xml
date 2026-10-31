@@ -89,6 +89,9 @@
             android:resizeableActivity="true"
             android:configChanges="density|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:theme="@style/Theme.Xcertplay">
+
+
+        <activity android:name="net.easyconn.gwmec.EnvironmentCheckActivity" android:exported="false" android:label="环境检测"/>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
