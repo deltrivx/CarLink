@@ -29,9 +29,10 @@ internal object UpdateCatalog {
         get() = "${BuildConfig.UPDATE_REPO_OWNER}/${BuildConfig.UPDATE_REPO_NAME}"
     internal const val CHECKSUMS_FILE = "SHA256SUMS.txt"
     internal const val CUSTOM_CHECKSUMS_FILE = "SHA256SUMS-custom.txt"
-    internal const val GENERIC_CHECKSUMS_FILE = "SHA256SUMS-generic.txt"
+    internal const val GENERIC_CHECKSUMS_FILE = "SHA256SUMS.txt"
     internal const val CARLINK_CHECKSUMS_FILE = "SHA256SUMS-CarLink.txt"
-    internal const val GENERIC_APK_SUFFIX = "-generic.apk"
+    // 通用版资产即 CarLink.apk（2026.10.31.06 起，与定制版 EasyConnect.apk 对称命名）。
+    internal const val GENERIC_APK_SUFFIX = "CarLink.apk"
 
     /**
      * Returns the first published release that carries this build's own APK
