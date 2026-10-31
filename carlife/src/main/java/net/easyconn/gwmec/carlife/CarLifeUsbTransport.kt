@@ -34,6 +34,7 @@ class CarLifeUsbTransport private constructor(
 
     override fun start(onMessage: (channel: Int, serviceType: Int, payload: ByteArray) -> Unit): Boolean {
         dispatch = onMessage
+        cancelled = false
         val manager = context.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return fail("无 USB 服务")
 
         // 先试复用保留的配件连接：设备还在、授权还在 → 直接接着用（对齐原版仅首次弹窗）。
@@ -82,6 +83,8 @@ class CarLifeUsbTransport private constructor(
     private var writerThread: Thread? = null
     private val txQueue = java.util.concurrent.LinkedBlockingQueue<ByteArray>()
     @Volatile private var running = false
+    /** 用户主动取消标志：awaitAccessoryReenumeration 期间 running 尚未置位，必须用它判断。 */
+    @Volatile private var cancelled = false
     @Volatile private var dispatch: ((channel: Int, serviceType: Int, payload: ByteArray) -> Unit)? = null
     @Volatile private var isReconnecting = false
     @Volatile private var onMessageSink: ((Int, Int, ByteArray) -> Unit)? = null
@@ -159,7 +162,9 @@ class CarLifeUsbTransport private constructor(
         var polled = 0
         while (System.currentTimeMillis() < deadline) {
             Thread.sleep(300)
-            if (!running && polled > 0) return fail("连接被取消")
+            // 用 cancelled 判取消：AOA 切换路径 running 尚未置位，
+            // 用 running 判断会在第二轮就误报「连接被取消」（实测 21:18:37 踩过）。
+            if (cancelled) return fail("连接被取消")
             polled++
             val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) } ?: continue
             onLog("盒子已重新枚举为配件模式，继续握手")
@@ -263,6 +268,7 @@ class CarLifeUsbTransport private constructor(
     }
 
     override fun stop() {
+        cancelled = true
         val retain = connection != null && reconnectDevice?.let { isAccessory(it) } == true
         if (retain) {
             // 对齐原版：正常断开不释放连接、不打回普通模式——手机保持配件模式、
