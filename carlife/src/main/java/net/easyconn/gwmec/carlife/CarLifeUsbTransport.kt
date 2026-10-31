@@ -214,7 +214,8 @@ class CarLifeUsbTransport private constructor(
         onLog("USB 断开，重连第 $attempt/$MAX_RECONNECT 次…")
         thread(name = "CarLife-UsbReconnect") {
             try {
-                Thread.sleep(1200L)
+                // 对齐原版：resetDevice 后 ~3s 重扫成功（端点复位+重枚举需要时间），1.2s 会撞上设备未就绪。
+                Thread.sleep(RECONNECT_DELAY_MS)
                 if (!running) return@thread
                 discardConnection()
                 val fresh = manager.deviceList.values.firstOrNull { isAccessory(it) }
@@ -292,12 +293,14 @@ class CarLifeUsbTransport private constructor(
      * resetDevice 是破坏性的：设备会重新枚举，正在跑的数据通路也会断，只用于异常终止。
      */
     private fun release(resetDevice: Boolean = false) {
-        try { usbInterface?.let { connection?.releaseInterface(it) } } catch (_: Exception) {}
+        // 对齐原版 terminate(resetUsbDevice=true)：连接还开着时先 resetDevice（实测 result:true），
+        // 再释放接口与关闭。复位会让设备重新枚举，僵死端点随之恢复。
         if (resetDevice) {
             try {
                 connection?.let { conn -> conn.javaClass.getMethod("resetDevice").invoke(conn) }
             } catch (_: Exception) {}
         }
+        try { usbInterface?.let { connection?.releaseInterface(it) } } catch (_: Exception) {}
         try { connection?.close() } catch (_: Exception) {}
         connection = null; usbInterface = null; endpointIn = null; endpointOut = null
     }
@@ -341,7 +344,10 @@ class CarLifeUsbTransport private constructor(
             }
             if (!running) continue
             onLog("读取结束")
-            release(resetDevice = false)
+            // 对齐原版 UsbAccessoryCommunicator：读失败 terminate(resetUsbDevice=true)。
+            // 实测（原版 APK 复现）：前一进程 close 后盒子端点僵死，首次 open 必 EIO，
+            // 原版靠 resetDevice(true) 复位后 3 秒重扫恢复（15:56:35 resetDevice→15:56:38 成功）。
+            release(resetDevice = true)
             scheduleReconnect()
             return
         }
@@ -371,13 +377,14 @@ class CarLifeUsbTransport private constructor(
 
                 if (bulkTransferOutFixed(conn, ep, head, LEN_OF_MSG_HEAD, scratch) <= 0) {
                     onLog("bulkTransferOut fail 1")
-                    release(resetDevice = false)
+                    // 对齐原版 terminate(resetUsbDevice=true)：写失败同样是端点僵死，需复位。 
+                    release(resetDevice = true)
                     scheduleReconnect()
                     return
                 }
                 if (frameLen > 0 && bulkTransferOutFixed(conn, ep, body, frameLen, scratch) <= 0) {
                     onLog("bulkTransferOut fail 2")
-                    release(resetDevice = false)
+                    release(resetDevice = true)
                     scheduleReconnect()
                     return
                 }
@@ -469,6 +476,8 @@ class CarLifeUsbTransport private constructor(
         /** 读线程轮询周期：会话停驻后每 500ms 醒一次检查状态。 */
         private const val USB_READ_POLL_MS = 500
         private const val MAX_RECONNECT = 12
+        /** 原版实测节奏：resetDevice 后 ~3s 重扫成功，太早会撞上设备未就绪。 */
+        private const val RECONNECT_DELAY_MS = 3000L
 
         /** 进程级单例：连接与授权生命周期跨会话保留的前提。 */
         @Volatile private var singleton: CarLifeUsbTransport? = null
