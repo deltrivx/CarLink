@@ -80,19 +80,18 @@ class UpdateCatalogTest {
     fun routesEachInstallToItsOwnApk() {
         val json = """
             [
-              {"tag_name": "v1.2.12", "draft": false, "assets": [
-                {"name": "CarLink-1.2.12.apk", "browser_download_url": "https://example.com/CarLink-1.2.12.apk"},
-                {"name": "CarLink-1.2.12-generic.apk", "browser_download_url": "https://example.com/CarLink-1.2.12-generic.apk"},
-                {"name": "SHA256SUMS-custom.txt", "browser_download_url": "https://example.com/SHA256SUMS-custom.txt"},
-                {"name": "SHA256SUMS-generic.txt", "browser_download_url": "https://example.com/SHA256SUMS-generic.txt"}
+              {"tag_name": "2026.10.31.08", "draft": false, "assets": [
+                {"name": "CarLink.apk", "browser_download_url": "https://example.com/CarLink.apk"},
+                {"name": "EasyConnect.apk", "browser_download_url": "https://example.com/EasyConnect.apk"},
+                {"name": "SHA256SUMS.txt", "browser_download_url": "https://example.com/SHA256SUMS.txt"}
               ]}
             ]
         """.trimIndent()
         val custom = UpdateCatalog.parse(json, generic = false)
-        assertEquals("CarLink-1.2.12.apk", custom?.apkName)
-        assertEquals("https://example.com/SHA256SUMS-custom.txt", custom?.checksumsUrl)
+        assertEquals("EasyConnect.apk", custom?.apkName)
+        assertEquals("https://example.com/SHA256SUMS.txt", custom?.checksumsUrl)
         val generic = UpdateCatalog.parse(json, generic = true)
-        assertEquals("CarLink-1.2.12-generic.apk", generic?.apkName)
-        assertEquals("https://example.com/SHA256SUMS-generic.txt", generic?.checksumsUrl)
+        assertEquals("CarLink.apk", generic?.apkName)
+        assertEquals("https://example.com/SHA256SUMS.txt", generic?.checksumsUrl)
     }
 }
